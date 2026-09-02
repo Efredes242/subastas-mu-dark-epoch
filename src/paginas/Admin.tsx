@@ -65,6 +65,8 @@ interface EntradaCatalogo {
   icono: string;
   imagen: string | null;
   veces: number;
+  /** El nombre de otro item que usa esta clave como alias, si lo hay. */
+  choque: string | null;
   /** En qué listas sale. La CQC cae en el Kundun y en el asedio; el Cofre, solo en el asedio. */
   colas: string[];
 }
@@ -258,7 +260,16 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                       title="Abre un Kundun de mentira con todo el gremio y drops de ejemplo"
                       onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
                     >
-                      Probar el circuito
+                      Probar un Kundun
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-suave"
+                      disabled={ocupado}
+                      title="Como el anterior, pero se hace pasar por domingo: aparecen los dos campos de carga, el del Kundun y el del asedio"
+                      onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
+                    >
+                      Probar un domingo
                     </button>
                   </div>
                 )}
@@ -660,6 +671,10 @@ const aliasComoTexto = (alias: string) =>
     .filter(Boolean)
     .join(', ');
 
+/** Todo lo que se puede escribir para cargar este item: la clave y sus alias. */
+const palabrasDe = (e: { clave: string; alias: string }) =>
+  [e.clave, ...e.alias.split('|').filter(Boolean)].filter((p, i, todas) => todas.indexOf(p) === i);
+
 function Catalogo({
   estado,
   alError,
@@ -751,8 +766,9 @@ function Catalogo({
       <section className="panel subir" style={{ padding: 18 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800 }}>Catálogo del gremio</h2>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
-          Cada nombre que se carga alguna vez queda acá. La imagen y la rareza se ponen una sola vez y de
-          ahí en adelante todos los items con ese nombre salen así.
+          Cada nombre que se carga alguna vez queda acá. Debajo de cada uno están <b>todas las palabras
+          que lo cargan</b>: la clave más los alias. Una palabra pertenece a un solo item, así que si
+          intentás repetir una en otro, el panel te avisa y no la guarda.
           {sinImagen > 0 && (
             <>
               {' '}
@@ -802,11 +818,41 @@ function Catalogo({
                       if (nombre.length >= 2 && nombre !== e.nombre) void guardar(e.id, { nombre });
                     }}
                   />
-                  <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 4, paddingLeft: 2 }}>
-                    escribís <b style={{ color: 'var(--tx2)' }}>{e.clave}</b> · salió {e.veces}{' '}
-                    {e.veces === 1 ? 'vez' : 'veces'}
-                    {!e.imagen && ' · falta la imagen'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, paddingLeft: 2 }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--tx3)', flexShrink: 0 }}>escribís</span>
+                    <input
+                      className="campo campo-chico clave-item"
+                      defaultValue={e.clave}
+                      disabled={ocupado}
+                      title="Lo que se escribe al cargar el drop. Si renombraste el item, acá se corrige."
+                      onBlur={(ev) => {
+                        const clave = ev.target.value.trim();
+                        if (clave && clave !== e.clave) void guardar(e.id, { clave });
+                        else ev.target.value = e.clave;
+                      }}
+                    />
+                    <span style={{ fontSize: 11.5, color: 'var(--tx3)', flexShrink: 0 }}>
+                      · salió {e.veces} {e.veces === 1 ? 'vez' : 'veces'}
+                      {!e.imagen && ' · falta la imagen'}
+                    </span>
                   </div>
+
+                  <div className="palabras-item">
+                    <span>se carga con</span>
+                    {palabrasDe(e).map((p) => (
+                      <code key={p}>{p}</code>
+                    ))}
+                  </div>
+
+                  {e.choque && (
+                    <div className="choque-clave">
+                      <Alerta tam={13} />
+                      <span>
+                        <b>{e.nombre}</b> se queda con «{e.clave}», así que el alias de{' '}
+                        <b>{e.choque}</b> nunca se usa. Cambiale la clave a uno de los dos.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <label style={{ flex: '0 1 190px', minWidth: 0, display: 'grid', gap: 4 }}>

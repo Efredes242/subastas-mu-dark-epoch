@@ -458,7 +458,7 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
     <>
       <div className="tablero">
         {/* Arriba: horarios · qué Kundun es · tema */}
-        <div className="barra-tablero">
+        <div className="barra-tablero arriba">
           <button
             type="button"
             className="btn-esquina"
@@ -599,8 +599,8 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
           </section>
         </div>
 
-        {/* Abajo: los dos botones de historia */}
-        <div className="barra-tablero">
+        {/* Abajo: anotarse y las ventanas de consulta */}
+        <div className="barra-tablero abajo">
           {registroAbierto ? (
             <button type="button" className="btn-esquina estoy" onClick={() => setHoja('estoy')}>
               <Mano tam={18} />

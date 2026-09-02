@@ -520,7 +520,9 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       cierraRegistroAntesMin: horario.cierraRegistroAntesMin,
       // El Kundun de las 21 termina de repartirse ya entrado el lunes en el servidor, así que
       // el domingo lo decide el evento en curso, no el reloj.
-      esDomingo: esDomingoEnElServidor(evento?.empieza_en ? enUtc(evento.empieza_en) : ahora, horario.offsetServidor),
+      esDomingo:
+        evento?.forzar_domingo === 1 ||
+        esDomingoEnElServidor(evento?.empieza_en ? enUtc(evento.empieza_en) : ahora, horario.offsetServidor),
       proximo: {
         abre: proximo.abre.toISOString(),
         pinDesde: proximo.pinDesde.toISOString(),

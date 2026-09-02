@@ -58,6 +58,7 @@ export interface FilaEvento {
   es_prueba: number;
   intentos: number;
   registro_hasta: string | null;
+  forzar_domingo: number;
   puntero_items_previo: number | null;
   puntero_almas_previo: number | null;
   puntero_asedio_previo: number | null;

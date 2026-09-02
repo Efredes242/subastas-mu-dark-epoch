@@ -167,6 +167,9 @@ app.post('/api/eventos', requiereAdmin, async (c) => {
  * Guarda dónde estaban las ruedas para devolverlas al borrarlo.
  */
 app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  // Una prueba de domingo abre los dos campos de carga: el del Kundun y el del asedio.
+  const domingo = cuerpo.domingo === true;
   const horario = await leerHorario(c.env.DB);
   const ahora = Date.now();
 
@@ -177,16 +180,18 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   await c.env.DB.prepare('UPDATE eventos SET cerrado = 1, registro_abierto = 0 WHERE cerrado = 0').run();
   await c.env.DB.prepare(
     `INSERT INTO eventos
-       (numero, sala, pin, registro_abierto, abre_en, pin_desde, empieza_en, registro_hasta, cierra_en, es_prueba)
-     VALUES (0, 'Prueba', ?, 1, ?, ?, ?, ?, ?, 1)`,
+       (numero, sala, pin, registro_abierto, abre_en, pin_desde, empieza_en, registro_hasta, cierra_en, es_prueba, forzar_domingo)
+     VALUES (0, ?, ?, 1, ?, ?, ?, ?, ?, 1, ?)`,
   )
     .bind(
+      domingo ? 'Prueba de domingo' : 'Prueba',
       pinNuevo(),
       new Date(ahora - horario.abreAntesMin * 60_000).toISOString(),
       new Date(ahora).toISOString(),
       new Date(ahora).toISOString(),
       new Date(ahora + 120 * 60_000).toISOString(),
       new Date(ahora + 120 * 60_000).toISOString(),
+      domingo ? 1 : 0,
     )
     .run();
 
@@ -207,7 +212,7 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   }
 
   const colasDePrueba = await colasDeCatalogo(c.env.DB);
-  for (const renglon of parsearLote('1 cqc, 2 almas de guerra')) {
+  for (const renglon of parsearLote(domingo ? '1 cqc, 2 almas de guerra, 1 cofre' : '1 cqc, 2 almas de guerra')) {
     const entrada = await asegurarEnCatalogo(c.env.DB, renglon);
     const cola = colaPorDefecto(colasDePrueba.get(entrada.id) ?? ['items']);
     for (let i = 1; i <= renglon.cantidad; i++) {
@@ -224,7 +229,7 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   return c.json({
     ...estado,
     aviso:
-      'Kundun de prueba abierto con todo el gremio presente y 3 drops de ejemplo. ' +
+      `Kundun de prueba${domingo ? ' de domingo' : ''} abierto con todo el gremio presente y drops de ejemplo. ` +
       'Probá lo que quieras: al borrarlo, las ruedas vuelven a donde estaban.',
   });
 });
@@ -653,6 +658,11 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
 
   // Cada item viene con las listas en las que sale y con a quién le toca en cada una.
   const colasDe = await colasDeCatalogo(c.env.DB);
+
+  // Una clave que además es alias de otro item resuelve siempre al dueño de la clave, y el
+  // alias queda muerto. Fue lo que pasó con "plumas": era clave del Cofre y alias de la Pluma.
+  const choca = (e: FilaCatalogo) =>
+    results.find((otro) => otro.id !== e.id && otro.alias.includes(`|${e.clave}|`))?.nombre ?? null;
   const { results: turnos } = await c.env.DB.prepare('SELECT catalogo_id, cola, usuario_id FROM turnos').all<{
     catalogo_id: number;
     cola: string;
@@ -662,6 +672,7 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
   return c.json({
     catalogo: results.map((e) => ({
       ...e,
+      choque: choca(e),
       colas: colasDe.get(e.id) ?? [],
       turnos: Object.fromEntries(
         turnos.filter((t) => t.catalogo_id === e.id).map((t) => [t.cola, t.usuario_id]),
@@ -682,6 +693,29 @@ app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
   if (!entrada) return c.json({ error: 'Ese item no está en el catálogo.' }, 404);
 
   const nombre = typeof cuerpo.nombre === 'string' ? comoTitulo(texto(cuerpo.nombre, 120)) : entrada.nombre;
+
+  /**
+   * La clave es lo que se escribe al cargar el drop. Se puede corregir porque un item
+   * renombrado se queda con la clave vieja, y ahí empieza a resolver cualquier cosa.
+   */
+  let clave = entrada.clave;
+  if (typeof cuerpo.clave === 'string') {
+    const pedida = normalizar(texto(cuerpo.clave, 120));
+    if (!pedida) return c.json({ error: 'La clave no puede quedar vacía.' }, 400);
+
+    if (pedida !== entrada.clave) {
+      const duena = await c.env.DB.prepare(
+        'SELECT nombre FROM catalogo WHERE id <> ?1 AND (clave = ?2 OR instr(alias, ?3) > 0) LIMIT 1',
+      )
+        .bind(id, pedida, `|${pedida}|`)
+        .first<{ nombre: string }>();
+
+      if (duena) {
+        return c.json({ error: `"${pedida}" ya lo usa ${duena.nombre}. Poné otra.` }, 409);
+      }
+      clave = pedida;
+    }
+  }
   const rareza: Rareza = RAREZAS.includes(cuerpo.rareza) ? cuerpo.rareza : entrada.rareza;
   const icono = ICONOS.includes(cuerpo.icono) ? String(cuerpo.icono) : entrada.icono;
   const imagen = cuerpo.imagen === null ? null : (imagenValida(cuerpo.imagen) ?? entrada.imagen);
@@ -696,22 +730,29 @@ app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
       .map((a) => normalizar(a))
       .filter(Boolean);
 
-    // Un alias no puede ser la clave de otro item: escribirlo caería en dos lados
-    // y el reparto terminaría cargando el item equivocado.
-    const { results: ajenas } = await c.env.DB.prepare('SELECT clave FROM catalogo WHERE id <> ?')
+    // Una palabra pertenece a un solo item: ni la clave ni un alias de otro. Si no, dos
+    // palabras distintas terminan cargando el mismo item sin que nada avise.
+    const { results: ajenas } = await c.env.DB.prepare('SELECT clave, alias FROM catalogo WHERE id <> ?')
       .bind(id)
-      .all<{ clave: string }>();
-    const tomadas = new Set(ajenas.map((x) => x.clave));
+      .all<{ clave: string; alias: string }>();
+
+    const tomadas = new Set<string>();
+    for (const otra of ajenas) {
+      tomadas.add(otra.clave);
+      for (const a of otra.alias.split('|').filter(Boolean)) tomadas.add(a);
+    }
 
     choques = pedidos.filter((a) => tomadas.has(a));
     alias = pedidos
-      .filter((a) => !tomadas.has(a) && a !== entrada.clave)
+      .filter((a) => !tomadas.has(a) && a !== clave)
       .map((a) => `|${a}|`)
       .join('');
   }
 
-  await c.env.DB.prepare('UPDATE catalogo SET nombre = ?, rareza = ?, icono = ?, imagen = ?, alias = ? WHERE id = ?')
-    .bind(nombre, rareza, icono, imagen, alias, id)
+  await c.env.DB.prepare(
+    'UPDATE catalogo SET clave = ?, nombre = ?, rareza = ?, icono = ?, imagen = ?, alias = ? WHERE id = ?',
+  )
+    .bind(clave, nombre, rareza, icono, imagen, alias, id)
     .run();
 
   // En qué listas sale este item. La CQC cae en el Kundun y en el asedio; el Cofre, solo

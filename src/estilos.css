@@ -1406,3 +1406,187 @@ select {
   border-color: var(--oroLn);
   color: var(--oro);
 }
+
+/* Catálogo: la clave que se escribe al cargar el drop. */
+.clave-item {
+  width: auto;
+  min-width: 0;
+  flex: 0 1 130px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 7px;
+  min-height: 0;
+}
+
+.choque-clave {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--avLn);
+  border-radius: 9px;
+  background: var(--avBg);
+  color: var(--av);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* ── Celulares y tablets ──────────────────────────────────────────────────── */
+
+/*
+ * En pantalla chica la página scrollea.
+ *
+ * El tablero se pensó para que entre todo en una vista sin desplazar, y en una pantalla
+ * ancha funciona. Pero meter cuatro cajas en el alto de un celular deja cada una en unos
+ * 100 px: se ve un renglón de cada lista y nada más. Acá el alto lo pone el contenido, las
+ * listas largas scrollean por dentro y las dos barras quedan siempre a mano.
+ */
+@media (max-width: 759px) {
+  .tablero {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding: 0 10px calc(8px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+
+  .cuerpo-tablero {
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    gap: 8px;
+  }
+
+  /* Cada caja crece con lo que tiene; si es mucho, scrollea adentro. */
+  .caja > .lista {
+    max-height: 52vh;
+  }
+
+  .caja.gremio {
+    max-height: none;
+  }
+
+  .barra-tablero.arriba {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 8px 0;
+    background: linear-gradient(var(--bg) 72%, transparent);
+  }
+
+  .barra-tablero.abajo {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    gap: 6px;
+    padding: 8px 0 calc(4px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, var(--bg) 28%);
+  }
+
+  /* Los tres botones de abajo se reparten el ancho en una sola línea. */
+  .barra-tablero.abajo .btn-esquina {
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 8px;
+    font-size: 11.5px;
+    line-height: 1.15;
+  }
+
+  .barra-tablero.abajo .btn-esquina > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Arriba: el reloj se achica para que el título no se parta en tres renglones. */
+  .barra-tablero.arriba .btn-esquina {
+    max-width: 38vw;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 11.5px;
+  }
+}
+
+/* Teléfonos angostos: el reloj queda solo con el ícono. */
+@media (max-width: 400px) {
+  .barra-tablero.arriba .btn-esquina > span {
+    display: none;
+  }
+
+  .barra-tablero.arriba .btn-esquina {
+    max-width: none;
+    padding: 0 12px;
+  }
+
+  .barra-tablero.abajo .btn-esquina svg {
+    display: none;
+  }
+}
+
+/* Tablet en vertical: dos columnas, que sobra ancho y falta alto. */
+@media (min-width: 600px) and (max-width: 759px) {
+  .cuerpo-tablero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'items almas'
+      'asedio gremio';
+  }
+
+  .caja > .lista {
+    max-height: 44vh;
+  }
+}
+
+/*
+ * Nada empuja la página a lo ancho.
+ *
+ * `.marca-fila` es `nowrap` y no encoge, así que con dos listas ("almas · asedio") estiraba
+ * la fila del gremio y con ella toda la pantalla. En el celular esa marca se esconde: el
+ * detalle de en qué lista está cada uno se ve entero en la ventana Lista Drops.
+ */
+@media (max-width: 759px) {
+  .tablero {
+    overflow-x: clip;
+  }
+
+  .caja.gremio .marca-fila {
+    display: none;
+  }
+
+  .fila-gremio > .recorte {
+    min-width: 0;
+  }
+}
+
+/* Catálogo: todas las palabras que cargan un item. */
+.palabras-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+  padding-left: 2px;
+  font-size: 11px;
+  color: var(--tx3);
+}
+
+.palabras-item > code {
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel2);
+  color: var(--tx2);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Sin Kundun en curso las tres cajas quedan vacías: que no se coman media pantalla. */
+@media (max-width: 759px) {
+  .caja > .lista > .vacio {
+    padding: 14px 12px !important;
+  }
+}
