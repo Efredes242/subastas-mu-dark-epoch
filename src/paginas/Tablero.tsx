@@ -10,9 +10,9 @@ type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'estoy';
 type Turno = PropsPagina['estado']['turnos'][number];
 
 const NOMBRE_COLA: Record<string, string> = {
-  items: 'todo el gremio menos los top daño',
-  almas: 'todo el gremio',
-  asedio: 'solo los top daño',
+  items: 'Drops del Kundun',
+  almas: 'Almas de guerra',
+  asedio: 'Castle Siege',
 };
 
 /**
@@ -416,6 +416,7 @@ function Anotarse({
 export default function Tablero({ estado, setEstado, tema, alternarTema }: PropsPagina) {
   const [hoja, setHoja] = useState<Hoja>(null);
   const [kundunAbierto, setKundunAbierto] = useState<number | null>(null);
+  const [solapaDrops, setSolapaDrops] = useState<'kundun' | 'asedio'>('kundun');
   const [ahora, setAhora] = useState(() => Date.now());
   const [zona, setZona] = useZona(estado.yo?.zona);
 
@@ -430,6 +431,11 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
 
   // Por defecto se abre el Kundun más nuevo, que es el que se mira siempre; -1 = ninguno.
   const abiertoId = kundunAbierto ?? estado.historial[0]?.id ?? -1;
+
+  // Lo del asedio va aparte: solo sale los domingos y mezclarlo con el Kundun de todos
+  // los días llenaba la lista de ruedas que no aplican.
+  const ruedasKundun = estado.turnos.filter((t) => t.cola !== 'asedio');
+  const ruedasAsedio = estado.turnos.filter((t) => t.cola === 'asedio');
 
   // Las ruedas ya traen la imagen de cada item del catálogo; el historial la reusa.
   const imagenDe = (catalogoId: number | null) =>
@@ -634,18 +640,48 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
             <div className="vacio">Todavía no hay items en el catálogo.</div>
           ) : (
             <>
+              <div className="solapas-drops">
+                <button
+                  type="button"
+                  className={solapaDrops === 'kundun' ? 'activa' : ''}
+                  onClick={() => setSolapaDrops('kundun')}
+                >
+                  Kundun <span className="cuenta">{ruedasKundun.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={solapaDrops === 'asedio' ? 'activa' : ''}
+                  onClick={() => setSolapaDrops('asedio')}
+                >
+                  Castle Siege <span className="cuenta">{ruedasAsedio.length}</span>
+                  {estado.agenda.esDomingo && <span className="hoy">hoy</span>}
+                </button>
+              </div>
+
               <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue,
-                amarillo el próximo, dorado el que ya cobró hoy.
+                {solapaDrops === 'kundun'
+                  ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue, amarillo el próximo, dorado el que ya cobró hoy.'
+                  : estado.agenda.esDomingo
+                    ? 'Hoy es domingo: estas listas son las que se reparten con los drops del asedio.'
+                    : 'Las recompensas del asedio se reparten los domingos. Estas listas son aparte de las del Kundun y no se mueven durante la semana.'}
               </p>
-              {estado.turnos.map((t) => (
-                <ItemDeLaLista
-                  key={`${t.catalogoId}-${t.cola}`}
-                  turno={t}
-                  drops={estado.items.filter((i) => i.catalogoId === t.catalogoId && i.cola === t.cola)}
-                  hayEvento={!!evento}
-                />
-              ))}
+
+              {(solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio).length === 0 ? (
+                <div className="vacio">
+                  {solapaDrops === 'kundun'
+                    ? 'Ningún item sale en el Kundun todavía.'
+                    : 'Ningún item está marcado para el Castle Siege. Se elige en el panel, en el catálogo.'}
+                </div>
+              ) : (
+                (solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio).map((t) => (
+                  <ItemDeLaLista
+                    key={`${t.catalogoId}-${t.cola}`}
+                    turno={t}
+                    drops={estado.items.filter((i) => i.catalogoId === t.catalogoId && i.cola === t.cola)}
+                    hayEvento={!!evento}
+                  />
+                ))
+              )}
             </>
           )}
         </HojaPanel>

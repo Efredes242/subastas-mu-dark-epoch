@@ -276,6 +276,11 @@ asedio. El campo del domingo es lo único que fuerza la lista a mano.
 
 Un nombre nuevo entra al catálogo en la lista del Kundun; después se le agregan las otras.
 
+En el tablero, el botón **Lista Drops** abre las ruedas separadas en dos solapas: *Kundun* con
+las listas de todos los días y *Castle Siege* con las del domingo. Un item que sale en las dos
+aparece en ambas, cada una con su propia cuenta. Los domingos la solapa del asedio se marca con
+"hoy".
+
 ---
 
 ## Subir a Cloudflare

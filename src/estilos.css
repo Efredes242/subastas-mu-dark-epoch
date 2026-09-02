@@ -1187,3 +1187,65 @@ select {
 .chip-quien.vino:disabled {
   opacity: 0.8;
 }
+
+/* Lista Drops: el Kundun de todos los días y el asedio del domingo, separados. */
+.solapas-drops {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel2);
+}
+
+.solapas-drops button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--tx3);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.solapas-drops button:hover {
+  color: var(--tx2);
+}
+
+.solapas-drops button.activa {
+  background: var(--oroBg);
+  color: var(--oro);
+  box-shadow: inset 0 0 0 1px var(--oroLn);
+}
+
+.solapas-drops .cuenta {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
+}
+
+.solapas-drops button.activa .cuenta {
+  color: var(--oro);
+}
+
+.solapas-drops .hoy {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ok);
+  background: var(--okBg);
+  border: 1px solid var(--okLn);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
