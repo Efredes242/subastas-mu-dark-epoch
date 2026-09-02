@@ -5,8 +5,8 @@
  * nombre y les sube el retrato, sin que nadie toque el código.
  *
  * La imagen sale de dos lados. Si la fila tiene `imagen`, es una data URL que subió el admin.
- * Si está vacía, se usa el archivo estático `public/clases/<codigo>.png`, que es lo que pasa
- * con las cuatro que vinieron de fábrica: pesan menos y las cachea el navegador.
+ * Si está vacía, se usa el archivo de la biblioteca (`public/iconos/<codigo>.webp`), que es lo
+ * que pasa con las cuatro que vinieron de fábrica: pesan menos y las cachea el navegador.
  */
 
 export interface ClasePublica {
@@ -25,10 +25,10 @@ interface FilaClase {
   orden: number;
 }
 
-/** Las que vienen con la app, con su PNG en public/clases/. */
+/** Las que vienen con la app, con su ícono en la biblioteca. */
 export const DE_FABRICA = ['BK', 'ELF', 'SM', 'DL'];
 
-export const rutaEstatica = (codigo: string) => `/clases/${codigo.toLowerCase()}.png`;
+export const rutaEstatica = (codigo: string) => `/iconos/${codigo.toLowerCase()}.webp`;
 
 /**
  * El código es lo que se guarda en cada personaje: letras y números, corto y en mayúsculas.

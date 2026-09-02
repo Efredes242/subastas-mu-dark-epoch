@@ -56,8 +56,16 @@ const enumerar = (partes: string[]): string =>
 
 const pinNuevo = () => String(Math.floor(1000 + Math.random() * 9000));
 
-const imagenValida = (v: unknown): string | null =>
-  typeof v === 'string' && v.startsWith('data:image/') && v.length <= MAX_IMAGEN ? v : null;
+/**
+ * La imagen de un item o de una clase puede venir de dos lados: una ruta de la biblioteca
+ * (/iconos/algo.webp), que es un archivo que ya está en Cloudflare, o una data URL que el
+ * admin subió desde su equipo cuando lo que necesita no está en la biblioteca.
+ */
+const imagenValida = (v: unknown): string | null => {
+  if (typeof v !== 'string') return null;
+  if (/^\/iconos\/[a-z0-9-]{1,80}\.(webp|png)$/.test(v)) return v;
+  return v.startsWith('data:image/') && v.length <= MAX_IMAGEN ? v : null;
+};
 
 app.use('/api/*', cargarUsuario);
 

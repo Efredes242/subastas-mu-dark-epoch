@@ -152,11 +152,34 @@ El horario vive en la tabla `ajustes` (una sola fila). `HORARIO_POR_DEFECTO` en
 
 ---
 
+## La biblioteca de íconos
+
+Todas las imágenes de la app —los retratos de clase, los íconos de los items y el ícono de la
+app— son **archivos que sirve Cloudflare**, no imágenes guardadas en la base.
+
+Salen de la carpeta `imagenes/`. En cada `npm run build`, `scripts/iconos.mjs` las pasa a
+webp de 128 px en `public/iconos/` y escribe el índice en `src/biblioteca.ts`. Para sumar un
+ícono alcanza con **dejar el PNG en `imagenes/` y volver a desplegar**: aparece solo en el panel.
+
+En el panel, tocar la imagen de un item o de una clase abre la biblioteca y se elige de ahí, sin
+subir nada. Queda además un *"¿No está en la lista? Subir una imagen"* para cuando entra algo que
+todavía no tiene ícono guardado; eso sí se guarda en la base, como data URL.
+
+Por qué importa: las cinco imágenes de los items vivían adentro de la base y viajaban en cada
+`/api/estado`, duplicadas por cada rueda. **El estado pasó de 76 KB a 6,5 KB**, y los íconos
+ahora los cachea el navegador en vez de volver a bajarlos cada ocho segundos.
+
+El ícono de la app sale del mismo script, recortado al busto del Kundun: a 32 píxeles la figura
+entera queda en una mancha, y así se distinguen la corona, la gema del pecho y el báculo.
+
+---
+
 ## Clases
 
 Cada personaje tiene su clase y su retrato al lado del nombre, en el tablero, en las ruedas y en
-el panel. Se manejan desde **Miembros → Clases de personaje**, sin tocar código: se crea una con su
-código, su nombre y su retrato, y de ahí en adelante aparece en el desplegable de cada personaje.
+el panel. Se manejan desde **Miembros → Clases de personaje**: se crea una con su código, su
+nombre y su ícono elegido de la biblioteca, y de ahí en adelante aparece en el desplegable de
+cada personaje.
 
 | Código | Clase |
 | --- | --- |
@@ -168,10 +191,8 @@ código, su nombre y su retrato, y de ahí en adelante aparece en el desplegable
 El **código** es lo que queda guardado en cada personaje (`BK`), corto y en mayúsculas; el
 **nombre** es lo que se lee (`Royal Knight`).
 
-El retrato sale de dos lados. Esas cuatro traen su PNG en `public/clases/`, generado por
-`scripts/iconos.mjs` desde `imagenes/`: pesan menos y los cachea el navegador. Cualquier clase
-nueva necesita una imagen subida, que se guarda en la base como las de los items del catálogo. A
-las de fábrica también se les puede subir una, y un botón las devuelve a su retrato original.
+Esas cuatro no guardan imagen: usan `/iconos/<codigo>.webp` de la biblioteca. Si se les elige
+otra, un botón las devuelve a la original.
 
 Borrar una clase no rompe nada: los personajes que la tenían quedan sin clase y el aviso dice
 cuántos fueron. Un personaje sin clase no muestra retrato, el nombre queda solo.

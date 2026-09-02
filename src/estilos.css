@@ -1292,3 +1292,117 @@ select {
   border-color: var(--oroLn);
   color: var(--oro);
 }
+
+/* Elegir un ícono de la biblioteca, sin subir nada. */
+.boton-icono {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 12px;
+  transition: transform 0.12s ease;
+}
+
+.boton-icono:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.boton-icono:disabled {
+  cursor: default;
+}
+
+.falta-imagen {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--av);
+  color: var(--avBg);
+  display: grid;
+  place-items: center;
+}
+
+.selector-icono {
+  flex: 1 1 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--oroLn);
+  border-radius: 14px;
+  background: var(--panel2);
+}
+
+.selector-icono > .cabecera {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.selector-icono > .cabecera > .campo {
+  flex: 1;
+  min-width: 0;
+}
+
+.grilla-iconos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 7px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.opcion-icono {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 9px 5px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+  color: var(--tx3);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.opcion-icono > .recorte {
+  max-width: 100%;
+}
+
+.opcion-icono:hover:not(:disabled) {
+  border-color: var(--line2);
+  color: var(--tx2);
+}
+
+.opcion-icono.elegido {
+  border-color: var(--oro);
+  color: var(--oro);
+  background: var(--oroBg);
+}
+
+.subir-suelta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px dashed var(--line2);
+  border-radius: 11px;
+  color: var(--tx3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.subir-suelta:hover {
+  border-color: var(--oroLn);
+  color: var(--oro);
+}

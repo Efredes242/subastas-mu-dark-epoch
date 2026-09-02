@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { achicarImagen, api, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
+import { api, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase, useClases } from '../componentes/Clase';
+import { SelectorIcono } from '../componentes/SelectorIcono';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import {
@@ -740,14 +741,8 @@ function Catalogo({
     }
   }
 
-  async function subirImagen(id: number, archivo: File | undefined) {
-    if (!archivo) return;
-    try {
-      await guardar(id, { imagen: await achicarImagen(archivo) });
-    } catch (e) {
-      alError(e instanceof Error ? e.message : 'No pude usar esa imagen.');
-    }
-  }
+  // Qué item tiene abierto el selector de imagen.
+  const [eligiendo, setEligiendo] = useState<number | null>(null);
 
   const sinImagen = lista.filter((e) => !e.imagen).length;
 
@@ -780,39 +775,20 @@ function Catalogo({
           <div className="escalonado">
             {lista.map((e) => (
               <div key={e.id} className={`fila r-${e.rareza}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', flexWrap: 'wrap' }}>
-                <label
-                  title="Subir imagen"
-                  style={{ cursor: 'pointer', flexShrink: 0, display: 'block', position: 'relative' }}
+                <button
+                  type="button"
+                  className="boton-icono"
+                  title={e.imagen ? 'Cambiar la imagen' : 'Elegir la imagen'}
+                  disabled={ocupado}
+                  onClick={() => setEligiendo(eligiendo === e.id ? null : e.id)}
                 >
                   <IconoItem icono={e.icono} imagen={e.imagen} rareza={e.rareza} tam={46} />
                   {!e.imagen && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        right: -3,
-                        bottom: -3,
-                        width: 18,
-                        height: 18,
-                        borderRadius: 6,
-                        background: 'var(--av)',
-                        color: 'var(--avBg)',
-                        display: 'grid',
-                        placeItems: 'center',
-                      }}
-                    >
+                    <span className="falta-imagen">
                       <Subir tam={11} />
                     </span>
                   )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={(ev) => {
-                      void subirImagen(e.id, ev.target.files?.[0]);
-                      ev.target.value = '';
-                    }}
-                  />
-                </label>
+                </button>
 
                 <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                   <input
@@ -924,6 +900,20 @@ function Catalogo({
                   >
                     Quitar imagen
                   </button>
+                )}
+
+                {eligiendo === e.id && (
+                  <SelectorIcono
+                    tipo="item"
+                    actual={e.imagen}
+                    ocupado={ocupado}
+                    alError={alError}
+                    alCerrar={() => setEligiendo(null)}
+                    alElegir={(imagen) => {
+                      setEligiendo(null);
+                      void guardar(e.id, { imagen });
+                    }}
+                  />
                 )}
               </div>
             ))}
@@ -1494,14 +1484,8 @@ function Clases({
     }
   }
 
-  async function elegirImagen(archivo: File | undefined, alTener: (dato: string) => void) {
-    if (!archivo) return;
-    try {
-      alTener(await achicarImagen(archivo, 96));
-    } catch (e) {
-      alError(e instanceof Error ? e.message : 'No pude usar esa imagen.');
-    }
-  }
+  // 'nueva' es el retrato de la clase que se está creando; si no, el código de la que se edita.
+  const [eligiendo, setEligiendo] = useState<string | null>(null);
 
   const crear = () =>
     correr(async () => {
@@ -1521,27 +1505,15 @@ function Clases({
       </p>
 
       <div className="form-item" style={{ marginBottom: 16 }}>
-        <label
+        <button
+          type="button"
           className="soltar-retrato"
-          title={imagen ? 'Cambiar el retrato' : 'Subir el retrato'}
-          style={{ cursor: ocupado ? 'default' : 'pointer' }}
+          title={imagen ? 'Cambiar el retrato' : 'Elegir el retrato'}
+          disabled={ocupado}
+          onClick={() => setEligiendo(eligiendo === 'nueva' ? null : 'nueva')}
         >
-          {imagen ? (
-            <img src={imagen} alt="" width={46} height={46} style={{ borderRadius: 10 }} />
-          ) : (
-            <Subir tam={17} />
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            disabled={ocupado}
-            onChange={(ev) => {
-              void elegirImagen(ev.target.files?.[0], setImagen);
-              ev.target.value = '';
-            }}
-          />
-        </label>
+          {imagen ? <img src={imagen} alt="" width={46} height={46} style={{ borderRadius: 10 }} /> : <Subir tam={17} />}
+        </button>
 
         <div style={{ flex: '0 1 110px', display: 'grid', gap: 6 }}>
           <span className="etiqueta">Código</span>
@@ -1575,6 +1547,20 @@ function Clases({
         >
           <Mas tam={15} /> Agregar
         </button>
+
+        {eligiendo === 'nueva' && (
+          <SelectorIcono
+            tipo="clase"
+            actual={imagen}
+            ocupado={ocupado}
+            alError={alError}
+            alCerrar={() => setEligiendo(null)}
+            alElegir={(dato) => {
+              setImagen(dato);
+              setEligiendo(null);
+            }}
+          />
+        )}
       </div>
 
       <div className="escalonado">
@@ -1586,21 +1572,15 @@ function Clases({
               className="fila"
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', flexWrap: 'wrap' }}
             >
-              <label title="Cambiar el retrato" style={{ cursor: 'pointer', flexShrink: 0, display: 'block' }}>
+              <button
+                type="button"
+                className="boton-icono"
+                title="Cambiar el retrato"
+                disabled={ocupado}
+                onClick={() => setEligiendo(eligiendo === cl.codigo ? null : cl.codigo)}
+              >
                 <img src={cl.imagen} alt={cl.nombre} width={40} height={40} className="retrato-clase" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  disabled={ocupado}
-                  onChange={(ev) => {
-                    void elegirImagen(ev.target.files?.[0], (dato) =>
-                      correr(() => api(`/clases/${cl.codigo}`, { metodo: 'PATCH', cuerpo: { imagen: dato } })),
-                    );
-                    ev.target.value = '';
-                  }}
-                />
-              </label>
+              </button>
 
               <span className="pastilla" style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800 }}>
                 {cl.codigo}
@@ -1651,6 +1631,20 @@ function Clases({
               >
                 <Tacho tam={14} />
               </button>
+
+              {eligiendo === cl.codigo && (
+                <SelectorIcono
+                  tipo="clase"
+                  actual={cl.imagen}
+                  ocupado={ocupado}
+                  alError={alError}
+                  alCerrar={() => setEligiendo(null)}
+                  alElegir={(dato) => {
+                    setEligiendo(null);
+                    void correr(() => api(`/clases/${cl.codigo}`, { metodo: 'PATCH', cuerpo: { imagen: dato } }));
+                  }}
+                />
+              )}
             </div>
           );
         })}
