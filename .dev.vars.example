@@ -1,0 +1,6 @@
+SESSION_SECRET="una-cadena-larga-y-aleatoria"
+
+# Login con Google (opcional). Sin estas dos, el botón "Entrar con Google" no aparece.
+# Se sacan de Google Cloud Console → APIs y servicios → Credenciales → ID de cliente OAuth (aplicación web).
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""

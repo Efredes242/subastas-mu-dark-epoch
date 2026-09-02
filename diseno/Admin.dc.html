@@ -1,0 +1,678 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; background: #14110d; }
+    * { box-sizing: border-box; }
+    a { color: #a8752a; text-decoration: none; }
+    a:hover { color: #8a5f1f; }
+    input { font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; }
+
+    .app {
+      --bg:#f6f2ea; --panel:#ffffff; --panel2:#faf6ef;
+      --line:#e7dfd1; --line2:#d6c9b3;
+      --tx:#2b251c; --tx2:#6d6355; --tx3:#9a9080;
+      --gold:#a8752a; --goldBg:#fbf2e0; --goldLn:#e8d5ab; --onGold:#ffffff;
+      --ok:#2f7d4f; --okBg:#eaf5ee; --okLn:#c2e2ce;
+      --wa:#98671a; --waBg:#fdf3df; --waLn:#eed9a9;
+      --da:#a63a29; --daBg:#fdeeea; --daLn:#f1cabf;
+      --c1:#6d6355; --c1Bg:#f2ece2; --c1Ln:#ddd4c4;
+      --c2:#3f7a35; --c2Bg:#eef6ea; --c2Ln:#cbe3c0;
+      --c3:#2c6e8c; --c3Bg:#eaf4f8; --c3Ln:#bcdbe8;
+      --c4:#a8752a; --c4Bg:#fbf2e0; --c4Ln:#e8d5ab;
+      --sh:0 1px 2px rgba(43,37,28,.05), 0 10px 26px rgba(43,37,28,.07);
+      --shs:0 1px 2px rgba(43,37,28,.06);
+    }
+    .app[data-theme="oscuro"] {
+      --bg:#14110d; --panel:#1c1712; --panel2:#231d16;
+      --line:#2e2720; --line2:#443729;
+      --tx:#f1e9db; --tx2:#a99d89; --tx3:#7c7163;
+      --gold:#e0b871; --goldBg:#2a2015; --goldLn:#5b4826; --onGold:#1a1409;
+      --ok:#79c895; --okBg:#132119; --okLn:#2d4b36;
+      --wa:#dcb26b; --waBg:#241b10; --waLn:#4e3e1d;
+      --da:#e08d7c; --daBg:#251310; --daLn:#4e231b;
+      --c1:#a29883; --c1Bg:#201b15; --c1Ln:#3a352c;
+      --c2:#8fc97c; --c2Bg:#16240f; --c2Ln:#33522a;
+      --c3:#7fbcdd; --c3Bg:#0f1d26; --c3Ln:#2b566e;
+      --c4:#e0b871; --c4Bg:#2a2015; --c4Ln:#5b4826;
+      --sh:0 1px 2px rgba(0,0,0,.34), 0 12px 30px rgba(0,0,0,.4);
+      --shs:0 1px 2px rgba(0,0,0,.32);
+    }
+    .app, .app * {
+      transition: background-color .3s ease, border-color .3s ease, color .3s ease, box-shadow .3s ease, fill .3s ease, stroke .3s ease;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+    @keyframes pop { 0% { opacity: 0; transform: scale(.9); } 62% { transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
+    @keyframes glow { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .rise { animation: rise .42s cubic-bezier(.22,.8,.3,1) both; }
+    .pop { animation: pop .38s cubic-bezier(.22,.9,.3,1) both; }
+    .beat { animation: glow 2.2s ease-in-out infinite; }
+    .stagger > * { animation: rise .4s cubic-bezier(.22,.8,.3,1) both; }
+    .stagger > *:nth-child(1) { animation-delay: .02s; }
+    .stagger > *:nth-child(2) { animation-delay: .05s; }
+    .stagger > *:nth-child(3) { animation-delay: .08s; }
+    .stagger > *:nth-child(4) { animation-delay: .11s; }
+    .stagger > *:nth-child(5) { animation-delay: .14s; }
+    .stagger > *:nth-child(6) { animation-delay: .17s; }
+    .stagger > *:nth-child(n+7) { animation-delay: .2s; }
+    .tap { transition: transform .13s ease, filter .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+    .tap:hover { filter: brightness(1.05); }
+    .tap:active { transform: scale(.975); }
+    .row { transition: background-color .18s ease; }
+    .row:hover { background: var(--panel2); }
+    .thin::-webkit-scrollbar { width: 7px; }
+    .thin::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px; }
+    .thin::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</helmet>
+
+<div class="app" data-theme="{{tema}}" style="width:1440px;height:900px;display:flex;overflow:hidden;background:var(--bg);color:var(--tx);font-family:'Manrope','Segoe UI',system-ui,sans-serif">
+
+  <div style="width:220px;flex-shrink:0;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line)">
+    <div style="padding:20px 18px;display:flex;align-items:center;gap:11px">
+      <div style="width:36px;height:36px;flex-shrink:0;border-radius:12px;background:var(--goldBg);border:1px solid var(--goldLn);display:flex;align-items:center;justify-content:center;color:var(--gold)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 5.5v5.8c0 4.3 2.9 8 7 9.7 4.1-1.7 7-5.4 7-9.7V5.5L12 3Z"/><path d="M12 8.5v5"/><path d="M9.5 11h5"/></svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+        <div style="font-family:'Cinzel',Georgia,serif;font-size:12px;font-weight:700;letter-spacing:0.1em;color:var(--gold)">MU DARK EPOCH</div>
+        <div style="font-size:11.5px;font-weight:600;color:var(--tx3)">Panel del admin</div>
+      </div>
+    </div>
+
+    <div class="thin" style="flex:1;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:4px">
+      <div style="padding:8px 8px 6px;font-size:11px;font-weight:800;letter-spacing:0.04em;color:var(--tx3)">Eventos</div>
+      <sc-for list="{{eventos}}" as="e" hint-placeholder-count="4">
+        <div class="tap" style="display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:12px;background:{{e.bg}};cursor:pointer">
+          <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:{{e.dot}}"></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:13.5px;font-weight:700;color:{{e.fg}}">{{e.titulo}}</div>
+            <div style="font-size:11.5px;font-weight:500;color:var(--tx3)">{{e.sub}}</div>
+          </div>
+        </div>
+      </sc-for>
+      <div class="tap" style="margin-top:8px;height:42px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed var(--line2);border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--tx3)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13"/><path d="M5.5 12h13"/></svg>
+        <span>Nuevo Kundun</span>
+      </div>
+    </div>
+
+    <div style="padding:14px 16px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;flex-shrink:0;border-radius:11px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--onGold)">A</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+        <div style="font-size:13px;font-weight:700;color:var(--tx)">ArkangelSM</div>
+        <div style="font-size:11px;font-weight:600;color:var(--tx3)">Administrador</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+    <div style="height:74px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 24px;background:var(--panel);border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:14px;min-width:0">
+        <div style="font-size:23px;font-weight:800;letter-spacing:-0.02em;color:var(--tx)">Kundun #47</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:{{estado.bg}};border:1px solid {{estado.ln}}">
+          <div class="beat" style="width:7px;height:7px;border-radius:50%;background:{{estado.fg}}"></div>
+          <div style="font-size:11.5px;font-weight:800;color:{{estado.fg}}">{{estado.label}}</div>
+        </div>
+        <div style="font-size:13.5px;font-weight:500;color:var(--tx3)">Sáb 1 Sep · 22:15 · Sala 4</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div onClick="{{toggleRegistro}}" class="tap" style="height:42px;padding:0 16px;display:flex;align-items:center;border-radius:13px;background:{{btnReg.bg}};border:1px solid {{btnReg.ln}};color:{{btnReg.fg}};font-size:13.5px;font-weight:700;cursor:pointer">{{btnReg.label}}</div>
+        <div class="tap" style="height:42px;padding:0 16px;display:flex;align-items:center;border-radius:13px;border:1px solid var(--line);color:var(--tx3);font-size:13.5px;font-weight:700;cursor:pointer">Cerrar evento</div>
+        <div onClick="{{toggleTema}}" class="tap" style="width:42px;height:42px;flex-shrink:0;border-radius:13px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tx2)">
+          <sc-if value="{{esClaro}}" hint-placeholder-val="{{ true }}">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+          </sc-if>
+          <sc-if value="{{esOscuro}}" hint-placeholder-val="{{ false }}">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/><path d="m5.5 5.5 1.4 1.4"/><path d="m17.1 17.1 1.4 1.4"/><path d="m18.5 5.5-1.4 1.4"/><path d="m6.9 17.1-1.4 1.4"/></svg>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0, 1fr) 340px;gap:20px;padding:20px 24px">
+
+      <div style="min-width:0;display:flex;flex-direction:column;gap:16px">
+
+        <div class="rise" style="flex-shrink:0;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:var(--sh);padding:18px">
+          <div style="font-size:15px;font-weight:800;color:var(--tx);margin-bottom:14px">Cargar item subastado</div>
+
+          <div style="display:flex;align-items:flex-end;gap:12px">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">Nombre</div>
+              <input value="{{nuevoNombre}}" onChange="{{onNuevoNombre}}" placeholder="Guante de Dragón +11" style="height:44px;padding:0 14px;background:var(--panel2);border:1px solid var(--line);border-radius:13px;color:var(--tx);font-size:14px;font-weight:600;outline:none">
+            </div>
+            <div style="width:130px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">Tipo</div>
+              <input value="{{nuevoTipo}}" onChange="{{onNuevoTipo}}" placeholder="Armadura" style="height:44px;padding:0 14px;background:var(--panel2);border:1px solid var(--line);border-radius:13px;color:var(--tx);font-size:14px;font-weight:600;outline:none">
+            </div>
+            <div style="flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">Rareza</div>
+              <div style="display:flex;gap:5px">
+                <sc-for list="{{rarezas}}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{r.go}}" class="tap" style="height:44px;padding:0 12px;display:flex;align-items:center;border-radius:12px;background:{{r.bg}};border:1px solid {{r.ln}};color:{{r.fg}};font-size:12.5px;font-weight:700;cursor:pointer">{{r.label}}</div>
+                </sc-for>
+              </div>
+            </div>
+            <div onClick="{{agregar}}" class="tap" style="height:44px;flex-shrink:0;padding:0 18px;display:flex;align-items:center;gap:8px;border-radius:13px;background:var(--gold);color:var(--onGold);font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--shs)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5.5v13"/><path d="M5.5 12h13"/></svg>
+              <span>Agregar</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:flex-end;gap:14px;margin-top:14px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">Ícono</div>
+              <div style="display:flex;gap:7px">
+                <sc-for list="{{iconos}}" as="ic" hint-placeholder-count="10">
+                  <div onClick="{{ic.go}}" class="tap" style="width:40px;height:40px;flex-shrink:0;border-radius:12px;background:{{ic.bg}};border:1px solid {{ic.ln}};display:flex;align-items:center;justify-content:center;cursor:pointer">
+                    <div style="width:21px;height:21px;background:{{ic.fg}};-webkit-mask:{{ic.mask}} center/21px no-repeat;mask:{{ic.mask}} center/21px no-repeat"></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="width:1px;height:40px;background:var(--line);flex-shrink:0"></div>
+
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">O tu propia imagen</div>
+              <div style="position:relative;display:flex;align-items:center;gap:10px">
+                <div style="width:40px;height:40px;flex-shrink:0;border-radius:12px;border:1px dashed var(--line2);background:var(--panel2);display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--tx3)">
+                  <sc-if value="{{sinImagen}}" hint-placeholder-val="{{ true }}">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="m8 8.5 4-3.5 4 3.5"/><path d="M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3"/></svg>
+                  </sc-if>
+                  <sc-if value="{{hayImagen}}" hint-placeholder-val="{{ false }}">
+                    <img src="{{nuevaImagen}}" alt="" style="width:100%;height:100%;object-fit:cover">
+                  </sc-if>
+                </div>
+                <div style="font-size:12.5px;font-weight:600;line-height:1.35;color:var(--tx3);max-width:150px">{{textoImagen}}</div>
+                <input type="file" accept="image/*" onChange="{{onArchivo}}" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rise" style="flex:1;min-height:0;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:var(--sh);display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 18px 14px">
+            <div style="font-size:15px;font-weight:800;color:var(--tx)">Botín del evento</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="font-size:12.5px;font-weight:600;color:var(--tx3)">{{sinAsignar}} sin asignar de {{countItems}}</div>
+              <div onClick="{{sortearTodo}}" class="tap" style="height:36px;padding:0 14px;display:flex;align-items:center;gap:8px;border-radius:12px;background:var(--goldBg);border:1px solid var(--goldLn);color:var(--gold);font-size:13px;font-weight:700;cursor:pointer">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01"/><path d="M15 15h.01"/><path d="M15 9h.01"/><path d="M9 15h.01"/></svg>
+                <span>Sortear todos</span>
+              </div>
+            </div>
+          </div>
+
+          <sc-if value="{{hayAviso}}" hint-placeholder-val="{{ false }}">
+            <div class="pop" style="flex-shrink:0;margin:0 18px 12px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--goldBg);border:1px solid var(--goldLn);border-radius:13px">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg>
+              <div style="font-size:13.5px;font-weight:600;color:var(--gold)">{{aviso}}</div>
+            </div>
+          </sc-if>
+
+          <div style="flex-shrink:0;display:grid;grid-template-columns:minmax(0, 1fr) 100px 76px 180px 158px;gap:12px;padding:0 18px 10px;border-bottom:1px solid var(--line)">
+            <div style="font-size:11px;font-weight:800;color:var(--tx3)">Item</div>
+            <div style="font-size:11px;font-weight:800;color:var(--tx3)">Rareza</div>
+            <div style="font-size:11px;font-weight:800;color:var(--tx3)">Piden</div>
+            <div style="font-size:11px;font-weight:800;color:var(--tx3)">Le corresponde a</div>
+            <div style="font-size:11px;font-weight:800;color:var(--tx3)">Acción</div>
+          </div>
+
+          <div class="thin stagger" style="flex:1;min-height:0;overflow-y:auto;padding:6px 12px 14px">
+            <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+              <div class="row" style="display:grid;grid-template-columns:minmax(0, 1fr) 100px 76px 180px 158px;gap:12px;align-items:center;padding:11px 6px;border-radius:12px">
+                <div style="min-width:0;display:flex;align-items:center;gap:12px">
+                  <div style="width:40px;height:40px;flex-shrink:0;border-radius:12px;background:var({{it.cBg}});border:1px solid var({{it.cLn}});display:flex;align-items:center;justify-content:center;overflow:hidden">
+                    <sc-if value="{{it.esIcono}}" hint-placeholder-val="{{ true }}">
+                      <div style="width:21px;height:21px;background:var({{it.cFg}});-webkit-mask:{{it.mask}} center/21px no-repeat;mask:{{it.mask}} center/21px no-repeat"></div>
+                    </sc-if>
+                    <sc-if value="{{it.esImagen}}" hint-placeholder-val="{{ false }}">
+                      <img src="{{it.img}}" alt="" style="width:100%;height:100%;object-fit:cover">
+                    </sc-if>
+                  </div>
+                  <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <div style="font-size:14px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{it.nombre}}</div>
+                    <div style="font-size:11.5px;font-weight:500;color:var(--tx3)">{{it.tipo}}</div>
+                  </div>
+                </div>
+                <div style="min-width:0">
+                  <span style="padding:4px 9px;border-radius:999px;background:var({{it.cBg}});color:var({{it.cFg}});font-size:11px;font-weight:800">{{it.rareza}}</span>
+                </div>
+                <div style="font-size:14px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums">{{it.piden}}</div>
+                <div style="min-width:0;display:flex;align-items:center;gap:9px">
+                  <div style="font-size:14px;font-weight:700;color:{{it.duenoColor}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{it.duenoLabel}}</div>
+                  <sc-if value="{{it.mostrarChip}}" hint-placeholder-val="{{ false }}">
+                    <div style="height:22px;flex-shrink:0;padding:0 9px;display:flex;align-items:center;border-radius:999px;background:{{it.chipBg}};border:1px solid {{it.chipLn}};color:{{it.chipFg}};font-size:10px;font-weight:800">{{it.chipLabel}}</div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;gap:7px">
+                  <div onClick="{{it.accion}}" class="tap" style="height:36px;flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;background:{{it.accBg}};border:1px solid {{it.accLn}};color:{{it.accFg}};font-size:12.5px;font-weight:700;cursor:pointer">{{it.accLabel}}</div>
+                  <div onClick="{{it.borrar}}" class="tap" style="width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid var(--line);cursor:pointer;color:var(--tx3)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 7h14"/><path d="M9 7V5h6v2"/><path d="M7 7l1 12h8l1-12"/></svg>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:340px;min-width:0;display:flex;flex-direction:column;gap:16px">
+
+        <div class="rise" style="flex-shrink:0;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:var(--sh);padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">PIN del evento</div>
+              <div style="font-size:32px;font-weight:800;letter-spacing:0.14em;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1">4721</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+              <div style="font-size:11.5px;font-weight:700;color:var(--tx3)">Cierra en</div>
+              <div style="font-size:20px;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1">{{estado.timer}}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rise" style="flex:1;min-height:0;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:var(--sh);display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex-shrink:0;padding:17px 16px 12px;display:flex;flex-direction:column;gap:11px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="font-size:15px;font-weight:800;color:var(--tx)">Orden de prioridad</div>
+              <div style="font-size:13px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums">{{countPart}}</div>
+            </div>
+            <div onClick="{{ordenarPorPC}}" class="tap" style="height:38px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;background:{{btnPC.bg}};border:1px solid {{btnPC.ln}};color:{{btnPC.fg}};font-size:13px;font-weight:700;cursor:pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15"/><path d="m3.5 8 3.5-3.5L10.5 8"/><path d="M13.5 7h7"/><path d="M13.5 12h5"/><path d="M13.5 17h3"/></svg>
+              <span>{{btnPC.label}}</span>
+            </div>
+          </div>
+
+          <div class="thin" style="flex:1;min-height:0;overflow-y:auto;padding:0 10px 12px">
+            <sc-for list="{{participantes}}" as="p" hint-placeholder-count="10">
+              <div class="row" style="display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:11px">
+                <div style="width:25px;height:25px;flex-shrink:0;border-radius:9px;background:{{p.numBg}};display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;color:{{p.numFg}};font-variant-numeric:tabular-nums">{{p.pos}}</div>
+                <div style="flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.nombre}}</div>
+                <div style="flex-shrink:0;display:flex;align-items:baseline;gap:3px">
+                  <span style="font-size:13px;font-weight:700;color:var(--tx2);font-variant-numeric:tabular-nums">{{p.pc}}</span>
+                  <span style="font-size:9.5px;font-weight:800;color:var(--tx3)">PC</span>
+                </div>
+                <div style="display:flex;gap:3px;flex-shrink:0">
+                  <div onClick="{{p.subir}}" class="tap" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);cursor:pointer;color:{{p.subirFg}}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 14.5 6.5-6.5 6.5 6.5"/></svg>
+                  </div>
+                  <div onClick="{{p.bajar}}" class="tap" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);cursor:pointer;color:{{p.bajarFg}}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 9.5 6.5 6.5 6.5-6.5"/></svg>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"temaInicial":{"editor":"enum","options":["claro","oscuro"],"default":"oscuro","section":"Tema"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.ICONOS = {
+      arma: '<path d="M19 3h2v2L11.5 14.5 9.5 12.5 19 3Z"/><path d="M8.4 13.4 10.6 15.6"/><path d="M4 20.5 8 16.5"/><path d="M3.6 17.6 6.4 20.4"/>',
+      armadura: '<path d="M12 3 5 5.5v5.8c0 4.3 2.9 8 7 9.7 4.1-1.7 7-5.4 7-9.7V5.5L12 3Z"/><path d="M12 8v6"/>',
+      casco: '<path d="M5 12a7 7 0 0 1 14 0v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5Z"/><path d="M9 19v-4"/><path d="M15 19v-4"/><path d="M5.4 13h13.2"/>',
+      alas: '<path d="M12 6.5v12"/><path d="M12 8.5C9.5 5.5 6.2 5 3.2 5.5c0 5 3.4 8.4 8.8 9"/><path d="M12 8.5c2.5-3 5.8-3.5 8.8-3 0 5-3.4 8.4-8.8 9"/>',
+      joya: '<path d="M6.5 4h11l3 5-8.5 11L3.5 9l3-5Z"/><path d="M3.5 9h17"/><path d="m9.5 4-3 5 5.5 11L17.5 9l-3-5"/>',
+      anillo: '<circle cx="12" cy="14.8" r="5.7"/><path d="m9.6 6.6 2.4-3 2.4 3"/><path d="M9.6 6.6h4.8"/>',
+      pergamino: '<path d="M6.5 4H16a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H8.5a2 2 0 0 1-2-2V4Z"/><path d="M6.5 4a2 2 0 0 0-2 2v2h2"/><path d="M9.5 9.5h5.5"/><path d="M9.5 13.5h5.5"/>',
+      bota: '<path d="M6 3.5h4.5V11H15a5 5 0 0 1 5 5v2.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M10.5 11v4.5"/>',
+      zen: '<circle cx="12" cy="12" r="8.2"/><path d="M12 7.6v8.8"/><path d="M9.4 10h5.2"/><path d="M9.4 14h5.2"/>',
+      caja: '<path d="M4 8.4 12 4l8 4.4v7.2L12 20l-8-4.4V8.4Z"/><path d="M4 8.4 12 12.9l8-4.5"/><path d="M12 12.9V20"/>'
+    };
+    this.ORDEN_ICONOS = ['arma','armadura','casco','alas','joya','anillo','pergamino','bota','zen','caja'];
+    this.RAR = {
+      comun:     { label: 'Común',     cFg: '--c1', cBg: '--c1Bg', cLn: '--c1Ln' },
+      excelente: { label: 'Excelente', cFg: '--c2', cBg: '--c2Bg', cLn: '--c2Ln' },
+      ancient:   { label: 'Ancient',   cFg: '--c3', cBg: '--c3Bg', cLn: '--c3Ln' },
+      divino:    { label: 'Divino',    cFg: '--c4', cBg: '--c4Bg', cLn: '--c4Ln' }
+    };
+    this.state = {
+      tema: '',
+      registroAbierto: true,
+      aviso: '',
+      nuevoNombre: '',
+      nuevoTipo: '',
+      nuevaRareza: 'excelente',
+      nuevoIcono: 'armadura',
+      nuevaImagen: '',
+      modoOrden: 'pc',
+      orden: [
+        { nombre: 'Darkblade', pc: 18420 },
+        { nombre: 'Kaori', pc: 17150 },
+        { nombre: 'ZeusMK', pc: 15980 },
+        { nombre: 'Meli', pc: 14640 },
+        { nombre: 'Ryu', pc: 13870 },
+        { nombre: 'Nocturno', pc: 12490 },
+        { nombre: 'Belial', pc: 11730 },
+        { nombre: 'Frost', pc: 10880 },
+        { nombre: 'Yuki', pc: 9640 },
+        { nombre: 'Tato', pc: 8910 },
+        { nombre: 'Sombra', pc: 8250 },
+        { nombre: 'Milagros', pc: 7480 },
+        { nombre: 'DonPepe', pc: 6720 },
+        { nombre: 'Pichu', pc: 5310 }
+      ],
+      items: [
+        { id: 'i1', nombre: 'Alas de Ángel Caído +9', rareza: 'divino', tipo: 'Alas', icono: 'alas', img: '', dueno: 'Darkblade', estado: 'entregado', piden: ['Darkblade','Kaori','ZeusMK','Belial','Ryu'] },
+        { id: 'i2', nombre: 'Espada de Kundun +7 exc', rareza: 'excelente', tipo: 'Arma', icono: 'arma', img: '', dueno: null, estado: 'abierto', piden: ['Ryu','Tato','Frost','Sombra'] },
+        { id: 'i3', nombre: 'Casco de Dragón Ancient', rareza: 'ancient', tipo: 'Armadura', icono: 'casco', img: '', dueno: null, estado: 'abierto', piden: ['Kaori','Nocturno'] },
+        { id: 'i4', nombre: 'Joya de Bendición x12', rareza: 'comun', tipo: 'Joya', icono: 'joya', img: '', dueno: 'Meli', estado: 'reclamado', piden: ['Meli','Yuki','Sombra','Pichu','Tato','Frost','Belial'] },
+        { id: 'i5', nombre: 'Anillo de Hielo +4 exc', rareza: 'excelente', tipo: 'Anillo', icono: 'anillo', img: '', dueno: null, estado: 'abierto', piden: [] },
+        { id: 'i6', nombre: 'Pergamino de Kundun', rareza: 'ancient', tipo: 'Misc', icono: 'pergamino', img: '', dueno: 'Ryu', estado: 'entregado', piden: ['Ryu','Milagros','DonPepe'] }
+      ]
+    };
+  }
+
+  mask(clave) {
+    var d = this.ICONOS[clave] || this.ICONOS.caja;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    var enc = encodeURIComponent(svg)
+      .replace(/\(/g, '%28')
+      .replace(/\)/g, '%29')
+      .replace(/'/g, '%27')
+      .replace(/!/g, '%21')
+      .replace(/\*/g, '%2A');
+    return 'url(data:image/svg+xml,' + enc + ')';
+  }
+
+  miles(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  copia(o) {
+    var c = {};
+    for (var k in o) { c[k] = o[k]; }
+    return c;
+  }
+
+  mover(i, delta) {
+    var lista = this.state.orden.slice();
+    var j = i + delta;
+    if (j < 0 || j >= lista.length) { return; }
+    var tmp = lista[i];
+    lista[i] = lista[j];
+    lista[j] = tmp;
+    this.setState({ orden: lista, modoOrden: 'manual', aviso: '' });
+  }
+
+  agregar() {
+    var n = (this.state.nuevoNombre || '').trim();
+    if (n.length < 2) { this.setState({ aviso: 'Poné el nombre del item antes de agregarlo.' }); return; }
+    var nuevo = {
+      id: 'n' + Date.now(),
+      nombre: n,
+      rareza: this.state.nuevaRareza,
+      tipo: (this.state.nuevoTipo || '').trim() || 'Sin categoría',
+      icono: this.state.nuevoIcono,
+      img: this.state.nuevaImagen,
+      dueno: null,
+      estado: 'abierto',
+      piden: []
+    };
+    this.setState({
+      items: [nuevo].concat(this.state.items),
+      nuevoNombre: '',
+      nuevoTipo: '',
+      nuevaImagen: '',
+      aviso: n + ' quedó publicado. Los participantes ya lo pueden pedir.'
+    });
+  }
+
+  ganador(it) {
+    var orden = this.state.orden;
+    if (it.piden.length > 0) {
+      for (var i = 0; i < orden.length; i++) {
+        if (it.piden.indexOf(orden[i].nombre) >= 0) { return orden[i].nombre; }
+      }
+      return it.piden[0];
+    }
+    return null;
+  }
+
+  asignar(id) {
+    var self = this;
+    var quien = null;
+    var nombre = '';
+    var items = this.state.items.map(function (it) {
+      if (it.id !== id) { return it; }
+      nombre = it.nombre;
+      quien = self.ganador(it);
+      if (quien === null) { return it; }
+      var c = self.copia(it);
+      c.dueno = quien;
+      c.estado = 'reclamado';
+      return c;
+    });
+    if (quien === null) {
+      this.setState({ aviso: 'Nadie pidió ' + nombre + ' todavía.' });
+      return;
+    }
+    this.setState({ items: items, aviso: nombre + ' va para ' + quien + ', el de más arriba entre los que lo pidieron.' });
+  }
+
+  entregar(id) {
+    var self = this;
+    var items = this.state.items.map(function (it) {
+      if (it.id !== id) { return it; }
+      var c = self.copia(it);
+      c.estado = 'entregado';
+      return c;
+    });
+    this.setState({ items: items, aviso: '' });
+  }
+
+  sortearTodo() {
+    var self = this;
+    var cuantos = 0;
+    var sinPedido = 0;
+    var items = this.state.items.map(function (it) {
+      if (it.estado !== 'abierto') { return it; }
+      var quien = self.ganador(it);
+      if (quien === null) { sinPedido = sinPedido + 1; return it; }
+      cuantos = cuantos + 1;
+      var c = self.copia(it);
+      c.dueno = quien;
+      c.estado = 'reclamado';
+      return c;
+    });
+    if (cuantos === 0) {
+      this.setState({ aviso: 'No hay nada para repartir: nadie pidió los items que quedan.' });
+      return;
+    }
+    var extra = sinPedido > 0 ? ' Quedan ' + sinPedido + ' que nadie pidió.' : '';
+    this.setState({ items: items, aviso: cuantos + ' items repartidos por orden de prioridad.' + extra });
+  }
+
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var tema = s.tema || this.props.temaInicial || 'claro';
+
+    var rarezas = ['comun','excelente','ancient','divino'].map(function (k) {
+      var r = self.RAR[k];
+      var on = s.nuevaRareza === k;
+      return {
+        label: r.label,
+        bg: on ? 'var(' + r.cBg + ')' : 'var(--panel2)',
+        ln: on ? 'var(' + r.cLn + ')' : 'var(--line)',
+        fg: on ? 'var(' + r.cFg + ')' : 'var(--tx3)',
+        go: function () { self.setState({ nuevaRareza: k }); }
+      };
+    });
+
+    var iconos = this.ORDEN_ICONOS.map(function (k) {
+      var on = s.nuevoIcono === k && s.nuevaImagen.length === 0;
+      return {
+        mask: self.mask(k),
+        bg: on ? 'var(--goldBg)' : 'var(--panel2)',
+        ln: on ? 'var(--goldLn)' : 'var(--line)',
+        fg: on ? 'var(--gold)' : 'var(--tx3)',
+        go: function () { self.setState({ nuevoIcono: k, nuevaImagen: '' }); }
+      };
+    });
+
+    var items = s.items.map(function (it) {
+      var r = self.RAR[it.rareza];
+      var o = {
+        id: it.id,
+        nombre: it.nombre,
+        tipo: it.tipo,
+        rareza: r.label,
+        cFg: r.cFg,
+        cBg: r.cBg,
+        cLn: r.cLn,
+        mask: self.mask(it.icono),
+        img: it.img,
+        esImagen: it.img.length > 0,
+        esIcono: it.img.length === 0,
+        piden: it.piden.length,
+        duenoLabel: it.dueno || 'Sin asignar',
+        duenoColor: it.dueno ? 'var(--gold)' : 'var(--tx3)',
+        mostrarChip: false,
+        chipLabel: '',
+        chipBg: 'var(--okBg)',
+        chipLn: 'var(--okLn)',
+        chipFg: 'var(--ok)',
+        accLabel: 'Asignar',
+        accBg: 'var(--goldBg)',
+        accLn: 'var(--goldLn)',
+        accFg: 'var(--gold)',
+        accion: function () { self.asignar(it.id); },
+        borrar: function () {
+          self.setState({
+            items: s.items.filter(function (x) { return x.id !== it.id; }),
+            aviso: ''
+          });
+        }
+      };
+      if (it.estado === 'reclamado') {
+        o.mostrarChip = true;
+        o.chipLabel = 'A entregar';
+        o.chipBg = 'var(--waBg)';
+        o.chipLn = 'var(--waLn)';
+        o.chipFg = 'var(--wa)';
+        o.accLabel = 'Marcar entregado';
+        o.accBg = 'var(--okBg)';
+        o.accLn = 'var(--okLn)';
+        o.accFg = 'var(--ok)';
+        o.accion = function () { self.entregar(it.id); };
+      }
+      if (it.estado === 'entregado') {
+        o.mostrarChip = true;
+        o.chipLabel = 'Entregado';
+        o.accLabel = 'Reabrir';
+        o.accBg = 'var(--panel2)';
+        o.accLn = 'var(--line)';
+        o.accFg = 'var(--tx3)';
+        o.accion = function () {
+          var next = s.items.map(function (x) {
+            if (x.id !== it.id) { return x; }
+            var c = self.copia(x);
+            c.estado = 'abierto';
+            c.dueno = null;
+            return c;
+          });
+          self.setState({ items: next, aviso: '' });
+        };
+      }
+      return o;
+    });
+
+    var participantes = s.orden.map(function (p, i) {
+      var primero = i === 0;
+      var ultimo = i === s.orden.length - 1;
+      return {
+        pos: i + 1,
+        nombre: p.nombre,
+        pc: self.miles(p.pc),
+        numBg: primero ? 'var(--gold)' : 'var(--panel2)',
+        numFg: primero ? 'var(--onGold)' : 'var(--tx3)',
+        subirFg: primero ? 'var(--line2)' : 'var(--tx2)',
+        bajarFg: ultimo ? 'var(--line2)' : 'var(--tx2)',
+        subir: function () { self.mover(i, -1); },
+        bajar: function () { self.mover(i, 1); }
+      };
+    });
+
+    var estado = s.registroAbierto
+      ? { label: 'Registro abierto', bg: 'var(--okBg)', ln: 'var(--okLn)', fg: 'var(--ok)', timer: '04:32' }
+      : { label: 'Registro cerrado', bg: 'var(--daBg)', ln: 'var(--daLn)', fg: 'var(--da)', timer: '00:00' };
+
+    var btnReg = s.registroAbierto
+      ? { label: 'Cerrar registro', bg: 'var(--daBg)', ln: 'var(--daLn)', fg: 'var(--da)' }
+      : { label: 'Reabrir registro', bg: 'var(--okBg)', ln: 'var(--okLn)', fg: 'var(--ok)' };
+
+    var btnPC = s.modoOrden === 'pc'
+      ? { label: 'Ordenado por PC', bg: 'var(--goldBg)', ln: 'var(--goldLn)', fg: 'var(--gold)' }
+      : { label: 'Volver a ordenar por PC', bg: 'var(--panel2)', ln: 'var(--line)', fg: 'var(--tx2)' };
+
+    var sinAsignar = s.items.filter(function (i) { return i.estado === 'abierto'; }).length;
+
+    return {
+      tema: tema,
+      esClaro: tema === 'claro',
+      esOscuro: tema === 'oscuro',
+      toggleTema: function () { self.setState({ tema: tema === 'claro' ? 'oscuro' : 'claro' }); },
+      estado: estado,
+      btnReg: btnReg,
+      btnPC: btnPC,
+      toggleRegistro: function () { self.setState({ registroAbierto: !s.registroAbierto, aviso: '' }); },
+      ordenarPorPC: function () {
+        var lista = s.orden.slice().sort(function (a, b) { return b.pc - a.pc; });
+        self.setState({ orden: lista, modoOrden: 'pc', aviso: '' });
+      },
+      eventos: [
+        { titulo: 'Kundun #47', sub: 'En curso', bg: 'var(--goldBg)', fg: 'var(--gold)', dot: 'var(--ok)' },
+        { titulo: 'Kundun #46', sub: '28 Ago · cerrado', bg: 'transparent', fg: 'var(--tx2)', dot: 'var(--line2)' },
+        { titulo: 'Kundun #45', sub: '26 Ago · cerrado', bg: 'transparent', fg: 'var(--tx2)', dot: 'var(--line2)' },
+        { titulo: 'Kundun #44', sub: '23 Ago · cerrado', bg: 'transparent', fg: 'var(--tx2)', dot: 'var(--line2)' }
+      ],
+      rarezas: rarezas,
+      iconos: iconos,
+      items: items,
+      countItems: items.length,
+      sinAsignar: sinAsignar,
+      participantes: participantes,
+      countPart: participantes.length,
+      aviso: s.aviso,
+      hayAviso: s.aviso.length > 0,
+      nuevoNombre: s.nuevoNombre,
+      nuevoTipo: s.nuevoTipo,
+      nuevaImagen: s.nuevaImagen,
+      hayImagen: s.nuevaImagen.length > 0,
+      sinImagen: s.nuevaImagen.length === 0,
+      textoImagen: s.nuevaImagen.length > 0 ? 'Imagen cargada. Tocá para cambiarla.' : 'Subí un PNG del item',
+      onNuevoNombre: function (e) { self.setState({ nuevoNombre: e.target.value }); },
+      onNuevoTipo: function (e) { self.setState({ nuevoTipo: e.target.value }); },
+      onArchivo: function (e) {
+        var f = e.target.files && e.target.files[0];
+        if (!f) { return; }
+        var rd = new FileReader();
+        rd.onload = function () { self.setState({ nuevaImagen: String(rd.result) }); };
+        rd.readAsDataURL(f);
+      },
+      agregar: function () { self.agregar(); },
+      sortearTodo: function () { self.sortearTodo(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

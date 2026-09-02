@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; background: #14110d; }
+    * { box-sizing: border-box; }
+    a { color: #e0b871; }
+    a:hover { color: #f1e9db; }
+  </style>
+</helmet>
+
+<div style="width:1360px;height:640px;display:flex;flex-direction:column;overflow:hidden;background:#14110d;color:#f1e9db;font-family:'Manrope','Segoe UI',system-ui,sans-serif;padding:14px 16px;gap:12px">
+
+  <!-- Barra de arriba, igual a la app -->
+  <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="display:flex;align-items:center;gap:9px;min-height:46px;padding:0 15px;border-radius:16px;border:1px solid #2e2720;background:#1c1712">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a99d89" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3 1.8"/></svg>
+      <div style="display:flex;flex-direction:column;line-height:1.15">
+        <span style="font-size:13px;font-weight:700;color:#a99d89">12:00 · 20:00</span>
+        <span style="font-size:9.5px;font-weight:700;color:#7c7163">tu hora · GMT-3</span>
+      </div>
+    </div>
+
+    <div style="text-align:center">
+      <div style="font-size:19px;font-weight:800;letter-spacing:-0.02em;line-height:1.1">Kundun #2</div>
+      <div style="font-size:11.5px;font-weight:600;color:#7c7163;margin-top:2px">cierra en 08:41 · 5 estuvieron</div>
+    </div>
+
+    <div style="width:42px;height:42px;border-radius:13px;border:1px solid #2e2720;background:#1c1712;display:flex;align-items:center;justify-content:center">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#a99d89" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2"/><path d="M12 19.5v2"/><path d="M2.5 12h2"/><path d="M19.5 12h2"/></svg>
+    </div>
+  </div>
+
+  <!-- El cuerpo: el cuadro de reparto con las 3 ruedas, y el gremio al costado -->
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0, 1fr) 290px;gap:12px">
+
+    <div style="min-height:0;background:#1c1712;border:1px solid #2e2720;border-radius:16px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 14px 8px">
+        <div style="font-size:14px;font-weight:800;letter-spacing:-0.01em">Reparto</div>
+        <div style="font-size:11.5px;font-weight:700;color:#7c7163">4 drops</div>
+      </div>
+
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px;padding:0 10px 10px">
+        <sc-for list="{{ruedas}}" as="r" hint-placeholder-count="3">
+          <div style="min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#231d16;border:1px solid #2e2720;border-radius:13px">
+
+            <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:11px 12px 7px">
+              <div style="font-size:12.5px;font-weight:800;letter-spacing:-0.01em">
+                {{r.titulo}}<span style="font-weight:600;color:#7c7163;margin-left:6px;font-size:10.5px">{{r.nota}}</span>
+              </div>
+              <div style="font-size:11px;font-weight:700;color:#7c7163">{{r.cuantos}}</div>
+            </div>
+
+            <!-- Los drops que ya salieron -->
+            <div style="flex:1;min-height:0;padding:0 6px;display:flex;flex-direction:column;gap:3px">
+              <sc-for list="{{r.drops}}" as="d" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:9px;padding:7px;border-radius:11px">
+                  <div style="width:30px;height:30px;flex-shrink:0;border-radius:9px;background:{{d.bg}};border:1px solid {{d.ln}};display:flex;align-items:center;justify-content:center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{d.fg}}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 20.5 9l-3.2 10.2H6.7L3.5 9 12 2.8Z"/></svg>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{d.nombre}}</div>
+                    <div style="font-size:12.5px;font-weight:800;color:#e0b871;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{d.dueno}}</div>
+                  </div>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{r.sinDrops}}" hint-placeholder-val="{{ false }}">
+                <div style="padding:16px 10px;text-align:center;font-size:11.5px;font-weight:600;color:#7c7163">{{r.vacio}}</div>
+              </sc-if>
+            </div>
+
+            <!-- La cola de esa rueda, al pie -->
+            <div style="flex-shrink:0;border-top:1px solid #2e2720;margin:6px 6px 0;padding:9px 6px 10px">
+              <div style="font-size:9.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#7c7163;margin-bottom:7px">Siguen</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <sc-for list="{{r.cola}}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:9px;background:{{c.bg}}">
+                    <div style="width:19px;height:19px;flex-shrink:0;border-radius:6px;background:{{c.numBg}};color:{{c.numFg}};display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800">{{c.turno}}</div>
+                    <div style="flex:1;min-width:0;font-size:12px;font-weight:{{c.peso}};color:{{c.fg}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{c.nombre}}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- El gremio queda: es el único lugar donde se ve el PC -->
+    <div style="min-height:0;background:#1c1712;border:1px solid #2e2720;border-radius:16px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex-shrink:0;padding:12px 14px 8px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+          <div style="font-size:14px;font-weight:800;letter-spacing:-0.01em">Orden del gremio</div>
+          <div style="font-size:11px;font-weight:600;color:#7c7163">por PC</div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;padding:0 8px 8px">
+        <sc-for list="{{gremio}}" as="g" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;background:{{g.bg}};box-shadow:{{g.barra}}">
+            <div style="width:24px;height:24px;flex-shrink:0;border-radius:8px;background:#231d16;color:#7c7163;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800">{{g.pos}}</div>
+            <div style="flex:1;min-width:0;font-size:13.5px;font-weight:700;color:{{g.fg}};text-decoration:{{g.tachado}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{g.nombre}}</div>
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;color:{{g.marcaFg}};flex-shrink:0">{{g.marca}}</div>
+            <div style="font-size:13px;font-weight:800;color:#a99d89;flex-shrink:0">{{g.pc}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de abajo -->
+  <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="display:flex;align-items:center;gap:9px;min-height:46px;padding:0 15px;border-radius:16px;border:1px solid #5b4826;background:#2a2015;color:#e0b871;font-size:13px;font-weight:700">Puja anterior</div>
+    <div style="width:36px;height:36px;border-radius:12px;background:#2a2015;border:1px solid #5b4826;display:flex;align-items:center;justify-content:center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e0b871" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 5.5v5.8c0 4.3 2.9 8 7 9.7 4.1-1.7 7-5.4 7-9.7V5.5L12 3Z"/></svg>
+    </div>
+    <div style="display:flex;align-items:center;gap:9px;min-height:46px;padding:0 15px;border-radius:16px;border:1px solid #2e2720;background:#1c1712;color:#a99d89;font-size:13px;font-weight:700">Historial</div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1360,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const verde = { bg: '#132119', numBg: '#79c895', numFg: '#132119', fg: '#f1e9db', peso: '800' };
+    const gris = { bg: 'transparent', numBg: '#2e2720', numFg: '#7c7163', fg: '#a99d89', peso: '600' };
+    const enCola = (turno, nombre, esElQueSigue) => ({ turno: String(turno), nombre, ...(esElQueSigue ? verde : gris) });
+
+    return {
+      ruedas: [
+        {
+          titulo: 'Items del Kundun', nota: '', cuantos: '2', sinDrops: false, vacio: '',
+          drops: [
+            { nombre: 'Pluma de Condor', dueno: 'DenaliMyrella', bg: '#0f1d26', ln: '#2b566e', fg: '#7fbcdd' },
+            { nombre: 'Cristal del Caos', dueno: 'UriahDelyricth', bg: '#2a2015', ln: '#5b4826', fg: '#e0b871' }
+          ],
+          cola: [enCola(1, 'Alckron', true), enCola(2, 'DenaliMyrella', false), enCola(3, 'UriahDelyricth', false)]
+        },
+        {
+          titulo: 'Almas de guerra', nota: '', cuantos: '2', sinDrops: false, vacio: '',
+          drops: [
+            { nombre: 'Almas de Guerra (1 de 2)', dueno: 'Violet', bg: '#16240f', ln: '#33522a', fg: '#8fc97c' },
+            { nombre: 'Almas de Guerra (2 de 2)', dueno: 'SynC', bg: '#16240f', ln: '#33522a', fg: '#8fc97c' }
+          ],
+          cola: [enCola(1, 'Rikiya', true), enCola(2, 'DenaliMyrella', false), enCola(3, 'UriahDelyricth', false)]
+        },
+        {
+          titulo: 'Castle Siege', nota: 'domingos', cuantos: '', sinDrops: true, vacio: 'Sin drops de asedio.',
+          drops: [],
+          cola: [enCola(1, 'Violet', true), enCola(2, 'SynC', false), enCola(3, 'Rikiya', false)]
+        }
+      ],
+      gremio: [
+        { pos: '1', nombre: 'Violet', pc: '30.07M', marca: 'se llevó 1', bg: '#2a2015', barra: 'inset 3px 0 0 #e0b871', fg: '#f1e9db', marcaFg: '#e0b871', tachado: 'none' },
+        { pos: '2', nombre: 'SynC', pc: '23.34M', marca: 'se llevó 1', bg: '#2a2015', barra: 'inset 3px 0 0 #e0b871', fg: '#f1e9db', marcaFg: '#e0b871', tachado: 'none' },
+        { pos: '3', nombre: 'Rikiya', pc: '16.73M', marca: 'inactivo', bg: '#251310', barra: 'inset 3px 0 0 #e08d7c', fg: '#e08d7c', marcaFg: '#e08d7c', tachado: 'line-through' },
+        { pos: '4', nombre: 'DenaliMyrella', pc: '12.55M', marca: 'se llevó 1', bg: '#2a2015', barra: 'inset 3px 0 0 #e0b871', fg: '#f1e9db', marcaFg: '#e0b871', tachado: 'none' },
+        { pos: '5', nombre: 'UriahDelyricth', pc: '11.38M', marca: 'se llevó 1', bg: '#2a2015', barra: 'inset 3px 0 0 #e0b871', fg: '#f1e9db', marcaFg: '#e0b871', tachado: 'none' },
+        { pos: '6', nombre: 'Alckron', pc: '8.61M', marca: 'le toca', bg: '#132119', barra: 'inset 3px 0 0 #79c895', fg: '#f1e9db', marcaFg: '#79c895', tachado: 'none' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

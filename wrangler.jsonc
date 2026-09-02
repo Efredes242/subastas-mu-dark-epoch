@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "subastas-kundun",
+  "main": "./worker/index.ts",
+  // Se mantiene la URL de workers.dev como respaldo del dominio propio.
+  "workers_dev": true,
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "subastas-kundun",
+      "database_id": "9d174d75-4b31-4eca-96fd-e758446c96a6",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // El dominio propio. Cloudflare crea el registro DNS solo al desplegar.
+  "routes": [
+    { "pattern": "kundun.ezequielfredes.com.ar", "custom_domain": true }
+  ],
+  // Cada minuto: cierra el Kundun que ya terminó y abre el que entra en su ventana,
+  // sin depender de que alguien tenga la página abierta.
+  "triggers": { "crons": ["* * * * *"] },
+  "observability": {
+    "enabled": true
+  }
+}

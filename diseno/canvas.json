@@ -1,0 +1,49 @@
+{
+  "pages": [
+    { "id": "app", "name": "La app" },
+    { "id": "direcciones", "name": "Direcciones visuales" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "app", "title": "Votante · celular", "x": 0, "y": 0, "w": 390, "h": 844, "is_interactive": true },
+    { "file": "Admin.dc.html", "page": "app", "title": "Admin · escritorio", "x": 490, "y": 0, "w": 1440, "h": 900, "is_interactive": true },
+    { "file": "Botin.dc.html", "page": "app", "title": "Botín público · escritorio", "x": 2050, "y": 0, "w": 1440, "h": 880, "is_interactive": true },
+    { "file": "DirCripta.dc.html", "page": "direcciones", "title": "A · Cripta dorada", "x": 0, "y": 0, "w": 480, "h": 620 },
+    { "file": "DirConsola.dc.html", "page": "direcciones", "title": "B · Consola de raid", "x": 580, "y": 0, "w": 480, "h": 620 },
+    { "file": "DirActa.dc.html", "page": "direcciones", "title": "C · Acta del gremio", "x": 1160, "y": 0, "w": 480, "h": 620 }
+  ],
+  "annotations": [
+    {
+      "id": "n-probar",
+      "page": "app",
+      "x": 0,
+      "y": 1040,
+      "w": 440,
+      "text": "PROBALO\n\nTema: el botón de arriba a la derecha de cada pantalla. Cada una tiene el suyo.\n\nCelular: nombre + 4 números de PIN + Participo. Después Botín → Lo quiero.\n\nAdmin: elegí un ícono (o subí una imagen de verdad), cargá el item, tocá Asignar. Y movés a la gente con las flechitas del panel derecho."
+    },
+    {
+      "id": "n-nuevo",
+      "page": "app",
+      "x": 490,
+      "y": 1040,
+      "w": 480,
+      "text": "LO NUEVO DE ESTA VUELTA\n\n· Orden de prioridad por PC. El admin lo ordena solo con un botón, o lo acomoda a mano con las flechas. Lo ven todos, en el celular y en la vista pública.\n\n· El orden decide el reparto. Cuando varios piden el mismo item, se lo lleva el que está más arriba — y la columna \"Por qué\" lo deja escrito. Ya no es un sorteo a ciegas.\n\n· Íconos por item: 10 para elegir, o subís tu propio PNG (el botón anda de verdad, probá).\n\n· Claro y oscuro completos, con la transición suave.\n\n· Estilo más blando: esquinas redondeadas, menos borde, más aire, y las listas entran animadas."
+    },
+    {
+      "id": "n-decidir",
+      "page": "app",
+      "x": 1020,
+      "y": 1040,
+      "w": 470,
+      "text": "PARA DECIDIR JUNTOS\n\n· Asumí que PC es el poder de combate del personaje. Si en Mu Dark Epoch le dicen de otra manera, decime cómo y lo cambio.\n\n· ¿El PC lo carga el admin a mano, o lo escribe cada uno al anotarse? Ahora mismo el que se anota queda último con el PC en blanco hasta que el admin se lo pone.\n\n· ¿Un item por persona por evento? Si no, el de PC más alto se lleva todo.\n\n· ¿El orden se guarda de un Kundun al siguiente, o se rearma cada vez?\n\n· ¿Cómo se entra: link por Discord, o usuario propio?"
+    },
+    {
+      "id": "n-direcciones",
+      "page": "direcciones",
+      "x": 0,
+      "y": 760,
+      "w": 640,
+      "text": "Estos tres bocetos son de la primera vuelta, antes del cambio de estilo. La app quedó armada en una versión más suave y clara de la A — mismo dorado, pero con más aire, esquinas redondeadas y modo claro además del oscuro.\n\nSi te tira más la B o la C, decime y rehago las tres pantallas con esa piel."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "app" }
+}

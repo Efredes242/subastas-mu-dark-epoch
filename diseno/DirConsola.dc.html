@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #0f1216; }
+    * { box-sizing: border-box; }
+    a { color: #5fb3c9; }
+    a:hover { color: #8dd0e2; }
+  </style>
+</helmet>
+
+<div style="width:480px;height:620px;display:flex;flex-direction:column;overflow:hidden;background:#0f1216;font-family:'Barlow','Helvetica Neue',system-ui,sans-serif">
+
+  <div style="flex-shrink:0;padding:20px 24px 16px;border-bottom:1px solid #232b34;display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+    <div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:22px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#5fb3c9">Consola de raid</div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#5c6874">Dirección B</div>
+  </div>
+
+  <div style="flex:1;min-height:0;padding:18px 24px;display:flex;flex-direction:column;gap:14px">
+
+    <div style="display:flex;gap:8px">
+      <div style="flex:1;border:1px solid #232b34;border-radius:2px;background:#161b21;padding:11px 13px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:#5c6874">ESTADO</div>
+        <div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:19px;font-weight:700;letter-spacing:0.04em;color:#6cc48a;margin-top:3px">ABIERTO</div>
+      </div>
+      <div style="flex:1;border:1px solid #232b34;border-radius:2px;background:#161b21;padding:11px 13px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:#5c6874">PARTICIPANTES</div>
+        <div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:19px;font-weight:700;color:#dbe4ec;margin-top:3px;font-variant-numeric:tabular-nums">24</div>
+      </div>
+      <div style="flex:1;border:1px solid #232b34;border-radius:2px;background:#161b21;padding:11px 13px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:#5c6874">CIERRA EN</div>
+        <div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:19px;font-weight:700;color:#d9a13b;margin-top:3px;font-variant-numeric:tabular-nums">04:32</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <div style="flex:1;height:42px;border:1px solid #2c343d;border-radius:2px;background:#12161b"></div>
+      <div style="width:150px;height:42px;border-radius:2px;background:#5fb3c9;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:15px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0b1013">Estoy en el kundun</div>
+    </div>
+
+    <div style="flex:1;min-height:0;border:1px solid #232b34;border-radius:2px;background:#12161b;display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:minmax(0, 1fr) 66px 96px;gap:10px;padding:10px 13px;border-bottom:1px solid #232b34">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#5c6874">ITEM</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#5c6874">PIDEN</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#5c6874">DESTINO</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0, 1fr) 66px 96px;gap:10px;padding:11px 13px;border-bottom:1px solid #1b2128;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:5px"><div style="width:158px;height:8px;border-radius:1px;background:#2f3941"></div><div style="width:60px;height:6px;border-radius:1px;background:#212930"></div></div>
+        <div style="font-size:13px;font-weight:600;color:#8fa0ae;font-variant-numeric:tabular-nums">5</div>
+        <div style="font-size:13px;font-weight:600;color:#5fb3c9">Darkblade</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0, 1fr) 66px 96px;gap:10px;padding:11px 13px;border-bottom:1px solid #1b2128;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:5px"><div style="width:132px;height:8px;border-radius:1px;background:#2f3941"></div><div style="width:52px;height:6px;border-radius:1px;background:#212930"></div></div>
+        <div style="font-size:13px;font-weight:600;color:#8fa0ae;font-variant-numeric:tabular-nums">4</div>
+        <div style="font-size:12px;font-weight:600;color:#d9a13b">Sorteando</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0, 1fr) 66px 96px;gap:10px;padding:11px 13px;border-bottom:1px solid #1b2128;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:5px"><div style="width:170px;height:8px;border-radius:1px;background:#2f3941"></div><div style="width:66px;height:6px;border-radius:1px;background:#212930"></div></div>
+        <div style="font-size:13px;font-weight:600;color:#8fa0ae;font-variant-numeric:tabular-nums">2</div>
+        <div style="font-size:13px;font-weight:600;color:#5fb3c9">Kaori</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0, 1fr) 66px 96px;gap:10px;padding:11px 13px;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:5px"><div style="width:144px;height:8px;border-radius:1px;background:#2f3941"></div><div style="width:44px;height:6px;border-radius:1px;background:#212930"></div></div>
+        <div style="font-size:13px;font-weight:600;color:#8fa0ae;font-variant-numeric:tabular-nums">0</div>
+        <div style="font-size:12px;font-weight:500;color:#4d5761">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="flex-shrink:0;padding:16px 24px 20px;border-top:1px solid #232b34;display:flex;flex-direction:column;gap:7px">
+    <div style="font-size:13px;line-height:1.45;color:#b6c2cd"><span style="color:#6cc48a;font-weight:700">A favor:</span> densa y rapidísima de leer. Cincuenta items entran sin scroll infinito y los números mandan.</div>
+    <div style="font-size:13px;line-height:1.45;color:#7b8794"><span style="color:#c9635a;font-weight:700">En contra:</span> no se siente Mu. Podría ser el panel de cualquier cosa.</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

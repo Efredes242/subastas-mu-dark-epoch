@@ -1,0 +1,25 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "El tablero con la opción A aplicada", "x": 0, "y": 0, "w": 1360, "h": 640 },
+    { "file": "OpcionA.dc.html", "title": "A · La cola debajo", "x": 0, "y": 790, "w": 460, "h": 640 },
+    { "file": "OpcionB.dc.html", "title": "B · El turno arriba", "x": 560, "y": 790, "w": 460, "h": 640 },
+    { "file": "OpcionC.dc.html", "title": "C · La rueda entera", "x": 1120, "y": 790, "w": 460, "h": 640 }
+  ],
+  "annotations": [
+    {
+      "id": "n-que-mira",
+      "x": 1440,
+      "y": 0,
+      "w": 400,
+      "text": "ARRIBA: el tablero completo con la opción A puesta, para verla en contexto.\n\nABAJO: las tres maneras, una al lado de la otra, con lo bueno y lo malo de cada una.\n\nLos colores son los mismos de la app: verde = le toca, dorado = ya cobró, rojo = inactivo."
+    },
+    {
+      "id": "n-recomiendo",
+      "x": 1640,
+      "y": 790,
+      "w": 400,
+      "text": "MI RECOMENDACIÓN: la A.\n\nEs la única que muestra la vuelta completa de cada rueda sin sacar nada de lo que ya está, y no cambia el layout que te gustó.\n\nLa B es la más linda para el celular, donde no entra tanto.\n\nLa C es la más completa, pero se lleva puesto el cuadro del gremio (el del PC) y con 15 personas se hace larga."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

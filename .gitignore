@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env.seed
+.env
+*.local
+.DS_Store
+
+# Export local de la base, por si queda alguno suelto.
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

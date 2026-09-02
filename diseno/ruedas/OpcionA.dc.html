@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; background: #14110d; }
+    * { box-sizing: border-box; }
+    a { color: #e0b871; }
+    a:hover { color: #f1e9db; }
+  </style>
+</helmet>
+
+<div style="width:460px;height:640px;display:flex;flex-direction:column;overflow:hidden;background:#14110d;color:#f1e9db;font-family:'Manrope','Segoe UI',system-ui,sans-serif;padding:18px">
+
+  <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:14px">
+    <div style="font-size:17px;font-weight:800;letter-spacing:-0.02em;color:#79c895">A · La cola debajo</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7c7163">Opción</div>
+  </div>
+
+  <!-- La sub-caja, tal como se vería en el tablero -->
+  <div style="flex:1;min-height:0;background:#231d16;border:1px solid #2e2720;border-radius:13px;display:flex;flex-direction:column;overflow:hidden">
+
+    <div style="flex-shrink:0;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:12px 13px 8px">
+      <div style="font-size:13px;font-weight:800;letter-spacing:-0.01em">Items del Kundun</div>
+      <div style="font-size:11px;font-weight:700;color:#7c7163">2</div>
+    </div>
+
+    <div style="flex:1;min-height:0;padding:0 7px;display:flex;flex-direction:column;gap:3px">
+      <sc-for list="{{drops}}" as="d" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:9px;padding:8px 7px;border-radius:11px">
+          <div style="width:32px;height:32px;flex-shrink:0;border-radius:10px;background:{{d.bg}};border:1px solid {{d.ln}};display:flex;align-items:center;justify-content:center">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{d.fg}}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 20.5 9l-3.2 10.2H6.7L3.5 9 12 2.8Z"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{d.nombre}}</div>
+            <div style="font-size:13px;font-weight:800;color:#e0b871;margin-top:2px">{{d.dueno}}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Acá está la diferencia: la cola de esa rueda, al pie del mismo cuadro -->
+    <div style="flex-shrink:0;border-top:1px solid #2e2720;margin:6px 7px 0;padding:10px 7px 12px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#7c7163;margin-bottom:9px">Siguen en esta rueda</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <sc-for list="{{cola}}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:9px;padding:6px 7px;border-radius:9px;background:{{c.bg}}">
+            <div style="width:20px;height:20px;flex-shrink:0;border-radius:7px;background:{{c.numBg}};color:{{c.numFg}};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800">{{c.turno}}</div>
+            <div style="flex:1;min-width:0;font-size:12.5px;font-weight:{{c.peso}};color:{{c.fg}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{c.nombre}}</div>
+            <div style="font-size:9.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:{{c.marcaFg}}">{{c.marca}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink:0;padding-top:14px;display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:12.5px;line-height:1.45;color:#a99d89"><span style="color:#79c895;font-weight:800">A favor:</span> no cambia nada del layout. Cada cuadro se explica solo y el orden general sigue a la derecha.</div>
+    <div style="font-size:12.5px;line-height:1.45;color:#7c7163"><span style="color:#e08d7c;font-weight:800">En contra:</span> con muchos drops la cola queda pegada abajo y hay que scrollear para verla.</div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":460,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      drops: [
+        { nombre: 'Pluma de Condor (1 de 2)', dueno: 'UriahDelyricth', bg: '#16240f', ln: '#33522a', fg: '#8fc97c' },
+        { nombre: 'Cristal del Caos', dueno: 'Alckron', bg: '#2a2015', ln: '#5b4826', fg: '#e0b871' }
+      ],
+      cola: [
+        { turno: '1', nombre: 'DenaliMyrella', marca: 'le toca', bg: '#132119', numBg: '#79c895', numFg: '#132119', fg: '#f1e9db', peso: '800', marcaFg: '#79c895' },
+        { turno: '2', nombre: 'UriahDelyricth', marca: '', bg: 'transparent', numBg: '#2e2720', numFg: '#7c7163', fg: '#a99d89', peso: '600', marcaFg: '#7c7163' },
+        { turno: '3', nombre: 'Alckron', marca: '', bg: 'transparent', numBg: '#2e2720', numFg: '#7c7163', fg: '#a99d89', peso: '600', marcaFg: '#7c7163' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

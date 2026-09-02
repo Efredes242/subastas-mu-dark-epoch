@@ -1,0 +1,1189 @@
+/* Tokens. El tema por defecto es el oscuro; el claro se activa con data-tema="claro" en <html>. */
+:root {
+  --bg: #14110d;
+  --panel: #1c1712;
+  --panel2: #231d16;
+  --line: #2e2720;
+  --line2: #443729;
+  --tx: #f1e9db;
+  --tx2: #a99d89;
+  --tx3: #7c7163;
+  --oro: #e0b871;
+  --oroBg: #2a2015;
+  --oroLn: #5b4826;
+  --sobreOro: #1a1409;
+  --ok: #79c895;
+  --okBg: #132119;
+  --okLn: #2d4b36;
+  --av: #dcb26b;
+  --avBg: #241b10;
+  --avLn: #4e3e1d;
+  --mal: #e08d7c;
+  --malBg: #251310;
+  --malLn: #4e231b;
+  --c1: #a29883;
+  --c1Bg: #201b15;
+  --c1Ln: #3a352c;
+  --c2: #8fc97c;
+  --c2Bg: #16240f;
+  --c2Ln: #33522a;
+  --c3: #7fbcdd;
+  --c3Bg: #0f1d26;
+  --c3Ln: #2b566e;
+  --c4: #e0b871;
+  --c4Bg: #2a2015;
+  --c4Ln: #5b4826;
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.34), 0 12px 30px rgba(0, 0, 0, 0.4);
+  --shs: 0 1px 2px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-tema='claro'] {
+  --bg: #f6f2ea;
+  --panel: #ffffff;
+  --panel2: #faf6ef;
+  --line: #e7dfd1;
+  --line2: #d6c9b3;
+  --tx: #2b251c;
+  --tx2: #6d6355;
+  --tx3: #9a9080;
+  --oro: #a8752a;
+  --oroBg: #fbf2e0;
+  --oroLn: #e8d5ab;
+  --sobreOro: #ffffff;
+  --ok: #2f7d4f;
+  --okBg: #eaf5ee;
+  --okLn: #c2e2ce;
+  --av: #98671a;
+  --avBg: #fdf3df;
+  --avLn: #eed9a9;
+  --mal: #a63a29;
+  --malBg: #fdeeea;
+  --malLn: #f1cabf;
+  --c1: #6d6355;
+  --c1Bg: #f2ece2;
+  --c1Ln: #ddd4c4;
+  --c2: #3f7a35;
+  --c2Bg: #eef6ea;
+  --c2Ln: #cbe3c0;
+  --c3: #2c6e8c;
+  --c3Bg: #eaf4f8;
+  --c3Ln: #bcdbe8;
+  --c4: #a8752a;
+  --c4Bg: #fbf2e0;
+  --c4Ln: #e8d5ab;
+  --sh: 0 1px 2px rgba(43, 37, 28, 0.05), 0 10px 26px rgba(43, 37, 28, 0.07);
+  --shs: 0 1px 2px rgba(43, 37, 28, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--tx);
+  font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+button,
+input,
+select {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+a {
+  color: var(--oro);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--tx);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── Animaciones ──────────────────────────────────────────────────────────── */
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes aparecer {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  62% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes latir {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.subir {
+  animation: subir 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+.aparecer {
+  animation: aparecer 0.38s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+.latir {
+  animation: latir 2.2s ease-in-out infinite;
+}
+
+.escalonado > * {
+  animation: subir 0.42s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+.escalonado > *:nth-child(1) { animation-delay: 0.02s; }
+.escalonado > *:nth-child(2) { animation-delay: 0.05s; }
+.escalonado > *:nth-child(3) { animation-delay: 0.08s; }
+.escalonado > *:nth-child(4) { animation-delay: 0.11s; }
+.escalonado > *:nth-child(5) { animation-delay: 0.14s; }
+.escalonado > *:nth-child(6) { animation-delay: 0.17s; }
+.escalonado > *:nth-child(7) { animation-delay: 0.2s; }
+.escalonado > *:nth-child(n + 8) { animation-delay: 0.23s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .subir,
+  .aparecer,
+  .latir,
+  .escalonado > * {
+    animation: none;
+  }
+}
+
+/* ── Piezas ───────────────────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--sh);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 13px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--tx2);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.13s ease,
+    filter 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.975);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-oro {
+  background: var(--oro);
+  border-color: var(--oro);
+  color: var(--sobreOro);
+  box-shadow: var(--shs);
+}
+.btn-suave {
+  background: var(--oroBg);
+  border-color: var(--oroLn);
+  color: var(--oro);
+}
+.btn-ok {
+  background: var(--okBg);
+  border-color: var(--okLn);
+  color: var(--ok);
+}
+.btn-mal {
+  background: var(--malBg);
+  border-color: var(--malLn);
+  color: var(--mal);
+}
+.btn-icono {
+  min-height: 42px;
+  width: 42px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.btn-chico {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  border-radius: 11px;
+}
+
+.campo {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 15px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--tx);
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+}
+.campo::placeholder {
+  color: var(--tx3);
+  font-weight: 500;
+}
+.campo:focus {
+  border-color: var(--oroLn);
+}
+.campo-chico {
+  min-height: 44px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+
+.etiqueta {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tx3);
+}
+
+.pastilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--tx3);
+  white-space: nowrap;
+}
+.pastilla.ok {
+  background: var(--okBg);
+  border-color: var(--okLn);
+  color: var(--ok);
+}
+.pastilla.av {
+  background: var(--avBg);
+  border-color: var(--avLn);
+  color: var(--av);
+}
+.pastilla.mal {
+  background: var(--malBg);
+  border-color: var(--malLn);
+  color: var(--mal);
+}
+.punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Rarezas: cada tarjeta de item toma su color de aca. */
+.r-comun { --c: var(--c1); --cBg: var(--c1Bg); --cLn: var(--c1Ln); }
+.r-excelente { --c: var(--c2); --cBg: var(--c2Bg); --cLn: var(--c2Ln); }
+.r-ancient { --c: var(--c3); --cBg: var(--c3Bg); --cLn: var(--c3Ln); }
+.r-divino { --c: var(--c4); --cBg: var(--c4Bg); --cLn: var(--c4Ln); }
+
+.icono-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  background: var(--cBg, var(--panel2));
+  border: 1px solid var(--cLn, var(--line));
+  color: var(--c, var(--tx3));
+  overflow: hidden;
+}
+.icono-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chip-rareza {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cBg);
+  color: var(--c);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.fila {
+  transition: background-color 0.18s ease;
+  border-radius: 12px;
+}
+.fila:hover {
+  background: var(--panel2);
+}
+
+.recorte {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--oroBg);
+  border: 1px solid var(--oroLn);
+  color: var(--oro);
+}
+.aviso.mal {
+  background: var(--malBg);
+  border-color: var(--malLn);
+  color: var(--mal);
+}
+
+.cargando {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line2);
+  border-top-color: var(--oro);
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+
+.scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+.scroll::-webkit-scrollbar {
+  width: 7px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 4px;
+}
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.marca {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  color: var(--oro);
+}
+
+/* ── Estructura de páginas ────────────────────────────────────────────────── */
+
+.pagina-ancha {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 16px 14px;
+}
+
+.vacio {
+  padding: 44px 20px;
+  text-align: center;
+  border: 1px dashed var(--line2);
+  border-radius: 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tx3);
+}
+
+@media (max-width: 900px) {
+  .oculta-chico {
+    display: none !important;
+  }
+}
+
+/* ── Panel del admin ──────────────────────────────────────────────────────── */
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.barra-admin {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 18px 0 20px;
+}
+
+.form-item {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.form-item > .crece {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.item-admin {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 8px;
+}
+.item-admin > .datos {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.item-admin > .dueno {
+  flex: 0 1 190px;
+  min-width: 0;
+}
+.item-admin > .acciones {
+  display: flex;
+  gap: 7px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@media (max-width: 1000px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Pantalla única del jugador: botones en las esquinas y hojas ──────────── */
+
+.btn-esquina {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  max-width: 44vw;
+  padding: 0 15px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--tx2);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--sh);
+  transition:
+    transform 0.13s ease,
+    filter 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.btn-esquina:hover {
+  filter: brightness(1.1);
+}
+.btn-esquina:active {
+  transform: scale(0.96);
+}
+.btn-esquina.acento {
+  background: var(--oroBg);
+  border-color: var(--oroLn);
+  color: var(--oro);
+}
+
+.hoja {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fundir 0.2s ease both;
+}
+@keyframes fundir {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes deslizar {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.hoja-cuerpo {
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+  animation: deslizar 0.28s cubic-bezier(0.22, 0.8, 0.3, 1) both;
+}
+@media (min-width: 640px) {
+  .hoja {
+    align-items: center;
+  }
+  .hoja-cuerpo {
+    max-width: 540px;
+    max-height: 84vh;
+    border-bottom: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 22px 20px 24px;
+  }
+}
+.hoja-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+/* ── Tablero de una sola vista ────────────────────────────────────────────── */
+
+/* La pantalla ocupa exactamente la ventana: nunca scrollea la página entera,
+   solo las listas de adentro si desbordan. */
+.tablero {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  gap: 10px;
+}
+
+.barra-tablero {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cuerpo-tablero {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+  /* Celular: los cuatro apilados. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas:
+    'items'
+    'almas'
+    'asedio'
+    'gremio';
+}
+
+/* Tablet: las tres ruedas a la izquierda, el gremio al costado. */
+@media (min-width: 760px) {
+  .cuerpo-tablero {
+    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'items gremio'
+      'almas gremio'
+      'asedio gremio';
+  }
+  .tablero {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+}
+
+/* Pantalla ancha: las cuatro cajas una al lado de la otra. */
+@media (min-width: 1100px) {
+  .cuerpo-tablero {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 280px;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: 'items almas asedio gremio';
+  }
+}
+
+.caja.items { grid-area: items; }
+.caja.almas { grid-area: almas; }
+.caja.asedio { grid-area: asedio; }
+.caja.gremio { grid-area: gremio; }
+
+/* Un panel que llena su celda y scrollea por dentro. */
+.caja {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shs);
+}
+.caja > header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
+.caja > .lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+/* En pantalla chica el orden del gremio no se come todo el alto. */
+@media (max-width: 759px) {
+  .caja.gremio {
+    max-height: 34vh;
+  }
+}
+
+.titulo-caja {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.item-fila {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px;
+  border-radius: 11px;
+}
+
+/* ── Drops en grilla y colores de la rueda ────────────────────────────────── */
+
+/* La lista del gremio se pinta según en qué está cada uno. */
+.fila-gremio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+.fila-gremio.cobro {
+  background: var(--oroBg);
+  box-shadow: inset 3px 0 0 var(--oro);
+}
+.fila-gremio.inactivo {
+  background: var(--malBg);
+  box-shadow: inset 3px 0 0 var(--mal);
+}
+.fila-gremio.sigue {
+  background: var(--okBg);
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.marca-fila {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Vista de drops apilados: una fila por drop, a lo ancho. */
+.lista-drops {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+
+.fila-drop {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 8px;
+  border-radius: 11px;
+  transition: background-color 0.18s ease;
+}
+.fila-drop:hover {
+  background: var(--panel2);
+}
+.fila-drop .nombre-drop {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fila-drop .dueno-drop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  max-width: 58%;
+}
+
+/* ── La cola de cada rueda ────────────────────────────────────────────────── */
+
+/* En celular manda la banda de turno (B); desde 760px, la cola completa (A). */
+.solo-angosto { display: block; }
+.solo-ancho { display: none; }
+@media (min-width: 760px) {
+  .solo-angosto { display: none; }
+  .solo-ancho { display: block; }
+}
+
+.turno {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 9px;
+}
+.turno + .turno { margin-top: 4px; }
+.turno .n {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  background: var(--line);
+  color: var(--tx3);
+}
+.turno .quien {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.turno .marca {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Le toca: verde. */
+.turno.toca { background: var(--okBg); }
+.turno.toca .n { background: var(--ok); color: var(--okBg); }
+.turno.toca .quien { color: var(--tx); font-weight: 800; }
+.turno.toca .marca { color: var(--ok); }
+
+/* El que viene después: amarillo. */
+.turno.proximo { background: var(--avBg); }
+.turno.proximo .n { background: var(--av); color: var(--avBg); }
+.turno.proximo .quien { color: var(--tx); font-weight: 700; }
+.turno.proximo .marca { color: var(--av); }
+
+/* Ya cobró en este Kundun. */
+.turno.cobro .quien { color: var(--oro); }
+.turno.cobro .marca { color: var(--oro); }
+
+/* No estuvo: la rueda lo saltea. */
+.turno.fuera .quien {
+  color: var(--tx3);
+  text-decoration: line-through;
+}
+.turno.fuera .marca { color: var(--mal); }
+
+/* ── A quién le toca cada item ────────────────────────────────────────────── */
+
+.turno-item {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.18s ease;
+}
+.turno-item:hover { border-color: var(--line); }
+.turno-item.abierta {
+  border-color: var(--line);
+  background: transparent;
+}
+
+.cabeza-turno {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 9px;
+  border: none;
+  background: transparent;
+  color: var(--tx);
+  cursor: pointer;
+  text-align: left;
+}
+.cabeza-turno:hover .chevron { color: var(--tx2); }
+
+.cabeza-turno .quienes {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 52%;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.cabeza-turno .toca { color: var(--ok); }
+.cabeza-turno .flecha { color: var(--tx3); font-weight: 600; }
+.cabeza-turno .prox { color: var(--av); font-weight: 700; }
+
+.cabeza-turno .chevron {
+  flex-shrink: 0;
+  color: var(--tx3);
+  display: flex;
+  transition: transform 0.2s ease;
+}
+.cabeza-turno .chevron.abierto { transform: rotate(180deg); }
+
+.turno-item .vuelta {
+  padding: 2px 9px 9px 50px;
+}
+
+/* ── La ventana "Lista Drops" ─────────────────────────────────────────────── */
+
+.lista-item {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 11px 12px 9px;
+}
+.lista-item + .lista-item { margin-top: 10px; }
+
+.lista-item > .encabezado {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.lista-item .hoy-sigue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.lista-item .rotulo-mini {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tx3);
+}
+
+/* Panel: las tres listas de participantes, una al lado de la otra. */
+.grilla-listas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.fila-lista {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.fila-lista:hover {
+  border-color: var(--line2);
+}
+
+.fila-lista.dentro {
+  border-color: var(--okLn);
+  background: var(--okBg);
+}
+
+.fila-lista input {
+  accent-color: var(--ok);
+  cursor: pointer;
+}
+
+/* Los domingos hay dos campos de carga: Kundun y asedio. */
+.campos-domingo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .campos-domingo {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Panel: los tres minutos de la ventana de registro, en fila. */
+.minutos-horario {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Catálogo: en qué listas sale un item. Se prende y se apaga cada una. */
+.chip-lista {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--tx3);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.chip-lista:hover:not(:disabled) {
+  border-color: var(--line2);
+  color: var(--tx2);
+}
+
+.chip-lista.dentro {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+  color: var(--oro);
+}
+
+.chip-lista:disabled {
+  cursor: default;
+}
+
+/* Tablero: anotarse al Kundun. */
+.btn-esquina.estoy {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+  color: var(--oro);
+  font-weight: 800;
+}
+
+.btn-esquina.estoy:hover {
+  border-color: var(--oro);
+}
+
+.grilla-quien {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 7px;
+  margin-top: 6px;
+}
+
+.chip-quien {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--tx2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 11px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.chip-quien:hover:not(:disabled) {
+  border-color: var(--line2);
+  color: var(--tx);
+}
+
+.chip-quien.vino {
+  color: var(--ok);
+}
+
+.chip-quien.elegido {
+  border-color: var(--oro);
+  background: var(--oroBg);
+  color: var(--oro);
+}
+
+.tilde-mini {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--ok);
+}
+
+.campo-pin {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-align: center;
+  padding: 14px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tilde-grande {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  color: var(--ok);
+  background: var(--okBg);
+  border: 1px solid var(--okLn);
+}
+
+/* Historial: cada Kundun se abre y muestra qué salió. */
+.kundun-viejo {
+  border-bottom: 1px solid var(--line);
+}
+
+.kundun-viejo:last-child {
+  border-bottom: none;
+}
+
+.kundun-viejo > .cabecera {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.kundun-viejo > .cabecera:hover {
+  background: var(--panel2);
+}
+
+.kundun-viejo > .cabecera > .sello {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.kundun-viejo.abierto > .cabecera > .sello {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.kundun-viejo > .cabecera > .flecha {
+  font-size: 9px;
+  color: var(--tx3);
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+.drops-viejos {
+  display: grid;
+  gap: 4px;
+  padding: 2px 0 12px 57px;
+}
+
+@media (max-width: 520px) {
+  .drops-viejos {
+    padding-left: 8px;
+  }
+}
+
+/* Un personaje ya anotado no se puede volver a elegir. */
+.chip-quien:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.chip-quien.vino:disabled {
+  opacity: 0.8;
+}

@@ -1,0 +1,22 @@
+Tokens del app (modo oscuro), copiados de src/estilos.css para que los bocetos
+usen exactamente los mismos colores que la app real:
+
+  --bg      #14110d      fondo de la pantalla
+  --panel   #1c1712      cuadro grande
+  --panel2  #231d16      sub-caja
+  --line    #2e2720      borde
+  --line2   #443729      borde fuerte
+  --tx      #f1e9db      texto
+  --tx2     #a99d89      texto secundario
+  --tx3     #7c7163      texto apagado
+  --oro     #e0b871      el que se llevó el drop
+  --oroBg   #2a2015
+  --oroLn   #5b4826
+  --ok      #79c895      el que sigue en la rueda
+  --okBg    #132119
+  --okLn    #2d4b36
+  --mal     #e08d7c      inactivo
+  --malBg   #251310
+
+Tipografía: Manrope (400/500/700/800) para todo, Cinzel 700 solo para el logo.
+Radios: 16px el cuadro grande, 13px la sub-caja, 11px las filas.
