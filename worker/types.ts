@@ -211,6 +211,8 @@ export interface Estado {
       estado: EstadoItem;
     }>;
   } | null;
+  /** Las clases del gremio, con su retrato ya resuelto. */
+  clases: Array<{ codigo: string; nombre: string; imagen: string; propia: boolean }>;
   historial: Array<{
     id: number;
     numero: number;

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, type EstadoConAviso } from './api';
 import { useTema } from './componentes/BotonTema';
+import { ProveedorClases } from './componentes/Clase';
 import Login from './paginas/Login';
 import Tablero from './paginas/Tablero';
 import Admin from './paginas/Admin';
@@ -71,6 +72,9 @@ export default function App() {
   }
 
   const props = { estado, setEstado, recargar, tema, alternarTema };
+  const conClases = (pantalla: ReactNode) => (
+    <ProveedorClases clases={estado.clases}>{pantalla}</ProveedorClases>
+  );
 
   // Solo hay dos pantallas: el tablero público y el panel, que es el único con contraseña.
   if (ruta === '/admin') {
@@ -82,10 +86,10 @@ export default function App() {
       ir('/');
       return null;
     }
-    return <Admin {...props} />;
+    return conClases(<Admin {...props} />);
   }
 
-  return <Tablero {...props} />;
+  return conClases(<Tablero {...props} />);
 }
 
 export interface PropsPagina {

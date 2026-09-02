@@ -1,3 +1,4 @@
+import { leerClases } from './clases';
 import { googleConfigurado } from './google';
 import {
   comoHora,
@@ -566,6 +567,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     items,
     turnos,
     anterior,
+    clases: await leerClases(db),
     historial: historial.results.map((h) => ({
       id: h.id,
       numero: h.numero,

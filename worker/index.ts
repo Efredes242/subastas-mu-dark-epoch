@@ -11,7 +11,7 @@ import {
   type Variables,
 } from './auth';
 import { asegurarEnCatalogo, comoTitulo, ICONOS, normalizar, parsearLote, RAREZAS } from './catalogo';
-import { CODIGOS } from './clases';
+import { DE_FABRICA, normalizarCodigo } from './clases';
 import {
   asegurarEvento,
   COLAS,
@@ -750,6 +750,98 @@ app.delete('/api/catalogo/:id', requiereAdmin, async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Clases de personaje ───────────────────────────────────────────────────────
+
+/**
+ * Crear una clase. El código es lo que queda guardado en cada personaje ("BK"); el nombre es
+ * lo que se lee ("Royal Knight"). La imagen es obligatoria salvo que el código sea uno de los
+ * que ya traen su archivo en public/clases/.
+ */
+app.post('/api/clases', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const codigo = normalizarCodigo(texto(cuerpo.codigo, 8));
+  if (!codigo) return c.json({ error: 'El código va en letras y números, hasta 8 caracteres.' }, 400);
+
+  const nombre = texto(cuerpo.nombre, 60);
+  if (nombre.length < 2) return c.json({ error: 'Poné el nombre de la clase.' }, 400);
+
+  const ya = await c.env.DB.prepare('SELECT 1 FROM clases WHERE codigo = ?').bind(codigo).first();
+  if (ya) return c.json({ error: `Ya existe una clase con el código ${codigo}.` }, 409);
+
+  if (typeof cuerpo.imagen === 'string' && cuerpo.imagen.length > MAX_IMAGEN) {
+    return c.json({ error: 'Esa imagen pesa demasiado. Probá con una más chica.' }, 413);
+  }
+  const imagen = imagenValida(cuerpo.imagen);
+  if (!imagen && !DE_FABRICA.includes(codigo)) {
+    return c.json({ error: 'Subí el retrato de la clase.' }, 400);
+  }
+
+  const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM clases').first<{ n: number | null }>();
+  await c.env.DB.prepare('INSERT INTO clases (codigo, nombre, imagen, orden) VALUES (?, ?, ?, ?)')
+    .bind(codigo, nombre, imagen, (ultimo?.n ?? 0) + 1)
+    .run();
+
+  return c.json(await construirEstado(c.env, c.get('usuario')));
+});
+
+/** Cambiarle el nombre o el retrato. `imagen: null` la devuelve a su archivo estático. */
+app.patch('/api/clases/:codigo', requiereAdmin, async (c) => {
+  const codigo = normalizarCodigo(c.req.param('codigo'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const clase = codigo
+    ? await c.env.DB.prepare('SELECT * FROM clases WHERE codigo = ?').bind(codigo).first<{
+        codigo: string;
+        nombre: string;
+        imagen: string | null;
+      }>()
+    : null;
+  if (!clase) return c.json({ error: 'Esa clase no existe.' }, 404);
+
+  if (typeof cuerpo.imagen === 'string' && cuerpo.imagen.length > MAX_IMAGEN) {
+    return c.json({ error: 'Esa imagen pesa demasiado. Probá con una más chica.' }, 413);
+  }
+
+  const nombre = typeof cuerpo.nombre === 'string' ? texto(cuerpo.nombre, 60) || clase.nombre : clase.nombre;
+  // Quitarle la imagen a una clase de fábrica la devuelve a su PNG; a una propia la deja sin nada.
+  const imagen = cuerpo.imagen === null ? null : (imagenValida(cuerpo.imagen) ?? clase.imagen);
+
+  if (imagen === null && !DE_FABRICA.includes(clase.codigo)) {
+    return c.json({ error: 'Esta clase necesita un retrato: no trae uno de fábrica.' }, 400);
+  }
+
+  await c.env.DB.prepare('UPDATE clases SET nombre = ?, imagen = ? WHERE codigo = ?')
+    .bind(nombre, imagen, clase.codigo)
+    .run();
+
+  return c.json(await construirEstado(c.env, c.get('usuario')));
+});
+
+/** Borrarla. Los personajes que la tenían quedan sin clase, no se rompe nada. */
+app.delete('/api/clases/:codigo', requiereAdmin, async (c) => {
+  const codigo = normalizarCodigo(c.req.param('codigo'));
+  if (!codigo) return c.json({ error: 'Esa clase no existe.' }, 404);
+
+  const usando = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE clase = ?')
+    .bind(codigo)
+    .first<{ n: number }>();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE usuarios SET clase = '' WHERE clase = ?").bind(codigo),
+    c.env.DB.prepare('DELETE FROM clases WHERE codigo = ?').bind(codigo),
+  ]);
+
+  const estado = await construirEstado(c.env, c.get('usuario'));
+  const cuantos = usando?.n ?? 0;
+  return c.json({
+    ...estado,
+    ...(cuantos > 0
+      ? { aviso: `${cuantos} ${cuantos === 1 ? 'personaje quedó' : 'personajes quedaron'} sin clase.` }
+      : {}),
+  });
+});
+
 // ── Miembros y orden de prioridad ─────────────────────────────────────────────
 
 const ROLES = ['admin', 'grandmaster', 'invitado'];
@@ -797,6 +889,10 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
 
   const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM usuarios').first<{ n: number | null }>();
 
+  const pedida = typeof cuerpo.clase === 'string' ? normalizarCodigo(cuerpo.clase) : null;
+  const claseDelAlta =
+    pedida && (await c.env.DB.prepare('SELECT 1 FROM clases WHERE codigo = ?').bind(pedida).first()) ? pedida : '';
+
   await c.env.DB.prepare(
     'INSERT INTO usuarios (usuario, personaje, email, password_hash, rol, pc, orden, clase) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   )
@@ -808,7 +904,7 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
       ROLES.includes(cuerpo.rol) ? cuerpo.rol : 'invitado',
       Math.max(0, entero(cuerpo.pc)),
       (ultimo?.n ?? 0) + 1,
-      CODIGOS.includes(cuerpo.clase) ? cuerpo.clase : '',
+      claseDelAlta,
     )
     .run();
 
@@ -826,9 +922,10 @@ app.patch('/api/miembros/:id', requiereAdmin, async (c) => {
     await c.env.DB.prepare('UPDATE usuarios SET personaje = ? WHERE id = ?').bind(texto(cuerpo.personaje, 60), id).run();
   }
   if (typeof cuerpo.clase === 'string') {
-    // Un código que no conocemos deja al personaje sin clase, no rompe nada.
-    const clase = CODIGOS.includes(cuerpo.clase) ? cuerpo.clase : '';
-    await c.env.DB.prepare('UPDATE usuarios SET clase = ? WHERE id = ?').bind(clase, id).run();
+    // Un código que no está en la tabla deja al personaje sin clase, no rompe nada.
+    const pedida = normalizarCodigo(cuerpo.clase);
+    const existe = pedida && (await c.env.DB.prepare('SELECT 1 FROM clases WHERE codigo = ?').bind(pedida).first());
+    await c.env.DB.prepare('UPDATE usuarios SET clase = ? WHERE id = ?').bind(existe ? pedida : '', id).run();
   }
   if (typeof cuerpo.email === 'string' || cuerpo.email === null) {
     const email = cuerpo.email === null ? null : texto(cuerpo.email, 120).toLowerCase() || null;

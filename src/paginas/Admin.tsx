@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { achicarImagen, api, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
-import { RetratoClase } from '../componentes/Clase';
-import { CLASES } from '../../worker/clases';
+import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import {
@@ -225,6 +224,11 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
       )}
 
       {solapa === 'listas' && esAdmin && <Listas estado={estado} alError={setError} setEstado={setEstado} />}
+      {solapa === 'miembros' && esAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          <Clases estado={estado} alError={setError} setEstado={setEstado} />
+        </div>
+      )}
       {solapa === 'miembros' && esAdmin && <Miembros alError={setError} alListo={recargar} yoId={yo.id} />}
       {solapa === 'catalogo' && <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />}
 
@@ -941,6 +945,7 @@ function Miembros({
   alListo: () => Promise<void>;
   yoId: number;
 }) {
+  const clases = useClases();
   const [lista, setLista] = useState<Miembro[]>([]);
   const [bajas, setBajas] = useState<Miembro[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -1013,7 +1018,7 @@ function Miembros({
               onChange={(e) => setClase(e.target.value)}
             >
               <option value="">sin clase</option>
-              {CLASES.map((cl) => (
+              {clases.map((cl) => (
                 <option key={cl.codigo} value={cl.codigo}>
                   {cl.nombre} ({cl.codigo})
                 </option>
@@ -1083,7 +1088,7 @@ function Miembros({
                     onChange={(e) => void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { clase: e.target.value } }))}
                   >
                     <option value="">sin clase</option>
-                    {CLASES.map((cl) => (
+                    {clases.map((cl) => (
                       <option key={cl.codigo} value={cl.codigo}>
                         {cl.nombre} ({cl.codigo})
                       </option>
@@ -1450,6 +1455,206 @@ function CajaHorario({
       >
         {guardado ? 'Horario guardado' : 'Guardar horario'}
       </button>
+    </section>
+  );
+}
+
+// ── Clases de personaje ───────────────────────────────────────────────────────
+
+/**
+ * Las clases del gremio: se crean, se les cambia el nombre y se les sube el retrato.
+ *
+ * Las cuatro que vienen con la app traen su PNG adentro del bundle; al resto hay que
+ * subirle una imagen, que se guarda en la base como las de los items del catálogo.
+ */
+function Clases({
+  estado,
+  alError,
+  setEstado,
+}: {
+  estado: EstadoConAviso;
+  alError: (m: string) => void;
+  setEstado: (e: EstadoConAviso) => void;
+}) {
+  const clases = estado.clases;
+  const [codigo, setCodigo] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [imagen, setImagen] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+
+  async function correr(fn: () => Promise<EstadoConAviso>) {
+    setOcupado(true);
+    alError('');
+    try {
+      setEstado(await fn());
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo guardar la clase.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function elegirImagen(archivo: File | undefined, alTener: (dato: string) => void) {
+    if (!archivo) return;
+    try {
+      alTener(await achicarImagen(archivo, 96));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No pude usar esa imagen.');
+    }
+  }
+
+  const crear = () =>
+    correr(async () => {
+      const r = await api<EstadoConAviso>('/clases', { cuerpo: { codigo, nombre, imagen } });
+      setCodigo('');
+      setNombre('');
+      setImagen(null);
+      return r;
+    });
+
+  return (
+    <section className="panel subir" style={{ padding: '17px 14px 14px' }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800 }}>Clases de personaje</h2>
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
+        El código es lo que se guarda en cada personaje; el nombre es lo que se lee. El retrato
+        aparece al lado del nombre en todos lados.
+      </p>
+
+      <div className="form-item" style={{ marginBottom: 16 }}>
+        <label
+          className="soltar-retrato"
+          title={imagen ? 'Cambiar el retrato' : 'Subir el retrato'}
+          style={{ cursor: ocupado ? 'default' : 'pointer' }}
+        >
+          {imagen ? (
+            <img src={imagen} alt="" width={46} height={46} style={{ borderRadius: 10 }} />
+          ) : (
+            <Subir tam={17} />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            disabled={ocupado}
+            onChange={(ev) => {
+              void elegirImagen(ev.target.files?.[0], setImagen);
+              ev.target.value = '';
+            }}
+          />
+        </label>
+
+        <div style={{ flex: '0 1 110px', display: 'grid', gap: 6 }}>
+          <span className="etiqueta">Código</span>
+          <input
+            className="campo campo-chico"
+            value={codigo}
+            disabled={ocupado}
+            maxLength={8}
+            placeholder="MG"
+            title="Corto y en mayúsculas: BK, ELF, MG. Es lo que queda guardado en cada personaje."
+            onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+          />
+        </div>
+
+        <div className="crece" style={{ display: 'grid', gap: 6 }}>
+          <span className="etiqueta">Nombre</span>
+          <input
+            className="campo campo-chico"
+            value={nombre}
+            disabled={ocupado}
+            placeholder="Magic Gladiator"
+            onChange={(e) => setNombre(e.target.value)}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-chico"
+          disabled={ocupado || codigo.length < 1 || nombre.trim().length < 2 || !imagen}
+          onClick={() => void crear()}
+        >
+          <Mas tam={15} /> Agregar
+        </button>
+      </div>
+
+      <div className="escalonado">
+        {clases.map((cl) => {
+          const cuantos = estado.orden.filter((p) => p.clase === cl.codigo).length;
+          return (
+            <div
+              key={cl.codigo}
+              className="fila"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', flexWrap: 'wrap' }}
+            >
+              <label title="Cambiar el retrato" style={{ cursor: 'pointer', flexShrink: 0, display: 'block' }}>
+                <img src={cl.imagen} alt={cl.nombre} width={40} height={40} className="retrato-clase" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  disabled={ocupado}
+                  onChange={(ev) => {
+                    void elegirImagen(ev.target.files?.[0], (dato) =>
+                      correr(() => api(`/clases/${cl.codigo}`, { metodo: 'PATCH', cuerpo: { imagen: dato } })),
+                    );
+                    ev.target.value = '';
+                  }}
+                />
+              </label>
+
+              <span className="pastilla" style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800 }}>
+                {cl.codigo}
+              </span>
+
+              <input
+                className="campo campo-chico"
+                style={{ flex: '1 1 160px', minWidth: 0 }}
+                defaultValue={cl.nombre}
+                disabled={ocupado}
+                onBlur={(e) => {
+                  const nuevo = e.target.value.trim();
+                  if (nuevo.length >= 2 && nuevo !== cl.nombre) {
+                    void correr(() => api(`/clases/${cl.codigo}`, { metodo: 'PATCH', cuerpo: { nombre: nuevo } }));
+                  }
+                }}
+              />
+
+              <span style={{ fontSize: 12, color: 'var(--tx3)', flexShrink: 0 }}>
+                {cuantos === 0 ? 'sin nadie' : cuantos === 1 ? '1 personaje' : `${cuantos} personajes`}
+              </span>
+
+              {cl.propia && (
+                <button
+                  type="button"
+                  className="btn btn-chico"
+                  disabled={ocupado}
+                  title="Volver al retrato que trae la app"
+                  onClick={() => void correr(() => api(`/clases/${cl.codigo}`, { metodo: 'PATCH', cuerpo: { imagen: null } }))}
+                >
+                  Retrato original
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-mal btn-chico"
+                disabled={ocupado}
+                title={cuantos > 0 ? `${cuantos} quedarían sin clase` : 'Borrar la clase'}
+                onClick={() => {
+                  const aviso =
+                    cuantos > 0
+                      ? `¿Borrar ${cl.nombre}? ${cuantos} ${cuantos === 1 ? 'personaje queda' : 'personajes quedan'} sin clase.`
+                      : `¿Borrar ${cl.nombre}?`;
+                  if (!confirm(aviso)) return;
+                  void correr(() => api(`/clases/${cl.codigo}`, { metodo: 'DELETE' }));
+                }}
+              >
+                <Tacho tam={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

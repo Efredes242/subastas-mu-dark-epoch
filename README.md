@@ -155,7 +155,8 @@ El horario vive en la tabla `ajustes` (una sola fila). `HORARIO_POR_DEFECTO` en
 ## Clases
 
 Cada personaje tiene su clase y su retrato al lado del nombre, en el tablero, en las ruedas y en
-el panel.
+el panel. Se manejan desde **Miembros → Clases de personaje**, sin tocar código: se crea una con su
+código, su nombre y su retrato, y de ahí en adelante aparece en el desplegable de cada personaje.
 
 | Código | Clase |
 | --- | --- |
@@ -164,17 +165,16 @@ el panel.
 | `SM` | Warrior Mage |
 | `DL` | Dark Lord |
 
-En la base solo va el código; el nombre y la imagen salen de `worker/clases.ts`, que usan el
-Worker para validar lo que llega y el front para pintar.
+El **código** es lo que queda guardado en cada personaje (`BK`), corto y en mayúsculas; el
+**nombre** es lo que se lee (`Royal Knight`).
 
-Los retratos son **archivos estáticos** en `public/clases/`, generados por `scripts/iconos.mjs`
-desde `imagenes/BK.png` y compañía. Son cuatro y no cambian, así que no van a la base como las
-imágenes del catálogo, que ésas sí las sube el admin.
+El retrato sale de dos lados. Esas cuatro traen su PNG en `public/clases/`, generado por
+`scripts/iconos.mjs` desde `imagenes/`: pesan menos y los cachea el navegador. Cualquier clase
+nueva necesita una imagen subida, que se guarda en la base como las de los items del catálogo. A
+las de fábrica también se les puede subir una, y un botón las devuelve a su retrato original.
 
-Para agregar una clase: se suma al arreglo de `worker/clases.ts`, se deja el PNG en `imagenes/`
-con el nombre del código y se corre `node scripts/iconos.mjs`.
-
-Un personaje sin clase no muestra nada: el nombre queda solo, sin un hueco vacío al lado.
+Borrar una clase no rompe nada: los personajes que la tenían quedan sin clase y el aviso dice
+cuántos fueron. Un personaje sin clase no muestra retrato, el nombre queda solo.
 
 ---
 

@@ -1272,3 +1272,23 @@ select {
   opacity: 0.4;
   filter: grayscale(0.8);
 }
+
+/* Alta de clase: el cuadrito donde se suelta el retrato. */
+.soltar-retrato {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line2);
+  border-radius: 12px;
+  background: var(--panel2);
+  color: var(--tx3);
+  overflow: hidden;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.soltar-retrato:hover {
+  border-color: var(--oroLn);
+  color: var(--oro);
+}
