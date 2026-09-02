@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, comoGmt, faltan, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
+import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
@@ -162,6 +163,7 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
         return (
           <div key={p.id} className={`turno ${clase}`}>
             <span className="n">{i + 1}</span>
+            <RetratoClase clase={p.clase} tam={22} />
             <span className="quien">{p.personaje}</span>
             <span className="marca">{marca}</span>
           </div>
@@ -358,7 +360,10 @@ function Anotarse({
                 setError('');
               }}
             >
-              {p.personaje}
+              <RetratoClase clase={p.clase} tam={26} />
+              <span className="recorte" style={{ flex: 1 }}>
+                {p.personaje}
+              </span>
               {p.vino && <span className="tilde-mini">✓</span>}
             </button>
           ))}
@@ -546,6 +551,8 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
                     >
                       {p.posicion}
                     </span>
+
+                    <RetratoClase clase={p.clase} tam={26} />
 
                     <span
                       className="recorte"

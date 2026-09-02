@@ -11,6 +11,7 @@ import {
   type Variables,
 } from './auth';
 import { asegurarEnCatalogo, comoTitulo, ICONOS, normalizar, parsearLote, RAREZAS } from './catalogo';
+import { CODIGOS } from './clases';
 import {
   asegurarEvento,
   COLAS,
@@ -765,7 +766,7 @@ app.get('/api/miembros', requiereAdmin, async (c) => {
     rol: u.rol,
     pc: u.pc,
     activo: u.activo === 1,
-    recibeItems: u.recibe_items === 1,
+    clase: u.clase,
     tieneGoogle: !!u.google_sub,
     tienePassword: u.password_hash.length > 0,
   });
@@ -797,7 +798,7 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
   const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM usuarios').first<{ n: number | null }>();
 
   await c.env.DB.prepare(
-    'INSERT INTO usuarios (usuario, personaje, email, password_hash, rol, pc, orden) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO usuarios (usuario, personaje, email, password_hash, rol, pc, orden, clase) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   )
     .bind(
       usuario,
@@ -807,6 +808,7 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
       ROLES.includes(cuerpo.rol) ? cuerpo.rol : 'invitado',
       Math.max(0, entero(cuerpo.pc)),
       (ultimo?.n ?? 0) + 1,
+      CODIGOS.includes(cuerpo.clase) ? cuerpo.clase : '',
     )
     .run();
 
@@ -822,6 +824,11 @@ app.patch('/api/miembros/:id', requiereAdmin, async (c) => {
   }
   if (typeof cuerpo.personaje === 'string') {
     await c.env.DB.prepare('UPDATE usuarios SET personaje = ? WHERE id = ?').bind(texto(cuerpo.personaje, 60), id).run();
+  }
+  if (typeof cuerpo.clase === 'string') {
+    // Un código que no conocemos deja al personaje sin clase, no rompe nada.
+    const clase = CODIGOS.includes(cuerpo.clase) ? cuerpo.clase : '';
+    await c.env.DB.prepare('UPDATE usuarios SET clase = ? WHERE id = ?').bind(clase, id).run();
   }
   if (typeof cuerpo.email === 'string' || cuerpo.email === null) {
     const email = cuerpo.email === null ? null : texto(cuerpo.email, 120).toLowerCase() || null;

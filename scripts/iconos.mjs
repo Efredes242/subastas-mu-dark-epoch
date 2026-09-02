@@ -50,3 +50,19 @@ const manifiesto = {
 
 fs.writeFileSync(join(DESTINO, 'manifest.webmanifest'), JSON.stringify(manifiesto, null, 2) + '\n');
 console.log('manifest.webmanifest');
+
+// Los retratos de clase, del tamaño en que se ven al lado de cada nombre.
+// Se sirven como archivos estáticos: son fijos, no los sube nadie desde el panel.
+const CLASES = ['BK', 'ELF', 'SM', 'DL'];
+fs.mkdirSync(join(DESTINO, 'clases'), { recursive: true });
+
+for (const clase of CLASES) {
+  const salida = join(DESTINO, 'clases', clase.toLowerCase() + '.png');
+  await sharp(join(RAIZ, 'imagenes', clase + '.png'))
+    .resize(96, 96, { fit: 'cover', kernel: 'lanczos3' })
+    .png({ compressionLevel: 9 })
+    .toFile(salida);
+
+  const peso = (fs.statSync(salida).size / 1024).toFixed(1);
+  console.log(('clases/' + clase.toLowerCase() + '.png').padEnd(22), '96x96', peso + ' KB');
+}

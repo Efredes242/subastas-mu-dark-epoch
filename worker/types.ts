@@ -37,6 +37,8 @@ export interface FilaUsuario {
   avatar: string | null;
   zona: string | null;
   recibe_items: number;
+  /** Código de clase: BK, ELF, SM, DL. Vacío si todavía no se le puso. */
+  clase: string;
 }
 
 export interface FilaEvento {
@@ -173,6 +175,8 @@ export interface Estado {
     vino: boolean;
     /** En qué listas participa: items | almas | asedio. */
     listas: string[];
+    /** Código de clase, para el retrato al lado del nombre. Vacío si no tiene. */
+    clase: string;
   }>;
   items: ItemPublico[];
   /**
@@ -189,7 +193,7 @@ export interface Estado {
     cola: string;
     /** Cuántos de este item salieron en el Kundun de ahora. */
     salieron: number;
-    vuelta: Array<{ id: number; personaje: string; vino: boolean; seLlevo: number }>;
+    vuelta: Array<{ id: number; personaje: string; vino: boolean; seLlevo: number; clase: string }>;
   }>;
   /** El reparto del Kundun anterior, para que todos vean quién se llevó qué. */
   anterior: {

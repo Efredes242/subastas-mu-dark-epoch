@@ -152,6 +152,38 @@ El horario vive en la tabla `ajustes` (una sola fila). `HORARIO_POR_DEFECTO` en
 
 ---
 
+## Clases
+
+Cada personaje tiene su clase y su retrato al lado del nombre, en el tablero, en las ruedas y en
+el panel.
+
+| Código | Clase |
+| --- | --- |
+|  | Royal Knight |
+|  | High Elf |
+|  | Warrior Mage |
+|  | Dark Lord |
+
+En la base solo va el código; el nombre y la imagen salen de , que usan el
+Worker para validar y el front para pintar. Los retratos son **archivos estáticos** en
+, generados por  desde  y compañía: son
+cuatro y no cambian, así que no tiene sentido guardarlos en la base como las imágenes del catálogo.
+
+Para agregar una clase se toca el arreglo de , se deja el PNG en con el nombre del código y se corre avicon-32.png         32x32 2.7 KB
+favicon-48.png         48x48 5.9 KB
+apple-touch-icon.png   180x180 69.8 KB
+icon-192.png           192x192 78.4 KB
+icon-512.png           512x512 457.7 KB
+manifest.webmanifest
+clases/bk.png          96x96 27.0 KB
+clases/elf.png         96x96 24.1 KB
+clases/sm.png          96x96 26.7 KB
+clases/dl.png          96x96 26.1 KB.
+
+Un personaje sin clase no muestra nada: el nombre queda solo, sin un hueco vacío al lado.
+
+---
+
 ## Roles
 
 | Rol | Qué puede hacer | Cómo entra |

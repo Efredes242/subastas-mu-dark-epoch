@@ -488,6 +488,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
           personaje: u.personaje,
           vino: vinieron.has(u.id),
           seLlevo: suyos.filter((i) => i.duenoId === u.id).length,
+          clase: u.clase,
         })),
       });
     }
@@ -559,6 +560,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       pc: u.pc,
       posicion: i + 1,
       vino: vinieron.has(u.id),
+      clase: u.clase,
       listas: COLAS.filter((cola) => quienes[cola]?.has(u.id)),
     })),
     items,

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { achicarImagen, api, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
+import { RetratoClase } from '../componentes/Clase';
+import { CLASES } from '../../worker/clases';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import {
@@ -49,6 +51,7 @@ interface Miembro {
   rol: 'admin' | 'grandmaster' | 'invitado';
   pc: number;
   activo: boolean;
+  clase: string;
   tieneGoogle: boolean;
   tienePassword: boolean;
 }
@@ -529,6 +532,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     >
                       {p.vino && <Tilde tam={14} />}
                     </span>
+                    <RetratoClase clase={p.clase} tam={22} />
                     <span className="recorte" style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>
                       {p.personaje}
                     </span>
@@ -585,6 +589,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     >
                       {p.posicion}
                     </div>
+                    <RetratoClase clase={p.clase} tam={22} />
                     <div className="recorte" style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>
                       {p.personaje}
                       {marcaDeListas(p.listas) && (
@@ -944,6 +949,7 @@ function Miembros({
   const [personaje, setPersonaje] = useState('');
   const [pc, setPc] = useState('');
   const [password, setPassword] = useState('');
+  const [clase, setClase] = useState('');
 
   async function traer() {
     try {
@@ -978,10 +984,11 @@ function Miembros({
 
   const crear = () =>
     correr(async () => {
-      await api('/miembros', { cuerpo: { personaje, pc: leerPC(pc), password } });
+      await api('/miembros', { cuerpo: { personaje, pc: leerPC(pc), password, clase } });
       setPersonaje('');
       setPc('');
       setPassword('');
+      setClase('');
     });
 
   return (
@@ -996,6 +1003,22 @@ function Miembros({
           <div className="crece" style={{ display: 'grid', gap: 6 }}>
             <span className="etiqueta">Personaje</span>
             <input className="campo campo-chico" value={personaje} onChange={(e) => setPersonaje(e.target.value)} placeholder="Darkblade" />
+          </div>
+          <div style={{ flex: '0 1 150px', display: 'grid', gap: 6 }}>
+            <span className="etiqueta">Clase</span>
+            <select
+              className="campo campo-chico"
+              style={{ cursor: 'pointer' }}
+              value={clase}
+              onChange={(e) => setClase(e.target.value)}
+            >
+              <option value="">sin clase</option>
+              {CLASES.map((cl) => (
+                <option key={cl.codigo} value={cl.codigo}>
+                  {cl.nombre} ({cl.codigo})
+                </option>
+              ))}
+            </select>
           </div>
           <div style={{ flex: '0 1 130px', display: 'grid', gap: 6 }}>
             <span className="etiqueta">PC</span>
@@ -1037,7 +1060,9 @@ function Miembros({
           <div className="escalonado">
             {lista.map((m) => (
               <div key={m.id} className="fila" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+                <RetratoClase clase={m.clase} tam={40} />
+
+                <div style={{ flex: '1 1 130px', minWidth: 0 }}>
                   <div className="recorte" style={{ fontSize: 14.5, fontWeight: 700 }}>
                     {m.personaje}
                   </div>
@@ -1046,6 +1071,25 @@ function Miembros({
                     {m.tieneGoogle && ' · Google vinculado'}
                   </div>
                 </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+                  <span className="etiqueta">Clase</span>
+                  <select
+                    className="campo campo-chico"
+                    style={{ width: 'auto', minWidth: 130, cursor: 'pointer' }}
+                    value={m.clase}
+                    disabled={ocupado}
+                    title="La clase del personaje. El retrato sale de acá."
+                    onChange={(e) => void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { clase: e.target.value } }))}
+                  >
+                    <option value="">sin clase</option>
+                    {CLASES.map((cl) => (
+                      <option key={cl.codigo} value={cl.codigo}>
+                        {cl.nombre} ({cl.codigo})
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 1 220px', minWidth: 0 }}>
                   <span className="etiqueta">Gmail</span>
