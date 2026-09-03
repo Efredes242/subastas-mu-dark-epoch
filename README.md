@@ -275,6 +275,11 @@ del asedio, aunque ese item también salga en el Kundun. El domingo lo decide el
 el reloj: el Kundun de las 21 se termina de cargar ya entrado el lunes y sigue contando como
 domingo. Para probarlo cualquier día está el botón **Probar un domingo**.
 
+Abajo, el botín queda **partido en dos bloques**: *Drops del Kundun* y *Drops del Castle Siege*,
+cada uno con su color al costado. Los domingos los dos repartos caen en el mismo evento y en una
+lista corrida no se distingue un Cristal del Kundun de uno del asedio. Los días que sale una sola
+clase de drop aparece un solo bloque.
+
 ### Si algo sale torcido
 
 Queda **Cerrar subasta y repartir**, que reparte lo que haya quedado sin asignar —por ejemplo si se

@@ -9,6 +9,7 @@ import {
   Abajo,
   Alerta,
   Arriba,
+  Cofre,
   Escudo,
   Gente,
   Glifo,
@@ -36,6 +37,92 @@ const LISTA_DE: Record<string, string> = {
   almas: 'Lista de almas de guerra',
   asedio: 'Lista del Castle Siege',
 };
+
+/**
+ * El botín, partido por de dónde salió cada drop.
+ *
+ * Los domingos se cargan los dos en el mismo evento y en una sola lista se mezclan: el que
+ * reparte no distingue un Cristal del Kundun de uno del asedio. Lo que fue a la lista del
+ * asedio salió del asedio; el resto, del Kundun.
+ */
+function porOrigen(items: EstadoConAviso['items']) {
+  const grupos = [
+    { clave: 'kundun' as const, titulo: 'Drops del Kundun', items: items.filter((i) => i.cola !== 'asedio') },
+    { clave: 'asedio' as const, titulo: 'Drops del Castle Siege', items: items.filter((i) => i.cola === 'asedio') },
+  ];
+  return grupos.filter((g) => g.items.length > 0);
+}
+
+/**
+ * Un drop del botín. En el grupo del asedio no repite de qué lista salió: lo dice el título.
+ */
+function FilaBotin({
+  it,
+  grupo,
+  ocupado,
+  accion,
+}: {
+  it: EstadoConAviso['items'][number];
+  grupo: 'kundun' | 'asedio';
+  ocupado: boolean;
+  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
+}) {
+  return (
+    <div className={`fila item-admin de-${grupo} r-${it.rareza}`}>
+      <div className="datos">
+        <IconoItem icono={it.icono} imagen={it.imagen} rareza={it.rareza} tam={40} />
+        <div style={{ minWidth: 0 }}>
+          <div className="recorte" style={{ fontSize: 14, fontWeight: 700 }}>
+            {it.etiqueta}
+          </div>
+          {grupo === 'kundun' && (
+            <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 3 }}>
+              {LISTA_DE[it.cola] ?? it.cola}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="dueno">
+        <div
+          className="recorte"
+          style={{ fontSize: 14, fontWeight: 700, color: it.dueno ? 'var(--oro)' : 'var(--tx3)' }}
+        >
+          {it.dueno ?? 'Sin repartir'}
+        </div>
+        {it.metodo && (
+          <div
+            className="recorte"
+            style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--tx3)', marginTop: 2 }}
+          >
+            {it.metodo}
+          </div>
+        )}
+      </div>
+
+      <div className="acciones">
+        {it.estado === 'abierto' && (
+          <button type="button" className="btn btn-suave btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/asignar`, { cuerpo: {} }))}>
+            Repartir
+          </button>
+        )}
+        {it.estado === 'reclamado' && (
+          <button type="button" className="btn btn-ok btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/entregar`, { cuerpo: {} }))}>
+            Ya lo ganó
+          </button>
+        )}
+        {it.estado === 'entregado' && (
+          <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/reabrir`, { cuerpo: {} }))}>
+            Reabrir
+          </button>
+        )}
+        <button type="button" className="btn btn-chico" style={{ width: 36, padding: 0 }} title="Borrar item" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}`, { metodo: 'DELETE' }))}>
+          <Tacho tam={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const ROLES = [
   ['invitado', 'Invitado'],
@@ -626,51 +713,18 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 {estado.items.length === 0 ? (
                   <div className="vacio">Todavía no cargaste ningún item.</div>
                 ) : (
-                  <div className="escalonado">
-                    {estado.items.map((it) => (
-                      <div key={it.id} className={`fila item-admin r-${it.rareza}`}>
-                        <div className="datos">
-                          <IconoItem icono={it.icono} imagen={it.imagen} rareza={it.rareza} tam={40} />
-                          <div style={{ minWidth: 0 }}>
-                            <div className="recorte" style={{ fontSize: 14, fontWeight: 700 }}>
-                              {it.etiqueta}
-                            </div>
-                            <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 3 }}>
-                              {LISTA_DE[it.cola] ?? it.cola}
-                            </div>
-                          </div>
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    {porOrigen(estado.items).map((grupo) => (
+                      <div key={grupo.clave}>
+                        <div className={`titulo-grupo ${grupo.clave}`}>
+                          {grupo.clave === 'asedio' ? <Escudo tam={13} /> : <Cofre tam={13} />}
+                          <span>{grupo.titulo}</span>
+                          <span className="cuantos">{grupo.items.length}</span>
                         </div>
-
-                        <div className="dueno">
-                          <div className="recorte" style={{ fontSize: 14, fontWeight: 700, color: it.dueno ? 'var(--oro)' : 'var(--tx3)' }}>
-                            {it.dueno ?? 'Sin repartir'}
-                          </div>
-                          {it.metodo && (
-                            <div className="recorte" style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--tx3)', marginTop: 2 }}>
-                              {it.metodo}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="acciones">
-                          {it.estado === 'abierto' && (
-                            <button type="button" className="btn btn-suave btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/asignar`, { cuerpo: {} }))}>
-                              Repartir
-                            </button>
-                          )}
-                          {it.estado === 'reclamado' && (
-                            <button type="button" className="btn btn-ok btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/entregar`, { cuerpo: {} }))}>
-                              Ya lo ganó
-                            </button>
-                          )}
-                          {it.estado === 'entregado' && (
-                            <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}/reabrir`, { cuerpo: {} }))}>
-                              Reabrir
-                            </button>
-                          )}
-                          <button type="button" className="btn btn-chico" style={{ width: 36, padding: 0 }} title="Borrar item" disabled={ocupado} onClick={() => accion(() => api(`/items/${it.id}`, { metodo: 'DELETE' }))}>
-                            <Tacho tam={15} />
-                          </button>
+                        <div className="escalonado">
+                          {grupo.items.map((it) => (
+                            <FilaBotin key={it.id} it={it} grupo={grupo.clave} ocupado={ocupado} accion={accion} />
+                          ))}
                         </div>
                       </div>
                     ))}
