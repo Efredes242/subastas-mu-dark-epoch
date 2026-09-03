@@ -572,6 +572,58 @@ select {
   border-left-color: var(--c3Ln);
 }
 
+/* Las líneas para cantar el reparto por el chat. En el chat del juego entra un renglón por
+   vez, así que cada una es un botón aparte y se tilda al copiarla. */
+.linea-chat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--tx);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.linea-chat > .texto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linea-chat > svg {
+  flex-shrink: 0;
+  color: var(--tx3);
+}
+
+.linea-chat:hover {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.linea-chat:hover > svg {
+  color: var(--oro);
+}
+
+.linea-chat.copiada {
+  border-color: var(--okLn);
+  background: var(--okBg);
+  color: var(--tx2);
+}
+
+.linea-chat.copiada > svg {
+  color: var(--ok);
+}
+
 @media (max-width: 1000px) {
   .admin-grid {
     grid-template-columns: 1fr;

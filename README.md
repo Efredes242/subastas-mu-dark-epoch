@@ -280,6 +280,21 @@ cada uno con su color al costado. Los domingos los dos repartos caen en el mismo
 lista corrida no se distingue un Cristal del Kundun de uno del asedio. Los días que sale una sola
 clase de drop aparece un solo bloque.
 
+### 3. Cantarlo por el chat
+
+Debajo del botín está **Para avisar por el chat**: una línea por drop, con el formato que ya usa
+el gremio.
+
+```
+Alckron = Cristal del Caos
+Rikiya = Almas de Guerra
+```
+
+En el chat del juego entra un renglón por vez, así que no sirve copiar el bloque entero: cada
+línea tiene su botón y **queda tildada en verde al copiarla**, para no perder la cuenta yendo de a
+una. Arriba se ve cuántas van y hay un **Destildar** para volver a empezar. Los domingos las líneas
+salen en los mismos dos bloques que el botín.
+
 ### Si algo sale torcido
 
 Queda **Cerrar subasta y repartir**, que reparte lo que haya quedado sin asignar —por ejemplo si se

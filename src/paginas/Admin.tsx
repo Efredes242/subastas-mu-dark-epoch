@@ -10,6 +10,7 @@ import {
   Alerta,
   Arriba,
   Cofre,
+  Copiar,
   Escudo,
   Gente,
   Glifo,
@@ -121,6 +122,115 @@ function FilaBotin({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Las líneas para cantar el reparto por el chat del juego, una por drop.
+ *
+ * En el chat del Mu entra un renglón por vez: no sirve copiar el bloque entero. Así que cada
+ * línea va con su botón y queda tildada al copiarla, para no perder la cuenta yendo de a una.
+ * El texto es el que se usa hoy en el gremio: "Personaje = Item".
+ */
+function AvisosDeChat({ items }: { items: EstadoConAviso['items'] }) {
+  const [copiadas, setCopiadas] = useState<Set<number>>(new Set());
+  const [fallo, setFallo] = useState('');
+
+  const repartidos = items.filter((i) => i.dueno);
+  if (repartidos.length === 0) return null;
+
+  const linea = (it: EstadoConAviso['items'][number]) => `${it.dueno} = ${it.nombre}`;
+
+  async function copiar(it: EstadoConAviso['items'][number]) {
+    const texto = linea(it);
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      // Sin permiso al portapapeles queda el truco viejo: un textarea fuera de pantalla.
+      const caja = document.createElement('textarea');
+      caja.value = texto;
+      caja.style.position = 'fixed';
+      caja.style.opacity = '0';
+      document.body.appendChild(caja);
+      caja.select();
+      const anduvo = document.execCommand('copy');
+      caja.remove();
+      if (!anduvo) {
+        setFallo('El navegador no dejó copiar. Seleccioná la línea a mano.');
+        return;
+      }
+    }
+    setFallo('');
+    setCopiadas((previas) => new Set(previas).add(it.id));
+  }
+
+  const grupos = porOrigen(repartidos);
+
+  return (
+    <section className="panel subir" style={{ padding: '17px 14px 14px', minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+          padding: '0 4px 12px',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Para avisar por el chat</h2>
+          <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 4 }}>
+            Una línea por drop. Tocá para copiarla y pegala en el chat.
+          </div>
+        </div>
+        {copiadas.size > 0 && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span className="num" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ok)' }}>
+              {copiadas.size} de {repartidos.length} copiadas
+            </span>
+            <button type="button" className="btn btn-chico" onClick={() => setCopiadas(new Set())}>
+              Destildar
+            </button>
+          </span>
+        )}
+      </div>
+
+      {fallo && (
+        <div className="aviso mal" style={{ margin: '0 4px 12px' }}>
+          <Alerta tam={16} />
+          <span>{fallo}</span>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 14 }}>
+        {grupos.map((grupo) => (
+          <div key={grupo.clave}>
+            {grupos.length > 1 && (
+              <div className={`titulo-grupo ${grupo.clave}`}>
+                {grupo.clave === 'asedio' ? <Escudo tam={13} /> : <Cofre tam={13} />}
+                <span>{grupo.titulo}</span>
+                <span className="cuantos">{grupo.items.length}</span>
+              </div>
+            )}
+            <div style={{ display: 'grid', gap: 5 }}>
+              {grupo.items.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  className={`linea-chat${copiadas.has(it.id) ? ' copiada' : ''}`}
+                  onClick={() => void copiar(it)}
+                  title="Copiar esta línea"
+                >
+                  <span className="texto">{linea(it)}</span>
+                  {copiadas.has(it.id) ? <Tilde tam={15} /> : <Copiar tam={15} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -732,6 +842,8 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 )}
               </section>
             )}
+
+            {evento && <AvisosDeChat items={estado.items} />}
           </div>
 
           <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
