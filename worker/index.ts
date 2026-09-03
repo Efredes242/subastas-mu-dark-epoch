@@ -305,7 +305,10 @@ app.post('/api/eventos/:id/presentes', requiereGrandMaster, async (c) => {
 
   await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 0 WHERE id = ?').bind(eventoId).run();
 
-  return c.json(await construirEstado(c.env, c.get('usuario')));
+  // Devuelve lo mínimo a propósito: la pantalla ya pintó el tilde sola y el refresco de cada
+  // ocho segundos reconcilia. Rearmar el estado entero para un checkbox eran quince consultas
+  // y casi un segundo de espera por clic.
+  return c.json({ ok: true });
 });
 
 /** Marca de una a todo el gremio, para cuando fueron todos. */

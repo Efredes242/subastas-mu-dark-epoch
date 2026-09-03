@@ -18,7 +18,7 @@ export interface ClasePublica {
   propia: boolean;
 }
 
-interface FilaClase {
+export interface FilaClase {
   codigo: string;
   nombre: string;
   imagen: string | null;
@@ -39,15 +39,18 @@ export function normalizarCodigo(crudo: string): string | null {
   return codigo.length >= 1 && codigo.length <= 8 ? codigo : null;
 }
 
-export async function leerClases(db: D1Database): Promise<ClasePublica[]> {
-  const { results } = await db
-    .prepare('SELECT codigo, nombre, imagen, orden FROM clases ORDER BY orden ASC, codigo ASC')
-    .all<FilaClase>();
-
+export function comoClases(results: FilaClase[]): ClasePublica[] {
   return results.map((c) => ({
     codigo: c.codigo,
     nombre: c.nombre,
     imagen: c.imagen ?? rutaEstatica(c.codigo),
     propia: c.imagen !== null,
   }));
+}
+
+export async function leerClases(db: D1Database): Promise<ClasePublica[]> {
+  const { results } = await db
+    .prepare('SELECT codigo, nombre, imagen, orden FROM clases ORDER BY orden ASC, codigo ASC')
+    .all<FilaClase>();
+  return comoClases(results);
 }

@@ -80,13 +80,50 @@ function ListaAsistencia({
   evento,
   ocupado,
   accion,
+  alError,
 }: {
   estado: EstadoConAviso;
   evento: NonNullable<EstadoConAviso['evento']>;
   ocupado: boolean;
   accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
+  alError: (m: string) => void;
 }) {
-  const vinieron = estado.orden.filter((p) => p.vino).length;
+  /**
+   * El tilde se pinta al toque y el pedido va por atrás.
+   *
+   * Marcar a alguien es un viaje a la base; esperarlo para recién ahí mostrar el tilde deja la
+   * lista colgada un segundo por clic. Acá se guarda lo que se tocó y todavía no confirmó el
+   * servidor: si vuelve bien, manda la respuesta; si falla, se descarta y queda como estaba.
+   */
+  const [tocados, setTocados] = useState<Map<number, boolean>>(new Map());
+  const [pendientes, setPendientes] = useState(0);
+
+  const vino = (p: { id: number; vino: boolean }) => tocados.get(p.id) ?? p.vino;
+  const vinieron = estado.orden.filter(vino).length;
+
+  async function marcar(id: number, presente: boolean) {
+    setTocados((previos) => new Map(previos).set(id, presente));
+    setPendientes((n) => n + 1);
+    alError('');
+    try {
+      await api(`/eventos/${evento.id}/presentes`, { cuerpo: { usuarioId: id, presente } });
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo marcar.');
+      setTocados((previos) => {
+        const copia = new Map(previos);
+        copia.delete(id);
+        return copia;
+      });
+    } finally {
+      setPendientes((n) => n - 1);
+    }
+  }
+
+  // Sin pedidos en el aire, manda lo que dice el servidor.
+  useEffect(() => {
+    if (pendientes === 0) setTocados(new Map());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendientes, estado.orden]);
 
   return (
     <>
@@ -96,7 +133,10 @@ function ListaAsistencia({
             className="btn btn-chico"
             style={{ flex: 1 }}
             disabled={ocupado}
-            onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: true } }))}
+            onClick={() => {
+              setTocados(new Map(estado.orden.map((p) => [p.id, true])));
+              void accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: true } }));
+            }}
           >
             Fueron todos
           </button>
@@ -105,7 +145,10 @@ function ListaAsistencia({
             className="btn btn-chico"
             style={{ flex: 1 }}
             disabled={ocupado || vinieron === 0}
-            onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: false } }))}
+            onClick={() => {
+              setTocados(new Map(estado.orden.map((p) => [p.id, false])));
+              void accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: false } }));
+            }}
           >
             Limpiar
           </button>
@@ -116,10 +159,7 @@ function ListaAsistencia({
             key={p.id}
             type="button"
             className="fila"
-            disabled={ocupado}
-            onClick={() =>
-              accion(() => api(`/eventos/${evento.id}/presentes`, { cuerpo: { usuarioId: p.id, presente: !p.vino } }))
-            }
+            onClick={() => void marcar(p.id, !vino(p))}
             style={{
               width: '100%',
               display: 'flex',
@@ -127,7 +167,7 @@ function ListaAsistencia({
               gap: 11,
               padding: '10px 8px',
               border: 'none',
-              background: p.vino ? 'var(--okBg)' : 'transparent',
+              background: vino(p) ? 'var(--okBg)' : 'transparent',
               cursor: 'pointer',
               textAlign: 'left',
               color: 'var(--tx)',
@@ -140,13 +180,13 @@ function ListaAsistencia({
                 flexShrink: 0,
                 borderRadius: 7,
                 border: `1px solid ${p.vino ? 'var(--ok)' : 'var(--line2)'}`,
-                background: p.vino ? 'var(--ok)' : 'transparent',
+                background: vino(p) ? 'var(--ok)' : 'transparent',
                 color: 'var(--okBg)',
                 display: 'grid',
                 placeItems: 'center',
               }}
             >
-              {p.vino && <Tilde tam={14} />}
+              {vino(p) && <Tilde tam={14} />}
             </span>
             <RetratoClase clase={p.clase} tam={22} />
             <span className="recorte" style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>
@@ -189,6 +229,7 @@ function AvisoDeKundun({
   zona,
   ocupado,
   accion,
+  alError,
   alCerrar,
 }: {
   estado: EstadoConAviso;
@@ -196,6 +237,7 @@ function AvisoDeKundun({
   zona: string;
   ocupado: boolean;
   accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
+  alError: (m: string) => void;
   alCerrar: () => void;
 }) {
   const vinieron = estado.orden.filter((p) => p.vino).length;
@@ -228,7 +270,7 @@ function AvisoDeKundun({
         </p>
 
         <div className="gente">
-          <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} />
+          <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} alError={alError} />
         </div>
 
         <div className="cierre">
@@ -338,6 +380,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
           zona={zona}
           ocupado={ocupado}
           accion={accion}
+          alError={setError}
           alCerrar={cerrarAviso}
         />
       )}
@@ -706,7 +749,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                   Al que no marques se lo saltea y pierde la vuelta.
                 </p>
 
-                <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} />
+                <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} alError={setError} />
 
                 <div style={{ padding: '12px 6px 4px' }}>
                   {evento.asistenciaLista ? (

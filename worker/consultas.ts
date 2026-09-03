@@ -1,4 +1,4 @@
-import { leerClases } from './clases';
+import { comoClases, type FilaClase } from './clases';
 import { googleConfigurado } from './google';
 import {
   comoHora,
@@ -146,14 +146,17 @@ export const NOMBRE_COLA: Record<Cola, string> = {
 };
 
 /** Quiénes participan en cada lista, tal como los armó el admin. */
+export function agruparParticipantes(filas: { cola: string; usuario_id: number }[]): Record<string, Set<number>> {
+  const mapa: Record<string, Set<number>> = { items: new Set(), almas: new Set(), asedio: new Set() };
+  for (const p of filas) (mapa[p.cola] ??= new Set()).add(p.usuario_id);
+  return mapa;
+}
+
 export async function participantesDe(db: D1Database): Promise<Record<string, Set<number>>> {
   const { results } = await db
     .prepare('SELECT cola, usuario_id FROM participantes')
     .all<{ cola: string; usuario_id: number }>();
-
-  const mapa: Record<string, Set<number>> = { items: new Set(), almas: new Set(), asedio: new Set() };
-  for (const p of results) (mapa[p.cola] ??= new Set()).add(p.usuario_id);
-  return mapa;
+  return agruparParticipantes(results);
 }
 
 /** Los que dan la vuelta en una lista, en el orden del gremio. */
@@ -176,11 +179,8 @@ export function enLaRueda(usuarios: FilaUsuario[], cola: Cola, quienes: Record<s
  * En qué listas sale cada item del catálogo. La CQC cae en el Kundun y en el asedio;
  * el Cofre de Asedio, solo en el asedio.
  */
-export async function colasDeCatalogo(db: D1Database): Promise<Map<number, Cola[]>> {
-  const { results } = await db
-    .prepare('SELECT catalogo_id, cola FROM catalogo_colas')
-    .all<{ catalogo_id: number; cola: string }>();
-
+export function agruparColas(filas: { catalogo_id: number; cola: string }[]): Map<number, Cola[]> {
+  const results = filas;
   const mapa = new Map<number, Cola[]>();
   for (const f of results) {
     if (!COLAS.includes(f.cola as Cola)) continue;
@@ -193,12 +193,32 @@ export async function colasDeCatalogo(db: D1Database): Promise<Map<number, Cola[
   return mapa;
 }
 
+export async function colasDeCatalogo(db: D1Database): Promise<Map<number, Cola[]>> {
+  const { results } = await db
+    .prepare('SELECT catalogo_id, cola FROM catalogo_colas')
+    .all<{ catalogo_id: number; cola: string }>();
+  return agruparColas(results);
+}
+
 /**
  * De qué lista sale un item cuando nadie fuerza nada.
  * El asedio queda último: solo manda si es lo único que tiene el item.
  */
 export function colaPorDefecto(colas: Cola[] | undefined): Cola {
   return colas?.find((k) => k !== 'asedio') ?? colas?.[0] ?? 'items';
+}
+
+/**
+ * Todos los turnos de una, para armar el estado.
+ *
+ * Antes esto era una consulta por rueda adentro de un bucle anidado: con cinco items en dos
+ * listas cada uno eran nueve viajes a la base cada vez que alguien tocaba algo, y crece con el
+ * catálogo. La clave del mapa es "catalogoId|cola".
+ */
+export function agruparTurnos(
+  filas: { catalogo_id: number; cola: string; usuario_id: number | null }[],
+): Map<string, number | null> {
+  return new Map(filas.map((t) => [`${t.catalogo_id}|${t.cola}`, t.usuario_id]));
 }
 
 /** El último que cobró ESTE item EN ESTA lista. De ahí arranca su próxima vuelta. */
@@ -327,65 +347,121 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   const horario = await leerHorario(db);
   const evento = await asegurarEvento(db, ahora, horario);
   const yoId = usuario?.id ?? null;
+  const eventoId = evento?.id ?? 0;
 
-  const orden = await ordenDePrioridad(db);
-  const posicionDe = new Map(orden.map((u, i) => [u.id, i + 1]));
-  const nombreDe = new Map(orden.map((u) => [u.id, u.personaje]));
-
-  const { results: catalogo } = await db.prepare('SELECT * FROM catalogo ORDER BY nombre').all<FilaCatalogo>();
-  const delCatalogo = new Map(catalogo.map((e) => [e.id, e]));
-
-  let vinieron = new Set<number>();
-  let items: ItemPublico[] = [];
-
-  if (evento) {
-    const asistencias = await db
-      .prepare('SELECT usuario_id FROM asistencias WHERE evento_id = ?')
-      .bind(evento.id)
-      .all<{ usuario_id: number }>();
-    vinieron = new Set(asistencias.results.map((a) => a.usuario_id));
-
-    const filas = await db
-      .prepare('SELECT * FROM items WHERE evento_id = ? ORDER BY id DESC')
-      .bind(evento.id)
-      .all<FilaItem>();
-
-    const pedidos = await db
+  /**
+   * Todo lo que no depende de nada más, en un solo viaje.
+   *
+   * En producción cada consulta es una ida y vuelta del Worker a D1: hacerlas en fila ponía
+   * `/api/estado` en tres segundos, y el tablero lo pide cada ocho. Agrupadas es un viaje.
+   */
+  const [
+    ordenR,
+    catalogoR,
+    asistenciasR,
+    itemsR,
+    pedidosR,
+    previoR,
+    participantesR,
+    colasR,
+    turnosR,
+    clasesR,
+    historialR,
+  ] = await db.batch([
+    db.prepare('SELECT * FROM usuarios WHERE activo = 1 ORDER BY orden ASC, pc DESC, id ASC'),
+    db.prepare('SELECT * FROM catalogo ORDER BY nombre'),
+    db.prepare('SELECT usuario_id FROM asistencias WHERE evento_id = ?').bind(eventoId),
+    db.prepare('SELECT * FROM items WHERE evento_id = ? ORDER BY id DESC').bind(eventoId),
+    db
       .prepare(
         `SELECT p.item_id, p.usuario_id
            FROM pedidos p
            JOIN items i ON i.id = p.item_id
           WHERE i.evento_id = ?`,
       )
-      .bind(evento.id)
-      .all<{ item_id: number; usuario_id: number }>();
+      .bind(eventoId),
+    db.prepare('SELECT * FROM eventos WHERE id <> ? AND es_prueba = 0 ORDER BY id DESC LIMIT 1').bind(eventoId),
+    db.prepare('SELECT cola, usuario_id FROM participantes'),
+    db.prepare('SELECT catalogo_id, cola FROM catalogo_colas'),
+    db.prepare('SELECT catalogo_id, cola, usuario_id FROM turnos'),
+    db.prepare('SELECT codigo, nombre, imagen, orden FROM clases ORDER BY orden ASC, codigo ASC'),
+    db
+      .prepare(
+        `SELECT e.id, e.numero, COALESCE(e.empieza_en, e.creado_en) AS fecha,
+                (SELECT COUNT(*) FROM asistencias a WHERE a.evento_id = e.id) AS participantes,
+                (SELECT COUNT(*) FROM items i WHERE i.evento_id = e.id) AS items,
+                (SELECT COUNT(*) FROM asistencias a WHERE a.evento_id = e.id AND a.usuario_id = ?) AS estuve,
+                (SELECT group_concat(i.nombre, ' · ') FROM items i
+                  WHERE i.evento_id = e.id AND i.asignado_a = ?) AS miItem
+           FROM eventos e
+          WHERE e.cerrado = 1 AND e.es_prueba = 0
+          ORDER BY e.id DESC
+          LIMIT 12`,
+      )
+      .bind(yoId ?? 0, yoId ?? 0),
+  ]);
+
+  const orden = ordenR.results as FilaUsuario[];
+  const posicionDe = new Map(orden.map((u, i) => [u.id, i + 1]));
+  const nombreDe = new Map(orden.map((u) => [u.id, u.personaje]));
+
+  const catalogo = catalogoR.results as FilaCatalogo[];
+  const delCatalogo = new Map(catalogo.map((e) => [e.id, e]));
+
+  let vinieron = new Set<number>();
+  let items: ItemPublico[] = [];
+
+  if (evento) {
+    vinieron = new Set((asistenciasR.results as { usuario_id: number }[]).map((a) => a.usuario_id));
 
     const porItem = new Map<number, number[]>();
-    for (const p of pedidos.results) {
+    for (const p of pedidosR.results as { item_id: number; usuario_id: number }[]) {
       const lista = porItem.get(p.item_id);
       if (lista) lista.push(p.usuario_id);
       else porItem.set(p.item_id, [p.usuario_id]);
     }
 
-    items = filas.results.map((it) => aPublico(it, porItem.get(it.id) ?? [], nombreDe, posicionDe, yoId, delCatalogo));
+    items = (itemsR.results as FilaItem[]).map((it) =>
+      aPublico(it, porItem.get(it.id) ?? [], nombreDe, posicionDe, yoId, delCatalogo),
+    );
   }
 
   // ── El Kundun anterior, para que todos vean quién se llevó qué ──────────────
-  const previo = await db
-    .prepare('SELECT * FROM eventos WHERE id <> ? AND es_prueba = 0 ORDER BY id DESC LIMIT 1')
-    .bind(evento?.id ?? 0)
-    .first<FilaEvento>();
+  const previo = (previoR.results as FilaEvento[])[0] ?? null;
+
+  // El historial es público: la pantalla del gremio no tiene login. Ya vino en el batch.
+  const historial = historialR as unknown as {
+    results: {
+      id: number;
+      numero: number;
+      fecha: string;
+      participantes: number;
+      items: number;
+      estuve: number;
+      miItem: string | null;
+    }[];
+  };
+
+  /**
+   * Lo último que falta, también en un solo viaje: los drops del Kundun anterior, cuánta gente
+   * hubo en él y qué salió en cada Kundun del historial.
+   */
+  const idsHistorial = historial.results.map((h) => h.id);
+  const [itemsPrevioR, cuantosPrevioR, dropsViejosR] = await db.batch([
+    db.prepare('SELECT * FROM items WHERE evento_id = ? ORDER BY asignado_a IS NULL, id ASC').bind(previo?.id ?? 0),
+    db.prepare('SELECT COUNT(*) AS n FROM asistencias WHERE evento_id = ?').bind(previo?.id ?? 0),
+    db.prepare(
+      `SELECT id, evento_id, nombre, rareza, icono, catalogo_id, cola, copia, copias, asignado_a
+         FROM items
+        WHERE evento_id IN (${idsHistorial.length > 0 ? idsHistorial.map(() => '?').join(', ') : 'NULL'})
+        ORDER BY asignado_a IS NULL, id ASC`,
+    ).bind(...idsHistorial),
+  ]);
 
   let anterior: Estado['anterior'] = null;
   if (previo) {
-    const filas = await db
-      .prepare('SELECT * FROM items WHERE evento_id = ? ORDER BY asignado_a IS NULL, id ASC')
-      .bind(previo.id)
-      .all<FilaItem>();
-    const cuantos = await db
-      .prepare('SELECT COUNT(*) AS n FROM asistencias WHERE evento_id = ?')
-      .bind(previo.id)
-      .first<{ n: number }>();
+    const filas = { results: itemsPrevioR.results as FilaItem[] };
+    const cuantos = (cuantosPrevioR.results as { n: number }[])[0];
 
     anterior = {
       id: previo.id,
@@ -407,46 +483,10 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     };
   }
 
-  // El historial es público: la pantalla del gremio no tiene login.
-  const historial = await db
-        .prepare(
-          `SELECT e.id, e.numero, COALESCE(e.empieza_en, e.creado_en) AS fecha,
-                  (SELECT COUNT(*) FROM asistencias a WHERE a.evento_id = e.id) AS participantes,
-                  (SELECT COUNT(*) FROM items i WHERE i.evento_id = e.id) AS items,
-                  (SELECT COUNT(*) FROM asistencias a WHERE a.evento_id = e.id AND a.usuario_id = ?) AS estuve,
-                  (SELECT group_concat(i.nombre, ' · ') FROM items i
-                    WHERE i.evento_id = e.id AND i.asignado_a = ?) AS miItem
-             FROM eventos e
-            WHERE e.cerrado = 1 AND e.es_prueba = 0
-            ORDER BY e.id DESC
-            LIMIT 12`,
-        )
-    .bind(yoId ?? 0, yoId ?? 0)
-    .all<{
-      id: number;
-      numero: number;
-      fecha: string;
-      participantes: number;
-      items: number;
-      estuve: number;
-      miItem: string | null;
-    }>();
-
   // Qué salió en cada uno de esos Kundun. Sin la imagen: la pone el tablero desde el catálogo.
   const dropsPorEvento = new Map<number, Estado['historial'][number]['drops']>();
-  if (historial.results.length > 0) {
-    const ids = historial.results.map((h) => h.id);
-    const { results: viejos } = await db
-      .prepare(
-        `SELECT id, evento_id, nombre, rareza, icono, catalogo_id, cola, copia, copias, asignado_a
-           FROM items
-          WHERE evento_id IN (${ids.map(() => '?').join(', ')})
-          ORDER BY asignado_a IS NULL, id ASC`,
-      )
-      .bind(...ids)
-      .all<FilaItem>();
-
-    for (const it of viejos) {
+  {
+    for (const it of dropsViejosR.results as FilaItem[]) {
       const entrada = it.catalogo_id === null ? undefined : delCatalogo.get(it.catalogo_id);
       const lista = dropsPorEvento.get(it.evento_id) ?? [];
       lista.push({
@@ -465,13 +505,14 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   // A quién le toca cada item del catálogo, con su vuelta girada desde ahí.
   // Es lo que el gremio consulta: el turno de la CQC no es el mismo que el de la Pluma.
 
-  const quienes = await participantesDe(db);
-  const colasDe = await colasDeCatalogo(db);
+  const quienes = agruparParticipantes(participantesR.results as { cola: string; usuario_id: number }[]);
+  const colasDe = agruparColas(colasR.results as { catalogo_id: number; cola: string }[]);
+  const ultimos = agruparTurnos(turnosR.results as { catalogo_id: number; cola: string; usuario_id: number | null }[]);
   const turnos: Estado['turnos'] = [];
 
   for (const entrada of catalogo) {
     for (const cola of colasDe.get(entrada.id) ?? []) {
-      const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), await turnoDe(db, entrada.id, cola));
+      const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), ultimos.get(`${entrada.id}|${cola}`) ?? null);
       const suyos = items.filter((i) => i.catalogoId === entrada.id && i.cola === cola);
 
       turnos.push({
@@ -555,7 +596,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     items,
     turnos,
     anterior,
-    clases: await leerClases(db),
+    clases: comoClases(clasesR.results as FilaClase[]),
     historial: historial.results.map((h) => ({
       id: h.id,
       numero: h.numero,

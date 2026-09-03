@@ -71,6 +71,11 @@ listas largas scrollean dentro de su caja y las dos barras quedan fijas arriba y
 Mientras hay un Kundun abierto el tablero **se refresca solo cada 8 segundos**: lo que carga el
 admin aparece sin que nadie toque nada.
 
+Ese pedido arma el estado entero, y en producción cada consulta a D1 es una ida y vuelta desde el
+Worker. Hechas en fila eran unos tres segundos; agrupadas con `db.batch()` en dos viajes quedan
+en menos de uno. Al tocar algo del catálogo o del gremio conviene mantener eso: **una consulta
+suelta dentro de un bucle cuesta cientos de milisegundos por vuelta**.
+
 Los tres botones de abajo: **Puja anterior** (quién se llevó qué la vez pasada), **Lista Drops** (la
 rueda de cada item, con el Castle Siege en su propia solapa) e **Historial** (todos los Kundun
 cerrados, cada uno se abre y muestra qué salió). El acceso al panel está dentro de **Horarios**,
