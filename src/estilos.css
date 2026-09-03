@@ -272,6 +272,8 @@ select {
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--tx);
+  /* Sin esto un textarea cae en la monoespaciada del navegador y desentona con todo. */
+  font-family: inherit;
   font-size: 16px;
   font-weight: 600;
   outline: none;
@@ -1670,4 +1672,17 @@ select {
   .aviso-kundun {
     max-width: 420px;
   }
+}
+
+/* El ejemplo de los cuadros de carga tiene que leerse como ejemplo, no como texto tipeado. */
+.campo::placeholder {
+  color: var(--tx3);
+  opacity: 0.55;
+  font-weight: 500;
+  font-style: italic;
+}
+
+textarea.campo::placeholder {
+  font-size: 13.5px;
+  letter-spacing: normal;
 }

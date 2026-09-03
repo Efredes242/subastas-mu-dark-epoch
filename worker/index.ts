@@ -200,7 +200,8 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   // La prueba viene con la asistencia ya confirmada: marca a todo el gremio.
   await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 1 WHERE id = ?').bind(evento.id).run();
 
-  // Todo el gremio presente y unos drops de ejemplo, uno de cada rueda.
+  // Todo el gremio presente, pero sin un solo drop: la prueba arranca vacía para poder
+  // recorrer el circuito entero, incluido cargar.
   const gremio = await c.env.DB.prepare('SELECT id FROM usuarios WHERE activo = 1').all<{ id: number }>();
   if (gremio.results.length > 0) {
     await c.env.DB.batch(
@@ -213,25 +214,11 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
     );
   }
 
-  const colasDePrueba = await colasDeCatalogo(c.env.DB);
-  for (const renglon of parsearLote(domingo ? '1 cqc, 2 almas de guerra, 1 cofre' : '1 cqc, 2 almas de guerra')) {
-    const entrada = await asegurarEnCatalogo(c.env.DB, renglon);
-    const cola = colaPorDefecto(colasDePrueba.get(entrada.id) ?? ['items']);
-    for (let i = 1; i <= renglon.cantidad; i++) {
-      await c.env.DB.prepare(
-        `INSERT INTO items (evento_id, nombre, tipo, rareza, icono, imagen, catalogo_id, copia, copias, cola)
-         VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
-      )
-        .bind(evento.id, entrada.nombre, entrada.rareza, entrada.icono, entrada.imagen, entrada.id, i, renglon.cantidad, cola)
-        .run();
-    }
-  }
-
   const estado = await construirEstado(c.env, c.get('usuario'));
   return c.json({
     ...estado,
     aviso:
-      `Kundun de prueba${domingo ? ' de domingo' : ''} abierto con todo el gremio presente y drops de ejemplo. ` +
+      `Kundun de prueba${domingo ? ' de domingo' : ''} abierto, vacío y con todo el gremio presente. ` +
       'Probá lo que quieras: al borrarlo, las ruedas vuelven a donde estaban.',
   });
 });
@@ -344,8 +331,14 @@ app.post('/api/eventos/:id/presentes/todos', requiereGrandMaster, async (c) => {
  * Cada unidad entra como un item aparte, porque cada una la puja una persona distinta.
  */
 /**
- * Confirmar quiénes estuvieron. Recién después se pueden cargar los drops, porque el reparto
- * sale en el momento de la carga y necesita saber entre quiénes.
+ * Guardar y confirmar quiénes estuvieron, de una sola vez.
+ *
+ * La pantalla arma la lista completa mientras se toca, sin pedir nada, y la manda entera al
+ * tocar Listo. Antes cada clic era un pedido: el tilde iba y venía hasta que llegaba el
+ * refresco, y se veía como un parpadeo.
+ *
+ * `presentes` es la lista definitiva; lo que no está adentro queda como ausente. Sin
+ * `presentes` solo se cambia la confirmación, que es lo que usa "Corregir la asistencia".
  */
 app.post('/api/eventos/:id/asistencia', requiereGrandMaster, async (c) => {
   const id = entero(c.req.param('id'));
@@ -355,19 +348,47 @@ app.post('/api/eventos/:id/asistencia', requiereGrandMaster, async (c) => {
   const evento = await eventoActivo(c.env.DB);
   if (!evento || evento.id !== id) return c.json({ error: 'Ese Kundun ya no está abierto.' }, 409);
 
-  if (listo) {
+  const escribe = Array.isArray(cuerpo.presentes);
+  const presentes = escribe
+    ? [...new Set((cuerpo.presentes as unknown[]).map(entero).filter((n) => n > 0))]
+    : [];
+
+  if (listo && escribe && presentes.length === 0) {
+    return c.json({ error: 'Marcá al menos a uno antes de seguir.' }, 400);
+  }
+
+  if (!escribe && listo) {
     const cuantos = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM asistencias WHERE evento_id = ?')
       .bind(id)
       .first<{ n: number }>();
-    if ((cuantos?.n ?? 0) === 0) {
-      return c.json({ error: 'Marcá al menos a uno antes de seguir.' }, 400);
-    }
+    if ((cuantos?.n ?? 0) === 0) return c.json({ error: 'Marcá al menos a uno antes de seguir.' }, 400);
   }
 
-  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = ? WHERE id = ?').bind(listo ? 1 : 0, id).run();
+  // La lista se reemplaza entera, así no hay que averiguar qué cambió respecto de lo guardado.
+  const escrituras = escribe
+    ? [
+        c.env.DB.prepare('DELETE FROM asistencias WHERE evento_id = ?').bind(id),
+        ...presentes.map((u) =>
+          c.env.DB.prepare('INSERT INTO asistencias (evento_id, usuario_id) VALUES (?, ?) ON CONFLICT DO NOTHING').bind(
+            id,
+            u,
+          ),
+        ),
+      ]
+    : [];
+
+  await c.env.DB.batch([
+    ...escrituras,
+    c.env.DB.prepare('UPDATE eventos SET asistencia_lista = ? WHERE id = ?').bind(listo ? 1 : 0, id),
+  ]);
 
   const estado = await construirEstado(c.env, c.get('usuario'));
-  return c.json({ ...estado, aviso: listo ? 'Listo. Ya podés cargar los drops.' : 'Volvé a marcar quiénes estuvieron.' });
+  return c.json({
+    ...estado,
+    aviso: listo
+      ? `Listo, estuvieron ${escribe ? presentes.length : estado.orden.filter((p) => p.vino).length}. Ya podés cargar los drops.`
+      : 'Volvé a marcar quiénes estuvieron.',
+  });
 });
 
 app.post('/api/items/lote', requiereGrandMaster, async (c) => {

@@ -75,55 +75,32 @@ interface EntradaCatalogo {
  * La lista para marcar quiénes estuvieron. La usan dos lugares: el cartel que salta cuando
  * arranca el Kundun y el paso 1 del panel, para corregirla después.
  */
+/**
+ * La lista para marcar quiénes estuvieron.
+ *
+ * No habla con el servidor: marcar y desmarcar es puro estado en la pantalla, instantáneo.
+ * La lista entera se guarda de una sola vez al tocar Listo. Antes cada clic era un pedido y
+ * el tilde iba y venía hasta que llegaba el refresco.
+ */
 function ListaAsistencia({
   estado,
-  evento,
+  marcados,
+  setMarcados,
   ocupado,
-  accion,
-  alError,
 }: {
   estado: EstadoConAviso;
-  evento: NonNullable<EstadoConAviso['evento']>;
+  marcados: Set<number>;
+  setMarcados: (s: Set<number>) => void;
   ocupado: boolean;
-  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
-  alError: (m: string) => void;
 }) {
-  /**
-   * El tilde se pinta al toque y el pedido va por atrás.
-   *
-   * Marcar a alguien es un viaje a la base; esperarlo para recién ahí mostrar el tilde deja la
-   * lista colgada un segundo por clic. Acá se guarda lo que se tocó y todavía no confirmó el
-   * servidor: si vuelve bien, manda la respuesta; si falla, se descarta y queda como estaba.
-   */
-  const [tocados, setTocados] = useState<Map<number, boolean>>(new Map());
-  const [pendientes, setPendientes] = useState(0);
+  const vino = (p: { id: number }) => marcados.has(p.id);
 
-  const vino = (p: { id: number; vino: boolean }) => tocados.get(p.id) ?? p.vino;
-  const vinieron = estado.orden.filter(vino).length;
-
-  async function marcar(id: number, presente: boolean) {
-    setTocados((previos) => new Map(previos).set(id, presente));
-    setPendientes((n) => n + 1);
-    alError('');
-    try {
-      await api(`/eventos/${evento.id}/presentes`, { cuerpo: { usuarioId: id, presente } });
-    } catch (e) {
-      alError(e instanceof Error ? e.message : 'No se pudo marcar.');
-      setTocados((previos) => {
-        const copia = new Map(previos);
-        copia.delete(id);
-        return copia;
-      });
-    } finally {
-      setPendientes((n) => n - 1);
-    }
-  }
-
-  // Sin pedidos en el aire, manda lo que dice el servidor.
-  useEffect(() => {
-    if (pendientes === 0) setTocados(new Map());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendientes, estado.orden]);
+  const alternar = (id: number) => {
+    const copia = new Set(marcados);
+    if (copia.has(id)) copia.delete(id);
+    else copia.add(id);
+    setMarcados(copia);
+  };
 
   return (
     <>
@@ -133,10 +110,7 @@ function ListaAsistencia({
             className="btn btn-chico"
             style={{ flex: 1 }}
             disabled={ocupado}
-            onClick={() => {
-              setTocados(new Map(estado.orden.map((p) => [p.id, true])));
-              void accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: true } }));
-            }}
+            onClick={() => setMarcados(new Set(estado.orden.map((p) => p.id)))}
           >
             Fueron todos
           </button>
@@ -144,11 +118,8 @@ function ListaAsistencia({
             type="button"
             className="btn btn-chico"
             style={{ flex: 1 }}
-            disabled={ocupado || vinieron === 0}
-            onClick={() => {
-              setTocados(new Map(estado.orden.map((p) => [p.id, false])));
-              void accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: false } }));
-            }}
+            disabled={ocupado || marcados.size === 0}
+            onClick={() => setMarcados(new Set())}
           >
             Limpiar
           </button>
@@ -159,7 +130,7 @@ function ListaAsistencia({
             key={p.id}
             type="button"
             className="fila"
-            onClick={() => void marcar(p.id, !vino(p))}
+            onClick={() => alternar(p.id)}
             style={{
               width: '100%',
               display: 'flex',
@@ -227,20 +198,21 @@ function AvisoDeKundun({
   estado,
   evento,
   zona,
+  marcados,
+  setMarcados,
   ocupado,
-  accion,
-  alError,
+  guardar,
   alCerrar,
 }: {
   estado: EstadoConAviso;
   evento: NonNullable<EstadoConAviso['evento']>;
   zona: string;
+  marcados: Set<number>;
+  setMarcados: (s: Set<number>) => void;
   ocupado: boolean;
-  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
-  alError: (m: string) => void;
+  guardar: () => void;
   alCerrar: () => void;
 }) {
-  const vinieron = estado.orden.filter((p) => p.vino).length;
   useEffect(() => {
     const alTeclado = (e: KeyboardEvent) => {
       if (e.key === 'Escape') alCerrar();
@@ -270,7 +242,7 @@ function AvisoDeKundun({
         </p>
 
         <div className="gente">
-          <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} alError={alError} />
+          <ListaAsistencia estado={estado} marcados={marcados} setMarcados={setMarcados} ocupado={ocupado} />
         </div>
 
         <div className="cierre">
@@ -278,11 +250,11 @@ function AvisoDeKundun({
             type="button"
             className="btn btn-ok"
             style={{ width: '100%', justifyContent: 'center' }}
-            disabled={ocupado || vinieron === 0}
-            onClick={() => accion(() => api(`/eventos/${evento.id}/asistencia`, { cuerpo: { listo: true } }))}
+            disabled={ocupado || marcados.size === 0}
+            onClick={guardar}
           >
             <Tilde tam={16} />
-            {vinieron === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${vinieron}`}
+            {marcados.size === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${marcados.size}`}
           </button>
           <button type="button" className="btn btn-chico" style={{ width: '100%', justifyContent: 'center' }} onClick={alCerrar}>
             Lo hago después
@@ -306,6 +278,12 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
   const [lote, setLote] = useState('');
   const [avisado, setAvisado] = useState<number | null>(() => yaAvisado());
+
+  /**
+   * Quiénes están marcados, mientras se marca. Vive acá porque lo comparten el cartel de
+   * inicio y el paso 1 del panel, y se guarda entero al tocar Listo.
+   */
+  const [marcados, setMarcados] = useState<Set<number>>(new Set());
   const [loteAsedio, setLoteAsedio] = useState('');
 
   useEffect(() => {
@@ -334,6 +312,20 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
   }
 
   const domingo = estado.agenda.esDomingo;
+  const eventoId = estado.evento?.id ?? 0;
+  const guardada = estado.evento?.asistenciaLista ?? false;
+
+  // Se sincroniza con lo guardado al cambiar de Kundun y después de cada guardado, no en cada
+  // refresco: si no, el tilde recién tocado volvería atrás.
+  useEffect(() => {
+    setMarcados(new Set(estado.orden.filter((p) => p.vino).map((p) => p.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventoId, guardada]);
+
+  const guardarAsistencia = () =>
+    accion(() =>
+      api(`/eventos/${eventoId}/asistencia`, { cuerpo: { listo: true, presentes: [...marcados] } }),
+    );
 
   const cargarLote = () =>
     accion(async () => {
@@ -378,9 +370,10 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
           estado={estado}
           evento={evento}
           zona={zona}
+          marcados={marcados}
+          setMarcados={setMarcados}
           ocupado={ocupado}
-          accion={accion}
-          alError={setError}
+          guardar={() => void guardarAsistencia()}
           alCerrar={cerrarAviso}
         />
       )}
@@ -552,7 +545,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                       value={lote}
                       disabled={!evento.asistenciaLista}
                       onChange={(e) => setLote(e.target.value)}
-                      placeholder={'1 cqc, 2 condor flame, 2 almas de guerra'}
+                      placeholder={'por ejemplo:  1 cqc, 2 condor flame, 2 almas de guerra'}
                       rows={3}
                       style={{ padding: 14, minHeight: 92, lineHeight: 1.5, resize: 'vertical', fontSize: 15 }}
                     />
@@ -566,7 +559,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                         value={loteAsedio}
                         disabled={!evento.asistenciaLista}
                         onChange={(e) => setLoteAsedio(e.target.value)}
-                        placeholder={'1 cofre de asedio, 2 joyas'}
+                        placeholder={'por ejemplo:  1 cofre de asedio, 2 plumas'}
                         rows={3}
                         style={{ padding: 14, minHeight: 92, lineHeight: 1.5, resize: 'vertical', fontSize: 15 }}
                       />
@@ -741,7 +734,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     <span className="paso">1</span> ¿Quiénes estuvieron?
                   </h2>
                   <span className="num" style={{ fontSize: 13, fontWeight: 800, color: 'var(--oro)' }}>
-                    {vinieron}/{estado.orden.length}
+                    {marcados.size}/{estado.orden.length}
                   </span>
                 </div>
                 <p style={{ margin: '5px 6px 10px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.45 }}>
@@ -749,7 +742,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                   Al que no marques se lo saltea y pierde la vuelta.
                 </p>
 
-                <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} alError={setError} />
+                <ListaAsistencia estado={estado} marcados={marcados} setMarcados={setMarcados} ocupado={ocupado} />
 
                 <div style={{ padding: '12px 6px 4px' }}>
                   {evento.asistenciaLista ? (
@@ -768,11 +761,11 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                       type="button"
                       className="btn btn-ok"
                       style={{ width: '100%', justifyContent: 'center' }}
-                      disabled={ocupado || vinieron === 0}
-                      onClick={() => accion(() => api(`/eventos/${evento.id}/asistencia`, { cuerpo: { listo: true } }))}
+                      disabled={ocupado || marcados.size === 0}
+                      onClick={() => void guardarAsistencia()}
                     >
                       <Tilde tam={16} />
-                      {vinieron === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${vinieron}`}
+                      {marcados.size === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${marcados.size}`}
                     </button>
                   )}
                 </div>
