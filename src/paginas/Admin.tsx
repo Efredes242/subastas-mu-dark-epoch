@@ -233,8 +233,10 @@ function AvisoDeKundun({
           <Escudo tam={30} />
         </div>
 
-        <h2>Empezó el Kundun #{evento.numero}</h2>
-        <p className="cuando">{evento.empiezaEn ? fechaHoraEn(evento.empiezaEn, zona) : 'ahora'}</p>
+        <h2>{evento.esPrueba ? 'Kundun de prueba' : `Empezó el Kundun #${evento.numero}`}</h2>
+        <p className="cuando">
+          {evento.esPrueba ? 'Ensayo: no cuenta para el historial' : evento.empiezaEn ? fechaHoraEn(evento.empiezaEn, zona) : 'ahora'}
+        </p>
 
         <p className="para-que">
           Marcá quiénes estuvieron. Recién después se habilita cargar los drops, que se reparten
@@ -350,8 +352,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
     return accion(() => api('/orden', { cuerpo: { ids } }));
   };
 
-  // Un Kundun nuevo, sin la asistencia confirmada y del que todavía no se avisó.
-  const avisar = !!evento && !evento.esPrueba && !evento.asistenciaLista && avisado !== evento.id;
+  // Un Kundun nuevo, sin la asistencia confirmada y del que todavía no se avisó. Las pruebas
+  // también lo abren: sirven justamente para ensayar el circuito, y ahí empieza.
+  const avisar = !!evento && !evento.asistenciaLista && avisado !== evento.id;
 
   const cerrarAviso = () => {
     if (!evento) return;

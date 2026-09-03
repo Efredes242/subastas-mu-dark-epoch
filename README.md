@@ -235,9 +235,12 @@ Cuando arranca un Kundun, el panel **abre solo un cartel con la lista del gremio
 marca ahí mismo quiénes estuvieron y se confirma, sin ir a buscar el cuadro. Como el panel se
 refresca cada 8 segundos, salta sin que nadie recargue.
 
-Sale una vez por Kundun, no aparece si la asistencia ya está confirmada y las pruebas no lo abren,
-que se piden a propósito. Queda un *Lo hago después* para cerrarlo; el paso 1 del panel sigue ahí
-para corregir la asistencia cuando haga falta.
+Sale una vez por Kundun y no aparece si la asistencia ya está confirmada. **Los Kundun de prueba
+también lo abren**: sirven para ensayar el circuito entero, y ese circuito empieza justamente ahí.
+Arrancan con todo el gremio marcado pero sin confirmar, así que alcanza con tocar Listo.
+
+Queda un *Lo hago después* para cerrarlo; el paso 1 del panel sigue ahí para corregir la asistencia
+cuando haga falta.
 
 ### 1. Quiénes estuvieron
 

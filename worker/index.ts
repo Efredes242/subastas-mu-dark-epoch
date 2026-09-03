@@ -197,8 +197,8 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   const evento = await eventoActivo(c.env.DB);
   if (!evento) return c.json({ error: 'No se pudo abrir la prueba.' }, 500);
 
-  // La prueba viene con la asistencia ya confirmada: marca a todo el gremio.
-  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 1 WHERE id = ?').bind(evento.id).run();
+  // La asistencia queda SIN confirmar a propósito: la prueba sirve para ensayar el circuito
+  // entero, y eso arranca por el cartel que pide marcar quiénes estuvieron.
 
   // Todo el gremio presente, pero sin un solo drop: la prueba arranca vacía para poder
   // recorrer el circuito entero, incluido cargar.
