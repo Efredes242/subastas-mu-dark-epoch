@@ -71,6 +71,96 @@ interface EntradaCatalogo {
   colas: string[];
 }
 
+/**
+ * La lista para marcar quiénes estuvieron. La usan dos lugares: el cartel que salta cuando
+ * arranca el Kundun y el paso 1 del panel, para corregirla después.
+ */
+function ListaAsistencia({
+  estado,
+  evento,
+  ocupado,
+  accion,
+}: {
+  estado: EstadoConAviso;
+  evento: NonNullable<EstadoConAviso['evento']>;
+  ocupado: boolean;
+  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
+}) {
+  const vinieron = estado.orden.filter((p) => p.vino).length;
+
+  return (
+    <>
+        <div style={{ display: 'flex', gap: 7, padding: '0 6px 10px' }}>
+          <button
+            type="button"
+            className="btn btn-chico"
+            style={{ flex: 1 }}
+            disabled={ocupado}
+            onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: true } }))}
+          >
+            Fueron todos
+          </button>
+          <button
+            type="button"
+            className="btn btn-chico"
+            style={{ flex: 1 }}
+            disabled={ocupado || vinieron === 0}
+            onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: false } }))}
+          >
+            Limpiar
+          </button>
+        </div>
+
+        {estado.orden.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className="fila"
+            disabled={ocupado}
+            onClick={() =>
+              accion(() => api(`/eventos/${evento.id}/presentes`, { cuerpo: { usuarioId: p.id, presente: !p.vino } }))
+            }
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 11,
+              padding: '10px 8px',
+              border: 'none',
+              background: p.vino ? 'var(--okBg)' : 'transparent',
+              cursor: 'pointer',
+              textAlign: 'left',
+              color: 'var(--tx)',
+            }}
+          >
+            <span
+              style={{
+                width: 22,
+                height: 22,
+                flexShrink: 0,
+                borderRadius: 7,
+                border: `1px solid ${p.vino ? 'var(--ok)' : 'var(--line2)'}`,
+                background: p.vino ? 'var(--ok)' : 'transparent',
+                color: 'var(--okBg)',
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              {p.vino && <Tilde tam={14} />}
+            </span>
+            <RetratoClase clase={p.clase} tam={22} />
+            <span className="recorte" style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>
+              {p.personaje}
+            </span>
+            <span className="num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx3)', flexShrink: 0 }}>
+              {formatoPC(p.pc)}
+            </span>
+          </button>
+        ))}
+    </>
+  );
+}
+
 /** El último Kundun del que ya se avisó, para no repetir el cartel en cada refresco. */
 const AVISADO = 'sk_avisado';
 
@@ -94,14 +184,21 @@ function yaAvisado(): number | null {
  * recordar. Las pruebas tampoco lo abren, que se piden a propósito.
  */
 function AvisoDeKundun({
+  estado,
   evento,
   zona,
+  ocupado,
+  accion,
   alCerrar,
 }: {
+  estado: EstadoConAviso;
   evento: NonNullable<EstadoConAviso['evento']>;
   zona: string;
+  ocupado: boolean;
+  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
   alCerrar: () => void;
 }) {
+  const vinieron = estado.orden.filter((p) => p.vino).length;
   useEffect(() => {
     const alTeclado = (e: KeyboardEvent) => {
       if (e.key === 'Escape') alCerrar();
@@ -125,24 +222,30 @@ function AvisoDeKundun({
         <h2>Empezó el Kundun #{evento.numero}</h2>
         <p className="cuando">{evento.empiezaEn ? fechaHoraEn(evento.empiezaEn, zona) : 'ahora'}</p>
 
-        <div className="pasos">
-          <div>
-            <span className="paso">1</span>
-            <span>
-              <b>Marcá quiénes estuvieron</b> y tocá Listo.
-            </span>
-          </div>
-          <div>
-            <span className="paso">2</span>
-            <span>
-              Recién ahí se habilita <b>cargar los drops</b>, que se reparten solos.
-            </span>
-          </div>
+        <p className="para-que">
+          Marcá quiénes estuvieron. Recién después se habilita cargar los drops, que se reparten
+          solos entre estos.
+        </p>
+
+        <div className="gente">
+          <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} />
         </div>
 
-        <button type="button" className="btn btn-oro" style={{ width: '100%', justifyContent: 'center' }} onClick={alCerrar}>
-          Voy a marcar la asistencia
-        </button>
+        <div className="cierre">
+          <button
+            type="button"
+            className="btn btn-ok"
+            style={{ width: '100%', justifyContent: 'center' }}
+            disabled={ocupado || vinieron === 0}
+            onClick={() => accion(() => api(`/eventos/${evento.id}/asistencia`, { cuerpo: { listo: true } }))}
+          >
+            <Tilde tam={16} />
+            {vinieron === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${vinieron}`}
+          </button>
+          <button type="button" className="btn btn-chico" style={{ width: '100%', justifyContent: 'center' }} onClick={alCerrar}>
+            Lo hago después
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -228,7 +331,16 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
   return (
     <div className="pagina-ancha">
-      {avisar && evento && <AvisoDeKundun evento={evento} zona={zona} alCerrar={cerrarAviso} />}
+      {avisar && evento && (
+        <AvisoDeKundun
+          estado={estado}
+          evento={evento}
+          zona={zona}
+          ocupado={ocupado}
+          accion={accion}
+          alCerrar={cerrarAviso}
+        />
+      )}
 
       <div className="barra-admin">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
@@ -594,73 +706,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                   Al que no marques se lo saltea y pierde la vuelta.
                 </p>
 
-                <div style={{ display: 'flex', gap: 7, padding: '0 6px 10px' }}>
-                  <button
-                    type="button"
-                    className="btn btn-chico"
-                    style={{ flex: 1 }}
-                    disabled={ocupado}
-                    onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: true } }))}
-                  >
-                    Fueron todos
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-chico"
-                    style={{ flex: 1 }}
-                    disabled={ocupado || vinieron === 0}
-                    onClick={() => accion(() => api(`/eventos/${evento.id}/presentes/todos`, { cuerpo: { presente: false } }))}
-                  >
-                    Limpiar
-                  </button>
-                </div>
-
-                {estado.orden.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="fila"
-                    disabled={ocupado}
-                    onClick={() =>
-                      accion(() => api(`/eventos/${evento.id}/presentes`, { cuerpo: { usuarioId: p.id, presente: !p.vino } }))
-                    }
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 11,
-                      padding: '10px 8px',
-                      border: 'none',
-                      background: p.vino ? 'var(--okBg)' : 'transparent',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      color: 'var(--tx)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 22,
-                        height: 22,
-                        flexShrink: 0,
-                        borderRadius: 7,
-                        border: `1px solid ${p.vino ? 'var(--ok)' : 'var(--line2)'}`,
-                        background: p.vino ? 'var(--ok)' : 'transparent',
-                        color: 'var(--okBg)',
-                        display: 'grid',
-                        placeItems: 'center',
-                      }}
-                    >
-                      {p.vino && <Tilde tam={14} />}
-                    </span>
-                    <RetratoClase clase={p.clase} tam={22} />
-                    <span className="recorte" style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>
-                      {p.personaje}
-                    </span>
-                    <span className="num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx3)', flexShrink: 0 }}>
-                      {formatoPC(p.pc)}
-                    </span>
-                  </button>
-                ))}
+                <ListaAsistencia estado={estado} evento={evento} ocupado={ocupado} accion={accion} />
 
                 <div style={{ padding: '12px 6px 4px' }}>
                   {evento.asistenciaLista ? (
