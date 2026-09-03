@@ -71,6 +71,83 @@ interface EntradaCatalogo {
   colas: string[];
 }
 
+/** El último Kundun del que ya se avisó, para no repetir el cartel en cada refresco. */
+const AVISADO = 'sk_avisado';
+
+function yaAvisado(): number | null {
+  try {
+    const guardado = localStorage.getItem(AVISADO);
+    return guardado ? Number(guardado) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * El cartel que salta cuando arranca un Kundun.
+ *
+ * El panel se refresca solo cada 8 segundos, así que el evento aparece sin que nadie recargue
+ * y el cartel se abre encima. Sirve para dos cosas: enterarse de que empezó, y acordarse de que
+ * la asistencia va antes que los drops.
+ *
+ * Se muestra una vez por Kundun. Si ya se confirmó la asistencia no aparece: no hay nada que
+ * recordar. Las pruebas tampoco lo abren, que se piden a propósito.
+ */
+function AvisoDeKundun({
+  evento,
+  zona,
+  alCerrar,
+}: {
+  evento: NonNullable<EstadoConAviso['evento']>;
+  zona: string;
+  alCerrar: () => void;
+}) {
+  useEffect(() => {
+    const alTeclado = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') alCerrar();
+    };
+    window.addEventListener('keydown', alTeclado);
+    return () => window.removeEventListener('keydown', alTeclado);
+  }, [alCerrar]);
+
+  return (
+    <div className="hoja" onClick={alCerrar} role="presentation">
+      <div
+        className="hoja-cuerpo aviso-kundun"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Empezó el Kundun"
+      >
+        <div className="sello-kundun">
+          <Escudo tam={30} />
+        </div>
+
+        <h2>Empezó el Kundun #{evento.numero}</h2>
+        <p className="cuando">{evento.empiezaEn ? fechaHoraEn(evento.empiezaEn, zona) : 'ahora'}</p>
+
+        <div className="pasos">
+          <div>
+            <span className="paso">1</span>
+            <span>
+              <b>Marcá quiénes estuvieron</b> y tocá Listo.
+            </span>
+          </div>
+          <div>
+            <span className="paso">2</span>
+            <span>
+              Recién ahí se habilita <b>cargar los drops</b>, que se reparten solos.
+            </span>
+          </div>
+        </div>
+
+        <button type="button" className="btn btn-oro" style={{ width: '100%', justifyContent: 'center' }} onClick={alCerrar}>
+          Voy a marcar la asistencia
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin({ estado, setEstado, recargar, tema, alternarTema }: PropsPagina) {
   const yo = estado.yo!;
   const esAdmin = yo.rol === 'admin';
@@ -83,6 +160,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
   const [zona, setZona] = useZona(yo.zona);
 
   const [lote, setLote] = useState('');
+  const [avisado, setAvisado] = useState<number | null>(() => yaAvisado());
   const [loteAsedio, setLoteAsedio] = useState('');
 
   useEffect(() => {
@@ -135,8 +213,23 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
     return accion(() => api('/orden', { cuerpo: { ids } }));
   };
 
+  // Un Kundun nuevo, sin la asistencia confirmada y del que todavía no se avisó.
+  const avisar = !!evento && !evento.esPrueba && !evento.asistenciaLista && avisado !== evento.id;
+
+  const cerrarAviso = () => {
+    if (!evento) return;
+    setAvisado(evento.id);
+    try {
+      localStorage.setItem(AVISADO, String(evento.id));
+    } catch {
+      // Storage bloqueado: el cartel vuelve a salir en el próximo refresco y no pasa nada.
+    }
+  };
+
   return (
     <div className="pagina-ancha">
+      {avisar && evento && <AvisoDeKundun evento={evento} zona={zona} alCerrar={cerrarAviso} />}
+
       <div className="barra-admin">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
           <div className="icono-item r-divino" style={{ width: 40, height: 40, borderRadius: 13 }}>

@@ -226,6 +226,11 @@ El tablero es **de solo lectura**: no tiene login, no tiene botones y nadie que 
 escribir nada. Toda la subasta la maneja el admin o la Grand Master desde el panel, en dos pasos
 que van en ese orden a propósito.
 
+Cuando arranca un Kundun, el panel **abre solo un cartel** avisando que empezó y recordando el
+orden: primero la asistencia, después los drops. Como el panel se refresca cada 8 segundos, salta
+sin que nadie recargue. Sale una vez por Kundun, no aparece si la asistencia ya está confirmada y
+las pruebas no lo abren, que se piden a propósito.
+
 ### 1. Quiénes estuvieron
 
 Se marca a los que participaron del Kundun y se toca **Listo**. Hay un botón *Fueron todos* para el

@@ -1606,3 +1606,68 @@ select {
   font-weight: 800;
   vertical-align: 1px;
 }
+
+/* El cartel que salta cuando arranca un Kundun. */
+.aviso-kundun {
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.aviso-kundun > .sello-kundun {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: var(--oroBg);
+  border: 1px solid var(--oroLn);
+  color: var(--oro);
+  animation: latir 2.2s ease-in-out infinite;
+}
+
+.aviso-kundun > h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.aviso-kundun > .cuando {
+  margin: -6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--oro);
+}
+
+.aviso-kundun > .pasos {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  margin: 4px 0 2px;
+  text-align: left;
+}
+
+.aviso-kundun > .pasos > div > .paso {
+  flex-shrink: 0;
+}
+
+.aviso-kundun > .pasos > div {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel2);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--tx2);
+}
+
+@media (min-width: 640px) {
+  .aviso-kundun {
+    max-width: 420px;
+  }
+}
