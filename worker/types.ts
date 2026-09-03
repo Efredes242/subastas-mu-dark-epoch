@@ -59,6 +59,7 @@ export interface FilaEvento {
   intentos: number;
   registro_hasta: string | null;
   forzar_domingo: number;
+  asistencia_lista: number;
   puntero_items_previo: number | null;
   puntero_almas_previo: number | null;
   puntero_asedio_previo: number | null;
@@ -135,12 +136,10 @@ export interface Estado {
     horasServidor: string[];
     offsetServidorHoras: number;
     abreAntesMin: number;
-    pinAntesMin: number;
     cierraDespuesMin: number;
-    cierraRegistroAntesMin: number;
     /** Los domingos se mezclan los drops del Kundun con los del asedio. */
     esDomingo: boolean;
-    proximo: { abre: string; pinDesde: string; empieza: string; registroHasta: string; cierra: string };
+    proximo: { abre: string; empieza: string; cierra: string };
   };
   evento: {
     id: number;
@@ -149,21 +148,17 @@ export interface Estado {
     registroAbierto: boolean;
     cerrado: boolean;
     cierraEn: string | null;
-    /** Hasta cuándo se puede uno anotar. Después de esto el botón se apaga. */
-    registroHasta: string | null;
-    /** Si en este momento se puede uno anotar: el registro está abierto y todavía en hora. */
-    registroVigente: boolean;
+    /**
+     * Si ya se confirmó quiénes estuvieron. Hasta que no esté, no se pueden cargar drops:
+     * el reparto sale en el momento de la carga y necesita saber entre quiénes.
+     */
+    asistenciaLista: boolean;
     empiezaEn: string | null;
     abreEn: string | null;
-    /** Cuando aparece el codigo. Antes de esa hora no se puede anotar nadie. */
-    pinDesde: string | null;
-    pinDisponible: boolean;
     repartoEn: string | null;
     creadoEn: string;
     /** Un Kundun de prueba no cuenta para el historial ni mueve las ruedas de verdad. */
     esPrueba: boolean;
-    /** Solo para quien puede cargar: el PIN que hay que cantar por el chat. */
-    pin?: string;
   } | null;
   anotado: boolean;
   /** Lo que a mí me toca pujar en este Kundun. Vacío hasta que se haga el reparto. */

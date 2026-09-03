@@ -326,8 +326,6 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   const db = env.DB;
   const horario = await leerHorario(db);
   const evento = await asegurarEvento(db, ahora, horario);
-  const puedeVerPin = usuario?.rol === 'admin' || usuario?.rol === 'grandmaster';
-  const pinDisponible = !!evento && (!evento.pin_desde || enMilis(evento.pin_desde) <= ahora.getTime());
   const yoId = usuario?.id ?? null;
 
   const orden = await ordenDePrioridad(db);
@@ -515,9 +513,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       horasServidor: horario.minutos.map(comoHora),
       offsetServidorHoras: horario.offsetServidor,
       abreAntesMin: horario.abreAntesMin,
-      pinAntesMin: horario.pinAntesMin,
       cierraDespuesMin: horario.cierraDespuesMin,
-      cierraRegistroAntesMin: horario.cierraRegistroAntesMin,
       // El Kundun de las 21 termina de repartirse ya entrado el lunes en el servidor, así que
       // el domingo lo decide el evento en curso, no el reloj.
       esDomingo:
@@ -525,9 +521,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         esDomingoEnElServidor(evento?.empieza_en ? enUtc(evento.empieza_en) : ahora, horario.offsetServidor),
       proximo: {
         abre: proximo.abre.toISOString(),
-        pinDesde: proximo.pinDesde.toISOString(),
         empieza: proximo.empieza.toISOString(),
-        registroHasta: proximo.registroHasta.toISOString(),
         cierra: proximo.cierra.toISOString(),
       },
     },
@@ -539,20 +533,12 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
           registroAbierto: evento.registro_abierto === 1,
           cerrado: evento.cerrado === 1,
           cierraEn: evento.cierra_en,
-          registroHasta: evento.registro_hasta,
-          registroVigente:
-            evento.registro_abierto === 1 &&
-            evento.cerrado === 0 &&
-            pinDisponible &&
-            (!evento.registro_hasta || enMilis(evento.registro_hasta) > ahora.getTime()),
-          pinDesde: evento.pin_desde,
-          pinDisponible,
+          asistenciaLista: evento.asistencia_lista === 1,
           empiezaEn: evento.empieza_en,
           abreEn: evento.abre_en,
           repartoEn: evento.reparto_en,
           creadoEn: evento.creado_en,
           esPrueba: evento.es_prueba === 1,
-          ...(puedeVerPin && pinDisponible ? { pin: evento.pin } : {}),
         }
       : null,
     anotado: yoId !== null && vinieron.has(yoId),

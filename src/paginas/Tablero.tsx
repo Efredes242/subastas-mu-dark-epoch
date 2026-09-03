@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, comoGmt, faltan, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { comoGmt, faltan, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
-import { IconoItem, Lineas, Mano, Orden, Reloj } from '../iconos';
+import { IconoItem, Lineas, Orden, Reloj } from '../iconos';
 
-type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'estoy';
+type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas';
 type Turno = PropsPagina['estado']['turnos'][number];
 
 const NOMBRE_COLA: Record<string, string> = {
@@ -248,177 +248,11 @@ function KundunViejo({
   );
 }
 
-/** El equipo se acuerda de quién sos, así la próxima vez es un toque y el código. */
-const MI_PERSONAJE = 'sk_soy';
-
-function recordado(): number | null {
-  try {
-    const guardado = localStorage.getItem(MI_PERSONAJE);
-    return guardado ? Number(guardado) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Anotarse al Kundun sin cuenta: elegís tu personaje y ponés el código que cantaron.
- *
- * El código sale 5 minutos antes, así que tenerlo ya dice que estabas. Si alguien se
- * equivoca de nombre, el admin lo corrige desde el panel.
- */
-function Anotarse({
-  estado,
-  alListo,
-  alCerrar,
-}: {
-  estado: PropsPagina['estado'];
-  alListo: (e: PropsPagina['estado']) => void;
-  alCerrar: () => void;
-}) {
-  const evento = estado.evento!;
-  const [quien, setQuien] = useState<number | null>(() => recordado());
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-  const [listo, setListo] = useState('');
-
-  // Si el que quedó recordado ya se anotó, no arranca elegido: hay que tocar otro.
-  const elegido = estado.orden.find((p) => p.id === quien);
-  const quienValido = elegido && !elegido.vino ? quien : null;
-  const quedanNombres = estado.orden.some((p) => !p.vino);
-
-  async function anotar() {
-    if (quienValido === null || pin.length < 4) return;
-    setOcupado(true);
-    setError('');
-    try {
-      const r = await api(`/eventos/${evento.id}/estoy`, { cuerpo: { usuarioId: quienValido, pin } });
-      try {
-        localStorage.setItem(MI_PERSONAJE, String(quienValido));
-      } catch {
-        // Modo incógnito o storage bloqueado: no pasa nada, se vuelve a elegir.
-      }
-      alListo(r);
-      setListo(r.aviso ?? 'Listo, quedaste anotado.');
-      setPin('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo anotar.');
-    } finally {
-      setOcupado(false);
-    }
-  }
-
-  if (listo) {
-    return (
-      <div style={{ display: 'grid', gap: 14, justifyItems: 'center', padding: '18px 0 6px', textAlign: 'center' }}>
-        <div className="tilde-grande">✓</div>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>{listo}</div>
-        <button type="button" className="btn btn-oro" onClick={alCerrar}>
-          Cerrar
-        </button>
-      </div>
-    );
-  }
-
-  if (!evento.pinDisponible) {
-    return (
-      <div className="vacio">
-        El código sale {estado.agenda.pinAntesMin} minutos antes del Kundun. Volvé en un rato.
-      </div>
-    );
-  }
-
-  if (!evento.registroVigente) {
-    return (
-      <div className="vacio">
-        El registro se cerró: falta poco para que termine el Kundun. Si te quedaste afuera,
-        pedile al admin que te marque.
-      </div>
-    );
-  }
-
-  if (!quedanNombres) {
-    return <div className="vacio">Ya se anotó todo el gremio en este Kundun.</div>;
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <div>
-        <span className="etiqueta">Quién sos</span>
-        <div className="grilla-quien">
-          {estado.orden.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`chip-quien${quienValido === p.id ? ' elegido' : ''}${p.vino ? ' vino' : ''}`}
-              // Ya anotado: no se puede volver a tocar. Es lo que evita que alguien
-              // anote a un ausente con el código en la mano.
-              disabled={ocupado || p.vino}
-              title={p.vino ? `${p.personaje} ya está anotado` : `Soy ${p.personaje}`}
-              onClick={() => {
-                setQuien(p.id);
-                setError('');
-              }}
-            >
-              <RetratoClase clase={p.clase} tam={26} />
-              <span className="recorte" style={{ flex: 1 }}>
-                {p.personaje}
-              </span>
-              {p.vino && <span className="tilde-mini">✓</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <label style={{ display: 'grid', gap: 6 }}>
-        <span className="etiqueta">Código del Kundun</span>
-        <input
-          className="campo campo-pin"
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={4}
-          placeholder="0000"
-          value={pin}
-          disabled={ocupado}
-          onChange={(e) => {
-            setPin(e.target.value.replace(/\D/g, '').slice(0, 4));
-            setError('');
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void anotar();
-          }}
-        />
-      </label>
-
-      {error && (
-        <div className="aviso mal" style={{ fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-
-      <button
-        type="button"
-        className="btn btn-oro"
-        style={{ width: '100%', justifyContent: 'center' }}
-        disabled={ocupado || quienValido === null || pin.length < 4}
-        onClick={() => void anotar()}
-      >
-        {quienValido === null ? 'Elegí tu personaje' : pin.length < 4 ? 'Poné el código' : 'Estoy en el Kundun'}
-      </button>
-
-      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--tx3)', lineHeight: 1.5, textAlign: 'center' }}>
-        El código lo canta el admin cuando arranca. Anotarse solo dice que estuviste: el reparto lo
-        sigue haciendo la rueda de cada item.
-      </p>
-    </div>
-  );
-}
-
 /**
  * El tablero del gremio. Sin login y en una sola vista: entra todo en la pantalla
  * y lo único que scrollea son las listas, por dentro.
  */
-export default function Tablero({ estado, setEstado, tema, alternarTema }: PropsPagina) {
+export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
   const [hoja, setHoja] = useState<Hoja>(null);
   const [kundunAbierto, setKundunAbierto] = useState<number | null>(null);
   const [solapaDrops, setSolapaDrops] = useState<'kundun' | 'asedio'>('kundun');
@@ -445,7 +279,6 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
   // Las ruedas ya traen la imagen de cada item del catálogo; el historial la reusa.
   const imagenDe = (catalogoId: number | null) =>
     catalogoId === null ? null : (estado.turnos.find((t) => t.catalogoId === catalogoId)?.imagen ?? null);
-  const registroAbierto = !!evento && evento.registroVigente;
 
   // Los drops del día, separados por rueda.
   const porRueda = {
@@ -601,17 +434,10 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
 
         {/* Abajo: anotarse y las ventanas de consulta */}
         <div className="barra-tablero abajo">
-          {registroAbierto ? (
-            <button type="button" className="btn-esquina estoy" onClick={() => setHoja('estoy')}>
-              <Mano tam={18} />
-              <span>Estoy en el Kundun</span>
-            </button>
-          ) : (
-            <button type="button" className="btn-esquina acento" onClick={() => setHoja('anterior')}>
-              <Orden tam={18} />
-              <span>Puja anterior</span>
-            </button>
-          )}
+          <button type="button" className="btn-esquina acento" onClick={() => setHoja('anterior')}>
+            <Orden tam={18} />
+            <span>Puja anterior</span>
+          </button>
 
           <button type="button" className="btn-esquina" onClick={() => setHoja('listas')}>
             <Lineas tam={18} />
@@ -624,12 +450,6 @@ export default function Tablero({ estado, setEstado, tema, alternarTema }: Props
           </button>
         </div>
       </div>
-
-      {hoja === 'estoy' && evento && (
-        <HojaPanel titulo={`Anotarse al Kundun #${evento.numero}`} alCerrar={() => setHoja(null)}>
-          <Anotarse estado={estado} alListo={setEstado} alCerrar={() => setHoja(null)} />
-        </HojaPanel>
-      )}
 
       {hoja === 'anterior' && (
         <HojaPanel titulo="La puja anterior" alCerrar={() => setHoja(null)}>

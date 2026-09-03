@@ -17,7 +17,6 @@ import {
   COLAS,
   construirEstado,
   elegirGanador,
-  enMilis,
   eventoActivo,
   guardarOrden,
   colaPorDefecto,
@@ -198,6 +197,9 @@ app.post('/api/eventos/prueba', requiereAdmin, async (c) => {
   const evento = await eventoActivo(c.env.DB);
   if (!evento) return c.json({ error: 'No se pudo abrir la prueba.' }, 500);
 
+  // La prueba viene con la asistencia ya confirmada: marca a todo el gremio.
+  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 1 WHERE id = ?').bind(evento.id).run();
+
   // Todo el gremio presente y unos drops de ejemplo, uno de cada rueda.
   const gremio = await c.env.DB.prepare('SELECT id FROM usuarios WHERE activo = 1').all<{ id: number }>();
   if (gremio.results.length > 0) {
@@ -265,9 +267,6 @@ app.patch('/api/eventos/:id', requiereAdmin, async (c) => {
       .bind(cuerpo.registroAbierto ? 1 : 0, id)
       .run();
   }
-  if (cuerpo.pinNuevo === true) {
-    await c.env.DB.prepare('UPDATE eventos SET pin = ?, intentos = 0 WHERE id = ?').bind(pinNuevo(), id).run();
-  }
   if (cuerpo.cerrado === true) {
     await c.env.DB.prepare('UPDATE eventos SET cerrado = 1, registro_abierto = 0 WHERE id = ?').bind(id).run();
   }
@@ -281,68 +280,12 @@ app.patch('/api/eventos/:id', requiereAdmin, async (c) => {
   return c.json(await construirEstado(c.env, c.get('usuario')));
 });
 
-/** Códigos errados que aguanta un Kundun antes de cerrar el registro por su cuenta. */
-const MAX_INTENTOS = 25;
-
 /**
- * Anotarse al Kundun. Es la única ruta pública que escribe: el tablero no tiene login.
+ * Quiénes estuvieron en el Kundun: el primer paso de la subasta. Los marca el admin o la
+ * Grand Master, y de ahí sale entre quiénes se reparte.
  *
- * No hay cuentas ni contraseñas. Lo que se verifica es la presencia, y de eso da fe el
- * código: sale 5 minutos antes y se canta por voz o por el chat del juego, así que quien
- * lo tiene estaba ahí. El admin igual puede corregir la lista a mano desde el panel.
- */
-app.post('/api/eventos/:id/estoy', async (c) => {
-  const id = entero(c.req.param('id'));
-  const cuerpo = await c.req.json().catch(() => ({}));
-  const usuarioId = entero(cuerpo.usuarioId);
-  const pin = texto(cuerpo.pin, 12).replace(/\D/g, '');
-
-  const evento = await eventoActivo(c.env.DB);
-  if (!evento || evento.id !== id) return c.json({ error: 'Ese Kundun ya no está abierto.' }, 409);
-  if (evento.registro_abierto !== 1) return c.json({ error: 'El registro está cerrado.' }, 409);
-  if (evento.cierra_en && enMilis(evento.cierra_en) < Date.now()) {
-    return c.json({ error: 'Se pasó la hora de anotarse.' }, 409);
-  }
-  if (evento.registro_hasta && enMilis(evento.registro_hasta) < Date.now()) {
-    return c.json({ error: 'El registro se cerró: el Kundun ya está por terminar.' }, 409);
-  }
-  if (evento.pin_desde && enMilis(evento.pin_desde) > Date.now()) {
-    return c.json({ error: 'El código todavía no salió. Esperá a que lo canten.' }, 409);
-  }
-  if (evento.intentos >= MAX_INTENTOS) {
-    return c.json({ error: 'Se erró el código demasiadas veces. Pedile al admin que genere uno nuevo.' }, 429);
-  }
-
-  const usuario = await c.env.DB.prepare('SELECT id, personaje FROM usuarios WHERE id = ? AND activo = 1')
-    .bind(usuarioId)
-    .first<{ id: number; personaje: string }>();
-  if (!usuario) return c.json({ error: 'Elegí tu personaje de la lista.' }, 400);
-
-  // Un personaje se anota una sola vez. Si no, cualquiera con el código podría anotar a un
-  // ausente. Corregirlo es tarea del admin, que para eso tiene el panel.
-  const yaEsta = await c.env.DB.prepare('SELECT 1 FROM asistencias WHERE evento_id = ? AND usuario_id = ?')
-    .bind(evento.id, usuario.id)
-    .first();
-  if (yaEsta) {
-    return c.json({ error: `${usuario.personaje} ya está anotado en este Kundun.` }, 409);
-  }
-
-  if (pin !== evento.pin) {
-    await c.env.DB.prepare('UPDATE eventos SET intentos = intentos + 1 WHERE id = ?').bind(evento.id).run();
-    return c.json({ error: 'Ese código no es el de este Kundun.' }, 403);
-  }
-
-  await c.env.DB.prepare('INSERT INTO asistencias (evento_id, usuario_id) VALUES (?, ?) ON CONFLICT DO NOTHING')
-    .bind(evento.id, usuario.id)
-    .run();
-
-  const estado = await construirEstado(c.env, c.get('usuario'));
-  return c.json({ ...estado, aviso: `Anotado: ${usuario.personaje} estuvo en el Kundun #${evento.numero}.` });
-});
-
-/**
- * Quiénes estuvieron en el Kundun. Como los jugadores no entran a la app, los marca
- * el admin o la Grand Master desde el panel, y de ahí sale a quién se le reparte.
+ * Tocar la lista después de confirmarla la vuelve a dejar sin confirmar, para que no se
+ * carguen drops con la asistencia a medio cambiar.
  */
 app.post('/api/eventos/:id/presentes', requiereGrandMaster, async (c) => {
   const eventoId = entero(c.req.param('id'));
@@ -359,6 +302,8 @@ app.post('/api/eventos/:id/presentes', requiereGrandMaster, async (c) => {
       .bind(eventoId, usuarioId)
       .run();
   }
+
+  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 0 WHERE id = ?').bind(eventoId).run();
 
   return c.json(await construirEstado(c.env, c.get('usuario')));
 });
@@ -383,6 +328,8 @@ app.post('/api/eventos/:id/presentes/todos', requiereGrandMaster, async (c) => {
     }
   }
 
+  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = 0 WHERE id = ?').bind(eventoId).run();
+
   return c.json(await construirEstado(c.env, c.get('usuario')));
 });
 
@@ -393,6 +340,33 @@ app.post('/api/eventos/:id/presentes/todos', requiereGrandMaster, async (c) => {
  *   "1 cqc, 2 condor flame, 2 almas de guerra"
  * Cada unidad entra como un item aparte, porque cada una la puja una persona distinta.
  */
+/**
+ * Confirmar quiénes estuvieron. Recién después se pueden cargar los drops, porque el reparto
+ * sale en el momento de la carga y necesita saber entre quiénes.
+ */
+app.post('/api/eventos/:id/asistencia', requiereGrandMaster, async (c) => {
+  const id = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const listo = cuerpo.listo !== false;
+
+  const evento = await eventoActivo(c.env.DB);
+  if (!evento || evento.id !== id) return c.json({ error: 'Ese Kundun ya no está abierto.' }, 409);
+
+  if (listo) {
+    const cuantos = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM asistencias WHERE evento_id = ?')
+      .bind(id)
+      .first<{ n: number }>();
+    if ((cuantos?.n ?? 0) === 0) {
+      return c.json({ error: 'Marcá al menos a uno antes de seguir.' }, 400);
+    }
+  }
+
+  await c.env.DB.prepare('UPDATE eventos SET asistencia_lista = ? WHERE id = ?').bind(listo ? 1 : 0, id).run();
+
+  const estado = await construirEstado(c.env, c.get('usuario'));
+  return c.json({ ...estado, aviso: listo ? 'Listo. Ya podés cargar los drops.' : 'Volvé a marcar quiénes estuvieron.' });
+});
+
 app.post('/api/items/lote', requiereGrandMaster, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
   const renglones = parsearLote(texto(cuerpo.texto, 4000));
@@ -404,9 +378,13 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
 
   const evento = await asegurarEvento(c.env.DB, new Date(), await leerHorario(c.env.DB));
   if (!evento) return c.json({ error: 'No hay ningún Kundun abierto.' }, 409);
+  if (evento.asistencia_lista !== 1) {
+    return c.json({ error: 'Primero marcá quiénes estuvieron y confirmá.' }, 409);
+  }
 
   let creados = 0;
   const nuevosEnCatalogo: string[] = [];
+  const nuevos: number[] = [];
   const colasDe = await colasDeCatalogo(c.env.DB);
 
   for (const renglon of renglones) {
@@ -419,7 +397,8 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
       inserts.push(
         c.env.DB.prepare(
           `INSERT INTO items (evento_id, nombre, tipo, rareza, icono, imagen, catalogo_id, copia, copias, cola)
-           VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)
+           RETURNING id`,
         ).bind(
           evento.id,
           entrada.nombre,
@@ -433,21 +412,48 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
         ),
       );
     }
-    await c.env.DB.batch(inserts);
+    const puestos = await c.env.DB.batch<{ id: number }>(inserts);
+    for (const r of puestos) if (r.results?.[0]?.id) nuevos.push(r.results[0].id);
+
     await c.env.DB.prepare('UPDATE catalogo SET veces = veces + ? WHERE id = ?')
       .bind(renglon.cantidad, entrada.id)
       .run();
     creados += renglon.cantidad;
   }
 
+  // Se reparte acá mismo: cargar un drop y repartirlo son el mismo gesto.
+  let repartidos = 0;
+  const salteados = new Set<string>();
+  const sinRueda = new Set<string>();
+
+  for (const idItem of nuevos) {
+    const item = await c.env.DB.prepare('SELECT * FROM items WHERE id = ?').bind(idItem).first<FilaItem>();
+    if (!item) continue;
+
+    const r = await asignarConLaRueda(c.env, item);
+    if (!r) {
+      sinRueda.add(item.cola);
+      continue;
+    }
+    repartidos++;
+    for (const nombre of r.salteados) salteados.add(nombre);
+  }
+
+  await c.env.DB.prepare('UPDATE eventos SET reparto_en = ? WHERE id = ?')
+    .bind(new Date().toISOString(), evento.id)
+    .run();
+
   const estado = await construirEstado(c.env, c.get('usuario'));
   const pendientes = nuevosEnCatalogo.length;
-  return c.json({
-    ...estado,
-    aviso:
-      `Cargué ${creados} ${creados === 1 ? 'item' : 'items'}.` +
-      (pendientes > 0 ? ` ${pendientes} sin imagen todavía: ${nuevosEnCatalogo.join(', ')}.` : ''),
-  });
+
+  const partes = [`Cargué ${creados} ${creados === 1 ? 'item' : 'items'} y ${repartidos === creados ? 'los repartí' : `repartí ${repartidos}`} siguiendo la rueda.`];
+  if (salteados.size > 0) partes.push(`Perdieron la vuelta: ${[...salteados].join(', ')}.`);
+  if (sinRueda.size > 0) {
+    partes.push(`Sin repartir los de ${[...sinRueda].join(' y ')}: no hay nadie presente en esa lista.`);
+  }
+  if (pendientes > 0) partes.push(`${pendientes} sin imagen todavía: ${nuevosEnCatalogo.join(', ')}.`);
+
+  return c.json({ ...estado, aviso: partes.join(' ') });
 });
 
 app.post('/api/items', requiereGrandMaster, async (c) => {

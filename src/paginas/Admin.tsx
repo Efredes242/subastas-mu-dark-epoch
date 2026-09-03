@@ -276,12 +276,25 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
               </div>
             ) : (
               <section className="panel subir" style={{ padding: 18 }}>
-                <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800 }}>Cargar lo que salió subastado</h2>
+                <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800 }}>
+                  <span className="paso">2</span> Cargar lo que salió subastado
+                </h2>
                 <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
                   Pegalo tal cual, separado por comas o por renglones. Cada unidad entra como un item aparte,
-                  porque cada una la puja una persona distinta.
+                  porque cada una la puja una persona distinta. <b>Al cargar se reparten solos</b>, siguiendo
+                  la rueda de cada item.
                   {domingo && ' Hoy es domingo: separá los drops del asedio en el segundo campo.'}
                 </p>
+
+                {!evento.asistenciaLista && (
+                  <div className="aviso" style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.45 }}>
+                    <Alerta tam={17} />
+                    <span>
+                      Primero marcá arriba quiénes estuvieron y tocá <b>Listo</b>. El reparto sale en el
+                      momento de la carga, así que necesita saber entre quiénes.
+                    </span>
+                  </div>
+                )}
 
                 <div className={domingo ? 'campos-domingo' : undefined}>
                   <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
@@ -289,6 +302,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     <textarea
                       className="campo"
                       value={lote}
+                      disabled={!evento.asistenciaLista}
                       onChange={(e) => setLote(e.target.value)}
                       placeholder={'1 cqc, 2 condor flame, 2 almas de guerra'}
                       rows={3}
@@ -302,6 +316,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                       <textarea
                         className="campo"
                         value={loteAsedio}
+                        disabled={!evento.asistenciaLista}
                         onChange={(e) => setLoteAsedio(e.target.value)}
                         placeholder={'1 cofre de asedio, 2 joyas'}
                         rows={3}
@@ -315,10 +330,12 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                   <button
                     type="button"
                     className="btn btn-oro"
-                    disabled={ocupado || (lote.trim().length < 2 && loteAsedio.trim().length < 2)}
+                    disabled={
+                      ocupado || !evento.asistenciaLista || (lote.trim().length < 2 && loteAsedio.trim().length < 2)
+                    }
                     onClick={cargarLote}
                   >
-                    <Mas tam={16} /> Cargar items
+                    <Mas tam={16} /> Cargar y repartir
                   </button>
                   <span style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
                     Los nombres nuevos quedan en el catálogo para ponerles la imagen una sola vez.
@@ -424,24 +441,19 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
               <section className="panel subir" style={{ padding: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <div>
-                    <div className="etiqueta">PIN del evento</div>
+                    <div className="etiqueta">{evento.esPrueba ? 'Kundun de prueba' : `Kundun #${evento.numero}`}</div>
                     <div
-                      className="num marca"
+                      className="marca"
                       style={{
-                        fontSize: 32,
-                        letterSpacing: '0.14em',
-                        marginTop: 5,
-                        lineHeight: 1,
-                        color: evento.pinDisponible ? 'var(--oro)' : 'var(--tx3)',
+                        fontSize: 19,
+                        marginTop: 6,
+                        lineHeight: 1.15,
+                        fontWeight: 800,
+                        color: evento.asistenciaLista ? 'var(--ok)' : 'var(--av)',
                       }}
                     >
-                      {evento.pin ?? '····'}
+                      {evento.asistenciaLista ? 'Listo para cargar' : 'Falta marcar quiénes estuvieron'}
                     </div>
-                    {!evento.pinDisponible && (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--av)', marginTop: 6 }}>
-                        sale en {restante(evento.pinDesde, ahora) ?? '00:00'}
-                      </div>
-                    )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div className="etiqueta">Cierra en</div>
@@ -454,8 +466,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 {evento.empiezaEn && (
                   <div style={{ fontSize: 12.5, color: 'var(--tx3)', marginTop: 12, lineHeight: 1.5 }}>
                     Kundun de las {horaEn(evento.empiezaEn, zona)}
-                    {evento.abreEn ? ` · registro desde ${horaEn(evento.abreEn, zona)}` : ''}
-                    {evento.pinDesde ? ` · código desde ${horaEn(evento.pinDesde, zona)}` : ''}
+                    {evento.abreEn ? ` · abrió ${horaEn(evento.abreEn, zona)}` : ''}
                   </div>
                 )}
 
@@ -466,9 +477,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     </button>
                     <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/eventos/${evento.id}`, { metodo: 'PATCH', cuerpo: { minutos: 15 } }))}>
                       +15 min
-                    </button>
-                    <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/eventos/${evento.id}`, { metodo: 'PATCH', cuerpo: { pinNuevo: true } }))}>
-                      PIN nuevo
                     </button>
                     <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/eventos/${evento.id}`, { metodo: 'PATCH', cuerpo: { cerrado: true } }))}>
                       Cerrar evento
@@ -481,13 +489,16 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
             {evento && (
               <section className="panel subir" style={{ padding: '17px 12px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 6px' }}>
-                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>¿Quiénes estuvieron?</h2>
+                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
+                    <span className="paso">1</span> ¿Quiénes estuvieron?
+                  </h2>
                   <span className="num" style={{ fontSize: 13, fontWeight: 800, color: 'var(--oro)' }}>
                     {vinieron}/{estado.orden.length}
                   </span>
                 </div>
                 <p style={{ margin: '5px 6px 10px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.45 }}>
-                  Solo estos entran en el reparto. Si no marcás a nadie, se reparte entre todo el gremio.
+                  Solo estos entran en el reparto, y solo si además están en la lista del item que salga.
+                  Al que no marques se lo saltea y pierde la vuelta.
                 </p>
 
                 <div style={{ display: 'flex', gap: 7, padding: '0 6px 10px' }}>
@@ -557,6 +568,32 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     </span>
                   </button>
                 ))}
+
+                <div style={{ padding: '12px 6px 4px' }}>
+                  {evento.asistenciaLista ? (
+                    <button
+                      type="button"
+                      className="btn btn-chico"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      disabled={ocupado}
+                      title="Vuelve a abrir el paso 1 para corregir quién estuvo"
+                      onClick={() => accion(() => api(`/eventos/${evento.id}/asistencia`, { cuerpo: { listo: false } }))}
+                    >
+                      Corregir la asistencia
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-ok"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      disabled={ocupado || vinieron === 0}
+                      onClick={() => accion(() => api(`/eventos/${evento.id}/asistencia`, { cuerpo: { listo: true } }))}
+                    >
+                      <Tilde tam={16} />
+                      {vinieron === 0 ? 'Marcá al menos a uno' : `Listo, estuvieron ${vinieron}`}
+                    </button>
+                  )}
+                </div>
               </section>
             )}
 
@@ -1364,9 +1401,7 @@ function CajaHorario({
   const [horas, setHoras] = useState(agenda.horasServidor.join(', '));
   const [offset, setOffset] = useState(String(agenda.offsetServidorHoras));
   const [abre, setAbre] = useState(String(agenda.abreAntesMin));
-  const [pin, setPin] = useState(String(agenda.pinAntesMin));
   const [cierra, setCierra] = useState(String(agenda.cierraDespuesMin));
-  const [corte, setCorte] = useState(String(agenda.cierraRegistroAntesMin));
   const [ocupado, setOcupado] = useState(false);
 
   // Cuando el servidor confirma el cambio, los campos se acomodan a lo que quedó guardado.
@@ -1374,18 +1409,14 @@ function CajaHorario({
     setHoras(agenda.horasServidor.join(', '));
     setOffset(String(agenda.offsetServidorHoras));
     setAbre(String(agenda.abreAntesMin));
-    setPin(String(agenda.pinAntesMin));
     setCierra(String(agenda.cierraDespuesMin));
-    setCorte(String(agenda.cierraRegistroAntesMin));
-  }, [agenda.horasServidor.join(','), agenda.offsetServidorHoras, agenda.abreAntesMin, agenda.pinAntesMin, agenda.cierraDespuesMin, agenda.cierraRegistroAntesMin]);
+  }, [agenda.horasServidor.join(','), agenda.offsetServidorHoras, agenda.abreAntesMin, agenda.cierraDespuesMin]);
 
   const guardado =
     horas.trim() === agenda.horasServidor.join(', ') &&
     Number(offset) === agenda.offsetServidorHoras &&
     Number(abre) === agenda.abreAntesMin &&
-    Number(pin) === agenda.pinAntesMin &&
-    Number(cierra) === agenda.cierraDespuesMin &&
-    Number(corte) === agenda.cierraRegistroAntesMin;
+    Number(cierra) === agenda.cierraDespuesMin;
 
   async function guardar() {
     setOcupado(true);
@@ -1398,9 +1429,7 @@ function CajaHorario({
             horas,
             offsetServidor: Number(offset),
             abreAntesMin: Number(abre),
-            pinAntesMin: Number(pin),
             cierraDespuesMin: Number(cierra),
-            cierraRegistroAntesMin: Number(corte),
           },
         }),
       );
@@ -1453,9 +1482,7 @@ function CajaHorario({
         {(
           [
             ['Abre antes', abre, setAbre, 'Minutos antes del Kundun en que se abre el registro'],
-            ['PIN antes', pin, setPin, 'Minutos antes en que aparece el código para anotarse'],
             ['Cierra después', cierra, setCierra, 'Minutos después del Kundun en que el evento se cierra solo'],
-            ['Corta registro', corte, setCorte, 'Minutos antes del cierre en que se apaga el botón de anotarse'],
           ] as const
         ).map(([rotulo, valor, poner, ayuda]) => (
           <label key={rotulo} style={{ display: 'grid', gap: 6, minWidth: 0 }} title={ayuda}>
@@ -1477,9 +1504,7 @@ function CajaHorario({
         Guardado: <b>{agenda.horasServidor.join(' y ')}</b> del servidor ({comoGmt(agenda.offsetServidorHoras)}).
         <br />
         En tu hora ({nombreCortoZona(zona)}): <b style={{ color: 'var(--oro)' }}>{enTuHora.join(' y ')}</b>. El
-        registro abre {agenda.abreAntesMin} min antes, el código sale {agenda.pinAntesMin} min antes y cierra{' '}
-        {agenda.cierraDespuesMin} min después. Anotarse se corta {agenda.cierraRegistroAntesMin} min antes de
-        ese cierre.
+        evento abre {agenda.abreAntesMin} min antes y cierra solo {agenda.cierraDespuesMin} min después.
       </div>
 
       <button

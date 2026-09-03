@@ -1,8 +1,12 @@
 # Subastas del Kundun
 
-App para repartir el botín del Kundun en Mu Dark Epoch. El evento se abre solo a su horario, los del
-gremio se anotan con un PIN, el admin carga lo que salió subastado y la app reparte **quién puja por
-qué**, siguiendo el orden de prioridad armado según el PC de cada personaje.
+App para repartir el botín del Kundun en Mu Dark Epoch. El evento se abre y se cierra solo a su
+horario; el admin marca quiénes estuvieron, pega lo que salió subastado y la app reparte **quién
+puja por qué** en el acto, siguiendo una rueda por cada item y el orden de prioridad armado según
+el PC de cada personaje.
+
+El tablero del gremio es de solo lectura: sin login, sin botones, sin nada que se pueda romper
+desde afuera.
 
 - **React + Vite** para la interfaz
 - **Hono** sobre un **Cloudflare Worker** para la API
@@ -42,32 +46,35 @@ Hay **dos pantallas y nada más**:
 | Ruta | Quién entra | Qué es |
 |---|---|---|
 | `/` | **cualquiera, sin login** | El tablero del gremio |
-| `/admin` | admin y Grand Master, **con contraseña** | Cargar drops, repartir, catálogo, orden, miembros |
+| `/admin` | admin y Grand Master, **con contraseña** | Asistencia, drops, catálogo, listas, clases, miembros |
 
 ### El tablero
 
-**No tiene login y entra en una sola vista**: la página nunca scrollea. Ocupa exactamente el alto de
-la ventana y se reparte así:
+**No tiene login y es de solo lectura.** En pantalla ancha entra en una sola vista, sin scrollear:
 
 ```
-┌──────────────────────────────────────────┐
-│ [Horarios]      Kundun #12       [tema]  │
-├───────────────────────────┬──────────────┤
-│  Quién se lleva qué       │  Orden del   │
-│  (scrollea por dentro)    │  gremio      │
-│                           │  por PC      │
-├───────────────────────────┴──────────────┤
-│ [Puja anterior]    ⛨    [Historial]      │
-└──────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│ [Horarios]           Kundun #12                [tema] │
+├───────────┬───────────┬───────────┬───────────────────┤
+│  Items    │  Almas    │  Castle   │  Orden del gremio │
+│  del      │  de       │  Siege    │  por PC           │
+│  Kundun   │  guerra   │           │                   │
+├───────────┴───────────┴───────────┴───────────────────┤
+│ [Puja anterior]   [Lista Drops]   [Historial]         │
+└───────────────────────────────────────────────────────┘
 ```
 
-En celular las dos cajas se apilan; en pantalla ancha van lado a lado. Si la lista de drops no
-entra, scrollea **dentro de su caja**, no la página. **Recargando aparece lo nuevo** — no hay nada
-que tocar ni nada que aprender.
+**Abajo de 760 px la página scrollea** y las cuatro cajas se apilan: meterlas en el alto de un
+celular dejaba cada una en unos 100 px y no se leía nada. Entre 600 y 759 px van a dos columnas. Las
+listas largas scrollean dentro de su caja y las dos barras quedan fijas arriba y abajo.
 
-Los dos botones de abajo son la historia: **Puja anterior** (quién se llevó qué la vez pasada) e
-**Historial** (todos los Kundun cerrados). El acceso al panel está dentro de **Horarios**, para que
-no moleste a nadie.
+Mientras hay un Kundun abierto el tablero **se refresca solo cada 8 segundos**: lo que carga el
+admin aparece sin que nadie toque nada.
+
+Los tres botones de abajo: **Puja anterior** (quién se llevó qué la vez pasada), **Lista Drops** (la
+rueda de cada item, con el Castle Siege en su propia solapa) e **Historial** (todos los Kundun
+cerrados, cada uno se abre y muestra qué salió). El acceso al panel está dentro de **Horarios**,
+para que no moleste a nadie.
 
 ### Comandos
 
@@ -89,13 +96,9 @@ abre y se cierra solo, sin que nadie apriete nada:
 
 | Momento | Qué pasa |
 |---|---|
-| **15 min antes** | Se abre el evento y **sale el código**. El admin lo canta y la gente se anota. |
+| **15 min antes** | Se abre el evento y aparece en el tablero. |
 | **la hora** | Arranca el Kundun. |
-| **5 min antes del cierre** | Se corta el registro: el botón de anotarse se apaga. |
 | **20 min después** | El evento **se cierra solo** y queda esperando el siguiente. |
-
-Antes de que el código salga **no existe para nadie**, ni para el admin, y el servidor rechaza
-cualquier intento de anotarse aunque alguien adivine el número.
 
 Que el evento se cierre solo no depende de que alguien tenga la página abierta: un **cron de
 Cloudflare despierta al Worker cada minuto** (`triggers.crons` en `wrangler.jsonc`) y ahí se
@@ -104,26 +107,6 @@ así que si el cron fallara el resultado sería el mismo apenas alguien abra la 
 
 Los Kundun de prueba quedan afuera del cierre automático: los termina el admin a mano. Si se
 cerraran solos desaparecería el botón para borrarlos y el respaldo de las ruedas quedaría colgado.
-
-### Anotarse
-
-Mientras el registro está abierto, el tablero muestra **Estoy en el Kundun**. Se elige el personaje
-de la lista, se escribe el código de 4 dígitos y listo: no hay cuenta, contraseña ni mail. El equipo
-recuerda quién sos, así la próxima vez es un toque y el código.
-
-La identificación es el código: sale 15 minutos antes y se canta por voz o por el chat del juego,
-así que tenerlo ya dice que estabas. Es la **única ruta pública que escribe**; todo lo demás del
-tablero es de solo lectura.
-
-**Un personaje se anota una sola vez.** Apenas alguien entra, su nombre queda apagado y no se puede
-volver a tocar; el servidor también lo rechaza, no es solo la pantalla. Es lo que evita que alguien
-con el código en la mano anote a un ausente. Si se tocó el nombre equivocado, lo corrige el admin
-desde el panel.
-
-Otras guardas: el registro tiene que estar abierto y en hora, el código ya tiene que haber salido,
-el personaje tiene que estar activo y pasado `registro_hasta` no entra nadie más. A los **25
-códigos errados** el registro de ese Kundun se cierra solo y hay que generar un PIN nuevo desde el
-panel, lo que vuelve el contador a cero.
 
 Los horarios se guardan siempre en UTC y se muestran en la zona de cada uno. Un mail no dice dónde
 está la persona, así que la zona sale del navegador (`Intl.DateTimeFormat().resolvedOptions().timeZone`),
@@ -139,10 +122,8 @@ código: solapa *Evento*, cuadro **Horario del Kundun** (solo el admin).
 | --- | --- |
 | **Horas del servidor** | Separadas por coma: `13:00, 21:00`. Acepta `13`, `21.30` y `0800`. Hasta 12 por día. |
 | **Zona del servidor** | En qué GMT están esas horas. Es lo único que traduce a UTC. |
-| **Abre antes** | Minutos antes en que se abre el registro. |
-| **PIN antes** | Minutos antes en que aparece el código. Nunca puede ser antes de que abra. |
+| **Abre antes** | Minutos antes en que el evento aparece en el tablero. |
 | **Cierra después** | Minutos después del Kundun en que el evento se cierra solo. |
-| **Corta registro** | Minutos antes de ese cierre en que se apaga el botón de anotarse. |
 
 Debajo del formulario está lo que quedó guardado y **cómo se ve en tu hora**, para chequear el
 cambio de un vistazo. Los Kundun ya creados no se mueven: cada evento guarda sus propios horarios.
@@ -203,15 +184,15 @@ cuántos fueron. Un personaje sin clase no muestra retrato, el nombre queda solo
 
 | Rol | Qué puede hacer | Cómo entra |
 |---|---|---|
-| `admin` | Todo: gremio, roles, orden de prioridad, abrir y cerrar el Kundun, PIN | contraseña |
-| `grandmaster` | Sube los drops, arranca el reparto y edita el catálogo | contraseña |
-| `invitado` | Se anota al Kundun y pide items | toca su Main |
+| `admin` | Todo: gremio, roles, clases, listas, orden de prioridad, horarios y catálogo | contraseña |
+| `grandmaster` | Marca la asistencia, carga los drops y corrige el reparto | contraseña |
+| `invitado` | Mira el tablero | no entra: el tablero es público |
 
 El rol se cambia desde **Admin → Miembros**. Nadie se puede sacar el rol a sí mismo ni darse de baja
 solo, para no quedar sin ningún admin.
 
-Como el admin y la Grand Master entran con contraseña y no tocando su nombre, **no se puede ascender
-a alguien que no tenga clave**: la app lo rechaza con un aviso, para que no quede afuera de las dos
+Como el admin y la Grand Master son los únicos que entran, y lo hacen con contraseña, **no se puede
+ascender a alguien que no tenga clave**: la app lo rechaza con un aviso, para que no quede afuera de las dos
 puertas. La clave se pone en la misma fila de la lista de miembros.
 
 ---
@@ -239,44 +220,53 @@ contraseña.
 
 ---
 
-## Cargar los items después de la subasta
+## La subasta, en dos pasos
 
-1. El Kundun se abre solo a su horario; el tablero lo muestra sin que nadie haga nada.
-2. Cada uno se anota desde el tablero con **Estoy en el Kundun** y el código. El admin o la Grand
-   Master pueden marcar y corregir igual desde el panel, con un botón *Fueron todos* para el caso
-   normal. Si no se marca a nadie, el reparto toma a todo el gremio.
-3. Pegan lo que salió, tal cual se lee del chat:
+El tablero es **de solo lectura**: no tiene login, no tiene botones y nadie que lo abra puede
+escribir nada. Toda la subasta la maneja el admin o la Grand Master desde el panel, en dos pasos
+que van en ese orden a propósito.
 
-   ```
-   1 cqc, 2 condor flame, 2 almas de guerra
-   ```
+### 1. Quiénes estuvieron
 
-   Cada unidad entra como un item aparte (*Pluma de Condor (1 de 2)*, *(2 de 2)*), porque cada una
-   la puja una persona distinta.
+Se marca a los que participaron del Kundun y se toca **Listo**. Hay un botón *Fueron todos* para el
+caso normal. Al que no se marca se lo saltea: pierde la vuelta y espera a que la rueda pase de nuevo
+por su nombre.
 
-   Los nombres se resuelven contra el **catálogo**: `cqc` sale como *Cristal del Caos* con su imagen,
-   porque eso se configuró una vez. La imagen se lee del catálogo cada vez que se muestra el item,
-   así que subirla después también arregla los Kundun viejos del historial. Si el nombre es nuevo, se agrega solo al catálogo
-   esperando su imagen. En el catálogo también se cargan **otras formas de escribirlo** (`pluma`,
-   `plumas condor`), así no importa cómo lo tipeen.
+Sin confirmar este paso no se puede cargar nada, y tocar la lista después de confirmada la vuelve a
+dejar sin confirmar. Es a propósito: el reparto sale en el momento de la carga, así que no puede
+arrancar con la asistencia a medio marcar. Para corregirla está **Corregir la asistencia**, que
+reabre el paso 1.
 
-   **Los domingos** aparecen dos campos en vez de uno: *Drops del Kundun* y *Drops del Castle Siege*.
-   Ese día se mezclan los dos repartos, así que lo que se pegue en el segundo campo entra a la lista
-   del asedio, aunque ese item también salga en el Kundun. El domingo lo decide el evento en curso,
-   no el reloj: el Kundun de las 21 se termina de cargar ya entrado el lunes y sigue contando como
-   domingo.
-4. Con **Cerrar subasta y repartir**, cada item va al que esté más arriba en el orden de PC entre
-   los que estuvieron. El reparto **rota**: el que ya se llevó algo pasa al final de la fila, así
-   nadie acapara. Cada asignación queda con su motivo escrito (*Por orden de PC · #3 del gremio*).
-5. En el tablero, todos ven al toque a quién le toca pujar cada cosa, así nadie del gremio compite
-   contra otro y se infla el precio.
-6. Cuando alguien gana la puja, se marca **Ya lo ganó**.
-7. El reparto del Kundun anterior queda a un botón de distancia, sin preguntarlo por el chat. En
-   **Historial** se abre cualquier Kundun viejo y se ve qué salió y quién se lo llevó; las imágenes
-   se sacan del catálogo en el momento, así que el historial no arrastra un base64 por item.
+### 2. Cargar lo que salió
 
-Cualquier item se puede corregir a dedo desde el panel. El orden de PC se recalcula con un botón y
-también se acomoda a mano con las flechitas.
+Se pega lo que salió, tal cual se lee del chat:
+
+```
+1 cqc, 2 condor flame, 2 almas de guerra
+```
+
+Cada unidad entra como un item aparte (*Pluma de Condor (1 de 2)*, *(2 de 2)*), porque cada una la
+puja una persona distinta. **Al cargar se reparten solos**, siguiendo la rueda de cada item, y el
+aviso dice cuántos se repartieron, quiénes perdieron la vuelta y si algo quedó sin repartir porque
+su lista no tenía a nadie presente.
+
+Los nombres se resuelven contra el **catálogo**, y la imagen se lee de ahí cada vez que se muestra
+el item, así que subirla después también arregla los Kundun viejos del historial.
+
+**Los domingos** aparecen dos campos en vez de uno: *Drops del Kundun* y *Drops del Castle Siege*.
+Ese día se mezclan los dos repartos, así que lo que se pegue en el segundo campo entra a la lista
+del asedio, aunque ese item también salga en el Kundun. El domingo lo decide el evento en curso, no
+el reloj: el Kundun de las 21 se termina de cargar ya entrado el lunes y sigue contando como
+domingo. Para probarlo cualquier día está el botón **Probar un domingo**.
+
+### Si algo sale torcido
+
+Queda **Cerrar subasta y repartir**, que reparte lo que haya quedado sin asignar —por ejemplo si se
+carga algo más tarde—. Cualquier item se puede correr a mano a otra persona, y el turno de cada
+rueda se mueve desde el catálogo. El orden de PC se recalcula con un botón y también se acomoda a
+mano con las flechitas.
+
+En **Historial** se abre cualquier Kundun viejo y se ve qué salió y quién se lo llevó.
 
 ---
 
