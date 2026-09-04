@@ -351,6 +351,29 @@ que son las dos que se usan.
 
 ---
 
+## El menú Desarrollador
+
+Una solapa del panel, solo para el admin, con dos cosas.
+
+**Qué se ve de la app.** Cada pedazo —las cajas del tablero, los botones de abajo, el reloj, las
+solapas del panel, el cartel del próximo Kundun— tiene tres estados: *se ve* (lo normal), *solo yo*
+(queda para la cuenta del admin y desaparece para el resto) y *escondido* (no lo ve nadie). Sirve
+para sacar lo que estorba y para mostrar la app entera cuando se la está enseñando a alguien.
+Escondiendo una caja de drops, las que quedan se reparten el lugar: no queda el hueco.
+
+**Qué puede el Grand Master.** El GM siempre puede hacer la noche entera: marcar la asistencia,
+elegir y cargar los drops y arreglar el botín. Lo que cambia las reglas del reparto de ahí en
+adelante es del admin, y se puede soltar de a uno:
+
+| | Por qué es del admin |
+| --- | --- |
+| **Editar el catálogo** | Renombrar un item o cambiarle la palabra con la que se carga cambia cómo se reparte, y no queda rastro |
+| **Mover el turno de las ruedas** | El *le toca a* saltea a alguien sin que se note |
+
+Esto último **se controla en el servidor**, no escondiendo botones: la ruta devuelve 403 igual.
+
+---
+
 ## Quién participa en cada lista
 
 Son **tres listas independientes**, y cada una tiene su propia gente. En el panel, la solapa

@@ -131,6 +131,13 @@ export interface Estado {
   } | null;
   /** El botón de Google solo se muestra si el Worker tiene las credenciales cargadas. */
   googleActivo: boolean;
+  /**
+   * Qué pedazos de la app están escondidos y para quién. Lo que no figura lo ve todo el mundo.
+   * Lo maneja el admin desde el menú Desarrollador.
+   */
+  interfaz: Record<string, 'admin' | 'nadie'>;
+  /** Quién puede tocar lo que cambia las reglas del reparto: el Grand Master o solo el admin. */
+  permisos: Record<string, 'gm' | 'admin'>;
   /** Horarios fijos del Kundun, para que el front los muestre en la hora de cada uno. */
   agenda: {
     /** Solo las horas, para mostrarlas. La app las traduce a la zona de cada uno. */
@@ -139,6 +146,8 @@ export interface Estado {
     franjas: Array<{ hora: string; duraMin: number; premioMin: number; premiosHora: string }>;
     offsetServidorHoras: number;
     abreAntesMin: number;
+    /** Si el tablero tapa las cajas de drops cuando no hay Kundun. Lo apaga el admin. */
+    mostrarCartel: boolean;
     /** Los domingos se mezclan los drops del Kundun con los del asedio. */
     esDomingo: boolean;
     proximo: { abre: string; empieza: string; premios: string; cierra: string };

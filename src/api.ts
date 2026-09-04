@@ -79,6 +79,18 @@ export function achicarImagen(archivo: File, lado = 128): Promise<string> {
 // ── Horarios ──────────────────────────────────────────────────────────────────
 
 /** La zona del dispositivo. Un mail no dice dónde está la persona; el navegador sí. */
+/**
+ * Si un pedazo de la app se ve.
+ *
+ * El admin esconde cosas desde el menú Desarrollador: 'nadie' lo saca para todos y 'admin' lo
+ * deja solo para él. Lo que no figura en el mapa lo ve todo el mundo, que es lo normal.
+ */
+export function seVe(estado: EstadoConAviso, parte: string): boolean {
+  const como = estado.interfaz?.[parte];
+  if (!como) return true;
+  return como === 'admin' && estado.yo?.rol === 'admin';
+}
+
 export function zonaDelDispositivo(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

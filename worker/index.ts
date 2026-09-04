@@ -23,12 +23,14 @@ import {
   colasDeCatalogo,
   cerrarVencidos,
   guardarTurno,
+  leerAjustes,
   leerHorario,
   ordenDePrioridad,
   type Cola,
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
+import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import {
   manejaLaApp,
   type Env,
@@ -43,6 +45,19 @@ import {
 const MAX_IMAGEN = 200_000;
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Si quien está pidiendo puede hacer algo que cambia las reglas del reparto.
+ *
+ * Esconder el botón en el panel no alcanza: la ruta se puede llamar igual. El admin siempre
+ * puede; el Grand Master, solo si el admin se lo dejó prendido en el menú Desarrollador.
+ */
+async function dejaHacer(c: { env: Env; get: (k: 'usuario') => FilaUsuario | null }, cual: Permiso) {
+  const usuario = c.get('usuario');
+  if (!usuario) return false;
+  const { permisos } = await leerAjustes(c.env.DB);
+  return puede(permisos, cual, usuario.rol);
+}
 
 const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const entero = (v: unknown): number => {
@@ -661,6 +676,61 @@ app.post('/api/eventos/:id/repartir', requiereGrandMaster, async (c) => {
 // ── Horario del Kundun ────────────────────────────────────────────────────────
 
 /**
+ * Qué se ve y quién puede tocar qué. Solo el admin.
+ *
+ * `interfaz` esconde pedazos de la app; `permisos` decide si el Grand Master puede tocar lo
+ * que cambia las reglas del reparto. Lo primero es cosmético, lo segundo se controla también
+ * en el servidor: esconder un botón no es un permiso.
+ */
+app.patch('/api/interfaz', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const actual = await leerAjustes(c.env.DB);
+
+  const interfaz = cuerpo.interfaz === undefined ? actual.interfaz : comoInterfaz(cuerpo.interfaz);
+  const permisos = cuerpo.permisos === undefined ? actual.permisos : comoPermisos(cuerpo.permisos);
+
+  // La fila de ajustes ya existe salvo la primera vez, así que se actualiza; el INSERT no
+  // sirve acá porque el resto de las columnas son NOT NULL y no las estamos tocando.
+  const ahoraIso = new Date().toISOString();
+  const guardados = JSON.stringify(interfaz);
+  const permitidos = JSON.stringify(permisos);
+
+  const r = await c.env.DB.prepare(
+    'UPDATE ajustes SET interfaz = ?, permisos = ?, actualizado_en = ? WHERE id = 1',
+  )
+    .bind(guardados, permitidos, ahoraIso)
+    .run();
+
+  if ((r.meta.changes ?? 0) === 0) {
+    const h = actual.horario;
+    await c.env.DB.prepare(
+      `INSERT INTO ajustes
+         (id, horas, offset_servidor, abre_antes_min, pin_antes_min, cierra_despues_min,
+          cierra_registro_antes_min, interfaz, permisos, actualizado_en)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        comoGuardadas(h.franjas),
+        h.offsetServidor,
+        h.abreAntesMin,
+        h.pinAntesMin,
+        h.franjas[0].duraMin + h.franjas[0].premioMin,
+        h.cierraRegistroAntesMin,
+        guardados,
+        permitidos,
+        ahoraIso,
+      )
+      .run();
+  }
+
+  const escondidas = Object.keys(interfaz).length;
+  return c.json({
+    ...(await construirEstado(c.env, c.get('usuario'))),
+    aviso: escondidas === 0 ? 'Se ve todo de nuevo.' : `Guardado: ${escondidas} escondidas.`,
+  });
+});
+
+/**
  * El servidor del juego cambia los horarios cada tanto. Acá el admin los reacomoda sin
  * tocar código: las horas van en hora del servidor y la app las traduce a la de cada uno.
  */
@@ -715,16 +785,20 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
   if (!asedio) return c.json({ error: 'No entendí la hora del asedio. Escribila así: 21:30' }, 400);
 
   const cierraRegistroAntesMin = enRango(cuerpo.cierraRegistroAntesMin, actual.cierraRegistroAntesMin, 0, 480);
+  const mostrarCartel =
+    typeof cuerpo.mostrarCartel === 'boolean' ? cuerpo.mostrarCartel : actual.mostrarCartel;
 
   await c.env.DB.prepare(
     `INSERT INTO ajustes
        (id, horas, offset_servidor, abre_antes_min, pin_antes_min, cierra_despues_min,
-        cierra_registro_antes_min, asedio_minutos, asedio_dura_min, asedio_premio_min, actualizado_en)
-     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?8, ?9, ?10, ?7)
+        cierra_registro_antes_min, asedio_minutos, asedio_dura_min, asedio_premio_min,
+        cartel_sin_kundun, actualizado_en)
+     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?8, ?9, ?10, ?11, ?7)
      ON CONFLICT(id) DO UPDATE SET
        horas = ?1, offset_servidor = ?2, abre_antes_min = ?3, pin_antes_min = ?4,
        cierra_despues_min = ?5, cierra_registro_antes_min = ?6,
-       asedio_minutos = ?8, asedio_dura_min = ?9, asedio_premio_min = ?10, actualizado_en = ?7`,
+       asedio_minutos = ?8, asedio_dura_min = ?9, asedio_premio_min = ?10,
+       cartel_sin_kundun = ?11, actualizado_en = ?7`,
   )
     .bind(
       comoGuardadas(franjas),
@@ -738,6 +812,7 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
       asedio.minutos,
       asedio.duraMin,
       asedio.premioMin,
+      mostrarCartel ? 1 : 0,
     )
     .run();
 
@@ -781,6 +856,7 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
 });
 
 app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
+  if (!(await dejaHacer(c, 'catalogo'))) return c.json({ error: 'El catálogo lo edita solo el admin.' }, 403);
   const id = entero(c.req.param('id'));
   const cuerpo = await c.req.json().catch(() => ({}));
 
@@ -1194,6 +1270,7 @@ app.post('/api/participantes/:cola/todos', requiereAdmin, async (c) => {
  * así el próximo le toca al que sigue. Sirve para corregir un reparto.
  */
 app.post('/api/turnos/:catalogoId', requiereGrandMaster, async (c) => {
+  if (!(await dejaHacer(c, 'turnos'))) return c.json({ error: 'El turno de las ruedas lo mueve solo el admin.' }, 403);
   const catalogoId = entero(c.req.param('catalogoId'));
   const cuerpo = await c.req.json().catch(() => ({}));
   const usuarioId = entero(cuerpo.usuarioId);

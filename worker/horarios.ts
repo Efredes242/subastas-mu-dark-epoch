@@ -46,6 +46,11 @@ export interface Horario {
   cierraRegistroAntesMin: number;
   /** El asedio al castillo, que sale los domingos y más tarde que el Kundun de la noche. */
   asedio: Franja;
+  /**
+   * Si el tablero tapa las cajas de drops con el cartel del próximo Kundun cuando no hay
+   * ninguno en curso. El admin lo apaga cuando quiere mostrar la app entera.
+   */
+  mostrarCartel: boolean;
 }
 
 /** Lo que vale si todavía no hay fila de ajustes. */
@@ -59,6 +64,7 @@ export const HORARIO_POR_DEFECTO: Horario = {
   pinAntesMin: 15,
   cierraRegistroAntesMin: 5,
   asedio: { minutos: 21 * 60 + 30, duraMin: 30, premioMin: 40 },
+  mostrarCartel: true,
 };
 
 /** 780 → "13:00". */

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { comoGmt, faltan, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
@@ -275,6 +275,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
    * por qué tachar a nadie. Recién cuando el que reparte confirma la asistencia y carga los
    * drops se sabe quién estuvo y quién se llevó qué.
    */
+  const ve = (parte: string) => seVe(estado, parte);
   const repartido = estado.items.length > 0;
   const asistenciaLista = evento?.asistenciaLista ?? false;
   const enCurso = !!evento && !repartido;
@@ -303,6 +304,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
       <div className="tablero">
         {/* Arriba: horarios · qué Kundun es · tema */}
         <div className="barra-tablero arriba">
+          {ve('boton_horarios') ? (
           <button
             type="button"
             className="btn-esquina"
@@ -315,6 +317,9 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--tx3)' }}>tu hora · {nombreCortoZona(zona)}</span>
             </span>
           </button>
+          ) : (
+            <span />
+          )}
 
           <div style={{ minWidth: 0, textAlign: 'center' }}>
             {evento ? (
@@ -344,22 +349,30 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             )}
           </div>
 
-          <BotonTema tema={tema} alternar={alternarTema} />
+          {ve('boton_tema') ? <BotonTema tema={tema} alternar={alternarTema} /> : <span />}
         </div>
 
-        <div className="cuerpo-tablero">
+        <div className={`cuerpo-tablero${ve('tablero_gremio') ? '' : ' sin-gremio'}`}>
+          {/* Las tres cajas de drops van juntas: escondiendo una, las que quedan se reparten
+              el lugar en vez de dejar un hueco. */}
+          <div className="zona-drops">
+          {ve('tablero_items') && (
           <CajaRueda
             titulo="Items del Kundun"
             clase="items"
             drops={porRueda.items}
             vacio={evento ? 'Kundun en curso: todavía no cargaron los items.' : 'Sin Kundun en curso.'}
           />
+          )}
+          {ve('tablero_almas') && (
           <CajaRueda
             titulo="Almas de guerra"
             clase="almas"
             drops={porRueda.almas}
             vacio={evento ? 'Kundun en curso: todavía no cargaron las almas.' : 'Sin Kundun en curso.'}
           />
+          )}
+          {ve('tablero_asedio') && (
           <CajaRueda
             titulo="Castle Siege"
             nota="domingos"
@@ -373,9 +386,10 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                   : 'Todavía no cargaron los drops del asedio.'
             }
           />
+          )}
           {/* Sin Kundun no hay nada que mirar en las tres cajas: se tapan con el cartel del
               próximo, difuminando lo de atrás. */}
-          {!evento && (
+          {!evento && ve('tablero_cartel') && (
             <div className="sin-kundun">
               <div className="cartel">
                 <span className="sello">
@@ -391,7 +405,10 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             </div>
           )}
 
+          </div>
+
           {/* El gremio y sus PC */}
+          {ve('tablero_gremio') && (
           <section className="caja gremio">
             <header style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
@@ -476,24 +493,31 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               })}
             </div>
           </section>
+          )}
         </div>
 
         {/* Abajo: las ventanas de consulta */}
         <div className="barra-tablero abajo">
-          <button type="button" className="btn-esquina acento" onClick={() => setHoja('anterior')}>
-            <Orden tam={18} />
-            <span>Puja anterior</span>
-          </button>
+          {ve('boton_puja') && (
+            <button type="button" className="btn-esquina acento" onClick={() => setHoja('anterior')}>
+              <Orden tam={18} />
+              <span>Puja anterior</span>
+            </button>
+          )}
 
-          <button type="button" className="btn-esquina" onClick={() => setHoja('listas')}>
-            <Lineas tam={18} />
-            <span>Lista Drops</span>
-          </button>
+          {ve('boton_drops') && (
+            <button type="button" className="btn-esquina" onClick={() => setHoja('listas')}>
+              <Lineas tam={18} />
+              <span>Lista Drops</span>
+            </button>
+          )}
 
-          <button type="button" className="btn-esquina" onClick={() => setHoja('historial')}>
-            <Lineas tam={18} />
-            <span>Historial</span>
-          </button>
+          {ve('boton_historial') && (
+            <button type="button" className="btn-esquina" onClick={() => setHoja('historial')}>
+              <Lineas tam={18} />
+              <span>Historial</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -605,7 +629,9 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span className="etiqueta">Mostrar en</span>
-              <SelectorZona zona={zona} alCambiar={setZona} offsetServidor={estado.agenda.offsetServidorHoras} />
+              {ve('boton_zona') && (
+                <SelectorZona zona={zona} alCambiar={setZona} offsetServidor={estado.agenda.offsetServidorHoras} />
+              )}
             </div>
 
             <button type="button" className="btn btn-chico" style={{ justifySelf: 'start' }} onClick={() => ir('/admin')}>

@@ -1,5 +1,6 @@
 import { comoClases, type FilaClase } from './clases';
 import { googleConfigurado } from './google';
+import { leerInterfaz, leerPermisos, type Escondido, type Permiso, type Quien } from './interfaz';
 import {
   asedioDelDia,
   comoHora,
@@ -21,11 +22,37 @@ interface FilaAjustes {
   asedio_minutos: number | null;
   asedio_dura_min: number | null;
   asedio_premio_min: number | null;
+  cartel_sin_kundun: number | null;
+  interfaz: string | null;
+  permisos: string | null;
+}
+
+export interface Ajustes {
+  horario: Horario;
+  /** Qué pedazos de la app están escondidos y para quién. */
+  interfaz: Record<string, Escondido>;
+  /** Quién puede tocar lo que cambia las reglas del reparto. */
+  permisos: Record<Permiso, Quien>;
+}
+
+/**
+ * Todo lo que el admin configuró, de un solo viaje: son una sola fila.
+ */
+export async function leerAjustes(db: D1Database): Promise<Ajustes> {
+  const fila = await db.prepare('SELECT * FROM ajustes WHERE id = 1').first<FilaAjustes>();
+  return {
+    horario: comoHorario(fila),
+    interfaz: leerInterfaz(fila?.interfaz ?? null),
+    permisos: leerPermisos(fila?.permisos ?? null),
+  };
 }
 
 /** El horario que fijó el admin. Si todavía no hay fila, vale el de siempre. */
 export async function leerHorario(db: D1Database): Promise<Horario> {
-  const fila = await db.prepare('SELECT * FROM ajustes WHERE id = 1').first<FilaAjustes>();
+  return comoHorario(await db.prepare('SELECT * FROM ajustes WHERE id = 1').first<FilaAjustes>());
+}
+
+function comoHorario(fila: FilaAjustes | null): Horario {
   if (!fila) return HORARIO_POR_DEFECTO;
 
   const franjas = leerGuardadas(fila.horas, HORARIO_POR_DEFECTO.franjas[0]);
@@ -41,6 +68,7 @@ export async function leerHorario(db: D1Database): Promise<Horario> {
       duraMin: fila.asedio_dura_min ?? HORARIO_POR_DEFECTO.asedio.duraMin,
       premioMin: fila.asedio_premio_min ?? HORARIO_POR_DEFECTO.asedio.premioMin,
     },
+    mostrarCartel: (fila.cartel_sin_kundun ?? 1) === 1,
   };
 }
 
@@ -365,7 +393,8 @@ function aPublico(
 /** Todo lo que la UI necesita para pintar una pantalla, en una sola llamada. */
 export async function construirEstado(env: Env, usuario: FilaUsuario | null, ahora = new Date()): Promise<Estado> {
   const db = env.DB;
-  const horario = await leerHorario(db);
+  const ajustes = await leerAjustes(db);
+  const horario = ajustes.horario;
   const evento = await asegurarEvento(db, ahora, horario);
   const yoId = usuario?.id ?? null;
   const eventoId = evento?.id ?? 0;
@@ -571,6 +600,8 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         }
       : null,
     googleActivo: googleConfigurado(env),
+    interfaz: ajustes.interfaz,
+    permisos: ajustes.permisos,
     agenda: {
       horasServidor: horario.franjas.map((f) => comoHora(f.minutos)),
       franjas: horario.franjas.map((f) => ({
@@ -581,6 +612,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       })),
       offsetServidorHoras: horario.offsetServidor,
       abreAntesMin: horario.abreAntesMin,
+      mostrarCartel: horario.mostrarCartel,
       // El Kundun de las 21 termina de repartirse ya entrado el lunes en el servidor, así que
       // el domingo lo decide el evento en curso, no el reloj.
       esDomingo:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
+import { api, seVe, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorIcono } from '../componentes/SelectorIcono';
@@ -15,6 +15,7 @@ import {
   Gente,
   Glifo,
   IconoItem,
+  Lupa,
   Mas,
   Menos,
   Orden,
@@ -24,7 +25,7 @@ import {
   Tilde,
 } from '../iconos';
 
-type Solapa = 'evento' | 'catalogo' | 'listas' | 'miembros';
+type Solapa = 'evento' | 'catalogo' | 'listas' | 'miembros' | 'desarrollador';
 
 /** De qué lista sale cada drop. La rareza y el ícono ya no se eligen: manda la imagen. */
 /** Las tres listas: clave, nombre corto para el panel y nombre largo. */
@@ -713,6 +714,8 @@ function AvisoDeKundun({
 export default function Admin({ estado, setEstado, recargar, tema, alternarTema }: PropsPagina) {
   const yo = estado.yo!;
   const esAdmin = yo.rol === 'admin';
+  /** Si un pedazo del panel está a la vista, según el menú Desarrollador. */
+  const ve = (parte: string) => seVe(estado, parte);
 
   const [solapa, setSolapa] = useState<Solapa>('evento');
   const [aviso, setAviso] = useState('');
@@ -854,17 +857,29 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
         <button type="button" className={`btn btn-chico${solapa === 'evento' ? ' btn-suave' : ''}`} onClick={() => setSolapa('evento')}>
           <Escudo tam={15} /> Evento
         </button>
-        <button type="button" className={`btn btn-chico${solapa === 'catalogo' ? ' btn-suave' : ''}`} onClick={() => setSolapa('catalogo')}>
-          <Glifo nombre="joya" tam={15} /> Catálogo
-        </button>
-        {esAdmin && (
+        {ve('panel_catalogo') && (
+          <button type="button" className={`btn btn-chico${solapa === 'catalogo' ? ' btn-suave' : ''}`} onClick={() => setSolapa('catalogo')}>
+            <Glifo nombre="joya" tam={15} /> Catálogo
+          </button>
+        )}
+        {esAdmin && ve('panel_listas') && (
           <button type="button" className={`btn btn-chico${solapa === 'listas' ? ' btn-suave' : ''}`} onClick={() => setSolapa('listas')}>
             <Gente tam={15} /> Listas
           </button>
         )}
-        {esAdmin && (
+        {esAdmin && ve('panel_miembros') && (
           <button type="button" className={`btn btn-chico${solapa === 'miembros' ? ' btn-suave' : ''}`} onClick={() => setSolapa('miembros')}>
             <Gente tam={15} /> Miembros
+          </button>
+        )}
+        {esAdmin && (
+          <button
+            type="button"
+            className={`btn btn-chico${solapa === 'desarrollador' ? ' btn-suave' : ''}`}
+            onClick={() => setSolapa('desarrollador')}
+            title="Qué se ve de la app y qué puede el Grand Master"
+          >
+            <Lupa tam={15} /> Desarrollador
           </button>
         )}
       </div>
@@ -898,14 +913,23 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
         </div>
       )}
 
-      {solapa === 'listas' && esAdmin && <Listas estado={estado} alError={setError} setEstado={setEstado} />}
-      {solapa === 'miembros' && esAdmin && (
+      {solapa === 'listas' && esAdmin && ve('panel_listas') && (
+        <Listas estado={estado} alError={setError} setEstado={setEstado} />
+      )}
+      {solapa === 'miembros' && esAdmin && ve('panel_miembros') && (
         <div style={{ marginBottom: 16 }}>
           <Clases estado={estado} alError={setError} setEstado={setEstado} />
         </div>
       )}
-      {solapa === 'miembros' && esAdmin && <Miembros alError={setError} alListo={recargar} yoId={yo.id} />}
-      {solapa === 'catalogo' && <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />}
+      {solapa === 'miembros' && esAdmin && ve('panel_miembros') && (
+        <Miembros alError={setError} alListo={recargar} yoId={yo.id} />
+      )}
+      {solapa === 'catalogo' && ve('panel_catalogo') && (
+        <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />
+      )}
+      {solapa === 'desarrollador' && esAdmin && (
+        <Desarrollador estado={estado} alError={setError} setEstado={setEstado} />
+      )}
 
       {solapa === 'evento' && (
         <div className="admin-grid">
@@ -924,24 +948,28 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     <button type="button" className="btn" disabled={ocupado} onClick={() => accion(() => api('/eventos', { cuerpo: {} }))}>
                       <Mas tam={16} /> Abrir uno fuera de hora
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-suave"
-                      disabled={ocupado}
-                      title="Abre un Kundun de mentira con todo el gremio y drops de ejemplo"
-                      onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
-                    >
-                      Probar un Kundun
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-suave"
-                      disabled={ocupado}
-                      title="Como el anterior, pero se hace pasar por domingo: aparecen los dos campos de carga, el del Kundun y el del asedio"
-                      onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
-                    >
-                      Probar un domingo
-                    </button>
+                    {ve('panel_pruebas') && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-suave"
+                          disabled={ocupado}
+                          title="Abre un Kundun de mentira con todo el gremio"
+                          onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
+                        >
+                          Probar un Kundun
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-suave"
+                          disabled={ocupado}
+                          title="Como el anterior, pero se hace pasar por domingo: aparecen las dos solapas de carga"
+                          onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
+                        >
+                          Probar un domingo
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1015,7 +1043,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
               </section>
             )}
 
-            {evento && <AvisosDeChat items={estado.items} />}
+            {evento && ve('panel_chat') && <AvisosDeChat items={estado.items} />}
           </div>
 
           <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
@@ -1110,6 +1138,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
               </section>
             )}
 
+            {ve('panel_orden') && (
             <section className="panel subir" style={{ padding: '17px 12px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 6px' }}>
                 <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Orden de prioridad</h2>
@@ -1182,8 +1211,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 ))}
               </div>
             </section>
+            )}
 
-            {estado.anterior && (
+            {estado.anterior && ve('panel_anterior') && (
               <section className="panel subir" style={{ padding: '16px 14px 12px' }}>
                 <h2 style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 800, padding: '0 4px' }}>
                   Puja anterior · #{estado.anterior.numero}
@@ -1204,7 +1234,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
               </section>
             )}
 
-            {esAdmin && <CajaHorario estado={estado} alError={setError} setEstado={setEstado} zona={zona} />}
+            {esAdmin && ve('panel_horarios') && (
+              <CajaHorario estado={estado} alError={setError} setEstado={setEstado} zona={zona} />
+            )}
           </div>
         </div>
       )}
@@ -1453,6 +1485,7 @@ function Catalogo({
                 </div>
 
                 {/* El turno de ESTE item en cada lista: quién se lo lleva la próxima vez que salga. */}
+                {seVe(estado, 'panel_turnos') && (
                 <div style={{ flex: '1 1 220px', display: 'grid', gap: 4, minWidth: 0 }}>
                   <span className="etiqueta">Le toca a</span>
                   {LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
@@ -1485,6 +1518,7 @@ function Catalogo({
                     );
                   })}
                 </div>
+                )}
 
                 {e.imagen && (
                   <button
@@ -2135,6 +2169,208 @@ function CajaHorario({
         {guardado ? 'Horario guardado' : 'Guardar horario'}
       </button>
     </section>
+  );
+}
+
+/**
+ * Todo lo que se puede esconder, agrupado como se ve en la pantalla.
+ *
+ * Las claves son las mismas que valida el servidor (worker/interfaz.ts); acá viven los nombres
+ * que se leen.
+ */
+const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
+  [
+    'El tablero',
+    [
+      ['tablero_items', 'Caja de items del Kundun', 'La primera columna del tablero'],
+      ['tablero_almas', 'Caja de almas de guerra', 'La segunda columna'],
+      ['tablero_asedio', 'Caja del Castle Siege', 'La tercera, que solo se usa los domingos'],
+      ['tablero_gremio', 'Orden del gremio', 'La lista de la derecha con los PC'],
+      ['tablero_cartel', 'Cartel del próximo Kundun', 'Tapa las cajas cuando no hay ninguno en curso'],
+    ],
+  ],
+  [
+    'Los botones del tablero',
+    [
+      ['boton_puja', 'Puja anterior', 'Abajo a la izquierda'],
+      ['boton_drops', 'Lista Drops', 'Abajo al medio: las ruedas de cada item'],
+      ['boton_historial', 'Historial', 'Abajo a la derecha: los Kundun viejos'],
+      ['boton_horarios', 'Reloj de horarios', 'Arriba a la izquierda'],
+      ['boton_tema', 'Cambiar el tema', 'Arriba a la derecha: claro y oscuro'],
+      ['boton_zona', 'Elegir la zona horaria', 'Dentro de la ventana de horarios'],
+    ],
+  ],
+  [
+    'El panel',
+    [
+      ['panel_catalogo', 'Solapa Catálogo', 'Los items, sus palabras y sus imágenes'],
+      ['panel_listas', 'Solapa Listas', 'Quién participa en cada lista de drops'],
+      ['panel_miembros', 'Solapa Miembros', 'Alta y baja de personajes'],
+      ['panel_turnos', 'Le toca a', 'El turno de cada rueda, dentro del catálogo'],
+      ['panel_chat', 'Líneas para el chat', 'El bloque para copiar el reparto de a una'],
+      ['panel_pruebas', 'Botones de prueba', 'Probar un Kundun y probar un domingo'],
+      ['panel_horarios', 'Horario del Kundun', 'La caja donde se cargan las horas'],
+      ['panel_orden', 'Orden de prioridad', 'El orden base del gremio'],
+      ['panel_anterior', 'Puja anterior', 'El reparto del Kundun pasado'],
+    ],
+  ],
+];
+
+/** Las dos cosas que cambian las reglas del reparto. */
+const PERMISOS_DEL_GM: Array<[string, string, string]> = [
+  [
+    'catalogo',
+    'Editar el catálogo',
+    'Renombrar items, cambiar las palabras con las que se cargan y sacarlos de una lista. Cambia cómo se reparte de ahí en adelante.',
+  ],
+  [
+    'turnos',
+    'Mover el turno de las ruedas',
+    'El "le toca a" de cada item. Saltea a alguien sin que quede rastro.',
+  ],
+];
+
+/**
+ * El menú Desarrollador: qué se ve y quién puede tocar qué.
+ *
+ * Todo lo de acá es del admin. Lo de arriba es cosmético —esconder cosas que estorban, o
+ * mostrar la app entera cuando se la está enseñando—; lo de abajo son permisos de verdad, que
+ * el servidor también controla: esconder un botón no alcanza, la ruta se puede llamar igual.
+ */
+function Desarrollador({
+  estado,
+  alError,
+  setEstado,
+}: {
+  estado: EstadoConAviso;
+  alError: (m: string) => void;
+  setEstado: (e: EstadoConAviso) => void;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+
+  const interfaz = estado.interfaz ?? {};
+  const permisos = estado.permisos ?? {};
+  const escondidas = Object.keys(interfaz).length;
+
+  async function guardar(cuerpo: Record<string, unknown>) {
+    setOcupado(true);
+    alError('');
+    try {
+      setEstado(await api('/interfaz', { metodo: 'PATCH', cuerpo }));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo guardar.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const poner = (parte: string, como: string) =>
+    guardar({ interfaz: { ...interfaz, [parte]: como } });
+
+  const OPCIONES: Array<[string, string]> = [
+    ['todos', 'Se ve'],
+    ['admin', 'Solo yo'],
+    ['nadie', 'Escondido'],
+  ];
+
+  return (
+    <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
+      <section className="panel subir" style={{ padding: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Qué se ve de la app</h2>
+          {escondidas > 0 && (
+            <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => void guardar({ interfaz: {} })}>
+              Mostrar todo de nuevo
+            </button>
+          )}
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
+          <b>Se ve</b> es lo normal. <b>Solo yo</b> lo deja para tu cuenta y desaparece para el resto
+          del gremio. <b>Escondido</b> lo saca para todos, vos incluido — se vuelve desde acá.
+          {escondidas > 0 && (
+            <>
+              {' '}
+              Ahora hay <b style={{ color: 'var(--av)' }}>{escondidas}</b> que no está{escondidas === 1 ? '' : 'n'} a la
+              vista.
+            </>
+          )}
+        </p>
+      </section>
+
+      {PARTES_DE_LA_APP.map(([grupo, partes]) => (
+        <section key={grupo} className="panel subir" style={{ padding: '17px 14px 14px' }}>
+          <h3 className="etiqueta" style={{ margin: '0 4px 10px' }}>{grupo}</h3>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {partes.map(([clave, nombre, ayuda]) => {
+              const como: string = interfaz[clave] ?? 'todos';
+              return (
+                <div key={clave} className={`fila-parte${como === 'todos' ? '' : ' apagada'}`}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>{nombre}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 2 }}>{ayuda}</div>
+                  </div>
+                  <div className="tres-estados">
+                    {OPCIONES.map(([valor, rotulo]) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        className={como === valor ? 'puesto' : ''}
+                        disabled={ocupado}
+                        onClick={() => void poner(clave, valor)}
+                      >
+                        {rotulo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      <section className="panel subir" style={{ padding: 18 }}>
+        <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800 }}>Qué puede el Grand Master</h2>
+        <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
+          El Grand Master siempre puede hacer la noche entera: marcar la asistencia, elegir y cargar
+          los drops, y arreglar el botín —mover un item a otra persona, borrar uno cargado de más,
+          marcar que ya lo ganó—. Lo de acá abajo es lo otro: lo que cambia las reglas del reparto de
+          ahí en adelante. <b>Esto se controla también en el servidor</b>, no solo escondiendo botones.
+        </p>
+
+        <div style={{ display: 'grid', gap: 6 }}>
+          {PERMISOS_DEL_GM.map(([clave, nombre, ayuda]) => {
+            const deQuien = permisos[clave] ?? 'admin';
+            return (
+              <div key={clave} className={`fila-parte${deQuien === 'admin' ? ' apagada' : ''}`}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700 }}>{nombre}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--tx3)', marginTop: 2, lineHeight: 1.45 }}>{ayuda}</div>
+                </div>
+                <div className="tres-estados">
+                  <button
+                    type="button"
+                    className={deQuien === 'admin' ? 'puesto' : ''}
+                    disabled={ocupado}
+                    onClick={() => void guardar({ permisos: { ...permisos, [clave]: 'admin' } })}
+                  >
+                    Solo yo
+                  </button>
+                  <button
+                    type="button"
+                    className={deQuien === 'gm' ? 'puesto' : ''}
+                    disabled={ocupado}
+                    onClick={() => void guardar({ permisos: { ...permisos, [clave]: 'gm' } })}
+                  >
+                    También el GM
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
   );
 }
 
