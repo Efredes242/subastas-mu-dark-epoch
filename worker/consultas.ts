@@ -170,9 +170,48 @@ export function esDomingoEnElServidor(momento: Date, offsetServidor: number): bo
   return new Date(momento.getTime() + offsetServidor * 3_600_000).getUTCDay() === 0;
 }
 
-export function enLaRueda(usuarios: FilaUsuario[], cola: Cola, quienes: Record<string, Set<number>>): FilaUsuario[] {
+/**
+ * Los que dan la vuelta en una rueda, en el orden que corresponde.
+ *
+ * Por defecto es el orden de PC del gremio. Si el admin le armó un orden propio a ese item,
+ * manda ese; el que se sumó a la lista después y todavía no figura entra al final, por PC.
+ */
+export function enLaRueda(
+  usuarios: FilaUsuario[],
+  cola: Cola,
+  quienes: Record<string, Set<number>>,
+  propio?: number[],
+): FilaUsuario[] {
   const conjunto = quienes[cola];
-  return conjunto ? usuarios.filter((u) => conjunto.has(u.id)) : [];
+  const dan = conjunto ? usuarios.filter((u) => conjunto.has(u.id)) : [];
+  if (!propio || propio.length === 0) return dan;
+
+  const lugar = new Map(propio.map((id, i) => [id, i]));
+  // Los que no figuran quedan con Infinity y el sort estable los deja al final, en orden de PC.
+  return [...dan].sort((a, b) => (lugar.get(a.id) ?? Infinity) - (lugar.get(b.id) ?? Infinity));
+}
+
+/** El orden propio de cada rueda, con la clave "catalogoId|cola" igual que los turnos. */
+export function agruparOrdenes(
+  filas: { catalogo_id: number; cola: string; usuario_id: number }[],
+): Map<string, number[]> {
+  const mapa = new Map<string, number[]>();
+  for (const f of filas) {
+    const clave = `${f.catalogo_id}|${f.cola}`;
+    const suyo = mapa.get(clave) ?? [];
+    suyo.push(f.usuario_id);
+    mapa.set(clave, suyo);
+  }
+  return mapa;
+}
+
+/** El orden propio de una sola rueda. Vacío si esa rueda sigue el orden de PC. */
+export async function ordenDeRueda(db: D1Database, catalogoId: number, cola: Cola): Promise<number[]> {
+  const { results } = await db
+    .prepare('SELECT usuario_id FROM orden_rueda WHERE catalogo_id = ? AND cola = ? ORDER BY posicion')
+    .bind(catalogoId, cola)
+    .all<{ usuario_id: number }>();
+  return results.map((r) => r.usuario_id);
 }
 
 /**
@@ -295,7 +334,8 @@ export async function elegirGanador(
   const cola: Cola = COLAS.includes(item.cola as Cola) ? (item.cola as Cola) : 'items';
   const presentes = await presentesDe(db, item.evento_id);
   const orden = await ordenDePrioridad(db);
-  const enRueda = enLaRueda(orden, cola, await participantesDe(db));
+  const propio = item.catalogo_id === null ? [] : await ordenDeRueda(db, item.catalogo_id, cola);
+  const enRueda = enLaRueda(orden, cola, await participantesDe(db), propio);
 
   const ultimo = item.catalogo_id === null ? null : await turnoDe(db, item.catalogo_id, cola);
   const elegido = siguienteEnLaRueda(enRueda, ultimo, presentes);
@@ -365,6 +405,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     participantesR,
     colasR,
     turnosR,
+    ordenesR,
     clasesR,
     historialR,
   ] = await db.batch([
@@ -384,6 +425,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     db.prepare('SELECT cola, usuario_id FROM participantes'),
     db.prepare('SELECT catalogo_id, cola FROM catalogo_colas'),
     db.prepare('SELECT catalogo_id, cola, usuario_id FROM turnos'),
+    db.prepare('SELECT catalogo_id, cola, usuario_id FROM orden_rueda ORDER BY posicion'),
     db.prepare('SELECT codigo, nombre, imagen, orden FROM clases ORDER BY orden ASC, codigo ASC'),
     db
       .prepare(
@@ -508,11 +550,16 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   const quienes = agruparParticipantes(participantesR.results as { cola: string; usuario_id: number }[]);
   const colasDe = agruparColas(colasR.results as { catalogo_id: number; cola: string }[]);
   const ultimos = agruparTurnos(turnosR.results as { catalogo_id: number; cola: string; usuario_id: number | null }[]);
+  const propios = agruparOrdenes(
+    ordenesR.results as { catalogo_id: number; cola: string; usuario_id: number }[],
+  );
   const turnos: Estado['turnos'] = [];
 
   for (const entrada of catalogo) {
     for (const cola of colasDe.get(entrada.id) ?? []) {
-      const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), ultimos.get(`${entrada.id}|${cola}`) ?? null);
+      const clave = `${entrada.id}|${cola}`;
+      const base = enLaRueda(orden, cola, quienes, propios.get(clave));
+      const vuelta = vueltaDesde(base, ultimos.get(clave) ?? null);
       const suyos = items.filter((i) => i.catalogoId === entrada.id && i.cola === cola);
 
       turnos.push({
@@ -523,6 +570,9 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         rareza: entrada.rareza,
         cola,
         salieron: suyos.length,
+        // El orden sin girar, que es el que se acomoda a mano. La vuelta sale de acá.
+        ordenIds: base.map((u) => u.id),
+        ordenPropio: (propios.get(clave)?.length ?? 0) > 0,
         vuelta: vuelta.map((u) => ({
           id: u.id,
           personaje: u.personaje,

@@ -624,6 +624,80 @@ select {
   color: var(--ok);
 }
 
+/* Acomodar a mano el orden de una rueda. Se abre debajo del item, en el catálogo. */
+.orden-rueda {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel2);
+}
+
+.orden-rueda > .encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.orden-rueda > ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.orden-rueda > ol > li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.orden-rueda .puesto {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
+}
+
+.orden-rueda .quien {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.orden-rueda .toca {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--okLn);
+  border-radius: 999px;
+  background: var(--okBg);
+  color: var(--ok);
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.orden-rueda > .pie {
+  margin: 10px 2px 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
 @media (max-width: 1000px) {
   .admin-grid {
     grid-template-columns: 1fr;
