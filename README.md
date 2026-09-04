@@ -334,6 +334,13 @@ mano con las flechitas.
 
 En **Historial** se abre cualquier Kundun viejo y se ve qué salió y quién se lo llevó.
 
+### Cómo se ve desde afuera
+
+El tablero muestra en qué momento está el Kundun: **en curso** mientras corre, **repartido** apenas
+se cargan los drops. Mientras está en curso nadie aparece tachado — cada uno lleva la marca *en
+juego*, porque todavía no hay nada resuelto. El tachado y el *no estuvo* salen recién cuando el que
+reparte confirma quiénes estuvieron, que es cuando esa información existe.
+
 ---
 
 ## Quién participa en cada lista

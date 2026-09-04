@@ -268,6 +268,17 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
   const cuenta = restante(evento?.cierraEn ?? null, ahora);
   const presentes = estado.orden.filter((p) => p.vino).length;
 
+  /**
+   * En qué momento está el Kundun, que es lo que el gremio mira de un vistazo.
+   *
+   * Mientras corre no hay nada resuelto: nadie está de más ni de menos, y el tablero no tiene
+   * por qué tachar a nadie. Recién cuando el que reparte confirma la asistencia y carga los
+   * drops se sabe quién estuvo y quién se llevó qué.
+   */
+  const repartido = estado.items.length > 0;
+  const asistenciaLista = evento?.asistenciaLista ?? false;
+  const enCurso = !!evento && !repartido;
+
   // Por defecto se abre el Kundun más nuevo, que es el que se mira siempre; -1 = ninguno.
   const abiertoId = kundunAbierto ?? estado.historial[0]?.id ?? -1;
 
@@ -311,9 +322,14 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                 <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                   {evento.esPrueba ? <span style={{ color: 'var(--av)' }}>Kundun de prueba</span> : `Kundun #${evento.numero}`}
                 </div>
-                <div className="recorte" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--tx3)', marginTop: 2 }}>
-                  {cuenta ? `cierra en ${cuenta}` : fechaHoraEn(evento.empiezaEn ?? evento.creadoEn, zona)}
-                  {presentes > 0 ? ` · ${presentes} estuvieron` : ''}
+                <div className="recorte estado-kundun">
+                  <span className={enCurso ? 'ahora' : 'listo'}>
+                    {enCurso ? 'en curso' : 'repartido'}
+                  </span>
+                  <span>
+                    {cuenta ? `cierra en ${cuenta}` : fechaHoraEn(evento.empiezaEn ?? evento.creadoEn, zona)}
+                    {presentes > 0 ? ` · ${presentes} ${enCurso ? 'marcados' : 'estuvieron'}` : ''}
+                  </span>
                 </div>
               </>
             ) : (
@@ -336,20 +352,26 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             titulo="Items del Kundun"
             clase="items"
             drops={porRueda.items}
-            vacio={evento ? 'Todavía no cargaron items.' : 'Sin Kundun en curso.'}
+            vacio={evento ? 'Kundun en curso: todavía no cargaron los items.' : 'Sin Kundun en curso.'}
           />
           <CajaRueda
             titulo="Almas de guerra"
             clase="almas"
             drops={porRueda.almas}
-            vacio={evento ? 'Todavía no cargaron almas.' : 'Sin Kundun en curso.'}
+            vacio={evento ? 'Kundun en curso: todavía no cargaron las almas.' : 'Sin Kundun en curso.'}
           />
           <CajaRueda
             titulo="Castle Siege"
             nota="domingos"
             clase="asedio"
             drops={porRueda.asedio}
-            vacio="Sin drops de asedio."
+            vacio={
+              !estado.agenda.esDomingo
+                ? `El asedio es los domingos, a las ${estado.agenda.asedio.hora} del servidor.`
+                : estado.agenda.asedio.desde
+                  ? `El drop del asedio sale ${horaEn(estado.agenda.asedio.desde, zona)}.`
+                  : 'Todavía no cargaron los drops del asedio.'
+            }
           />
           {/* El gremio y sus PC */}
           <section className="caja gremio">
@@ -363,7 +385,9 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             <div className="lista">
               {estado.orden.map((p) => {
                 const seLlevo = estado.items.filter((i) => i.duenoId === p.id);
-                const inactivo = !!evento && !p.vino;
+                // Nadie queda tachado hasta que el que reparte confirma quién estuvo: antes de
+                // eso el Kundun recién arranca y no hay ausentes, hay gente jugando.
+                const inactivo = asistenciaLista && !p.vino;
 
                 return (
                   <div key={p.id} className={`fila-gremio ${seLlevo.length > 0 ? 'cobro' : inactivo ? 'inactivo' : ''}`}>
@@ -406,7 +430,11 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                       </span>
                     ) : inactivo ? (
                       <span className="marca-fila" style={{ color: 'var(--mal)' }}>
-                        inactivo
+                        no estuvo
+                      </span>
+                    ) : enCurso ? (
+                      <span className="marca-fila en-juego" title="El Kundun está en curso: todavía no se repartió nada">
+                        en juego
                       </span>
                     ) : marcaDeListas(p.listas) ? (
                       <span
@@ -432,7 +460,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
           </section>
         </div>
 
-        {/* Abajo: anotarse y las ventanas de consulta */}
+        {/* Abajo: las ventanas de consulta */}
         <div className="barra-tablero abajo">
           <button type="button" className="btn-esquina acento" onClick={() => setHoja('anterior')}>
             <Orden tam={18} />

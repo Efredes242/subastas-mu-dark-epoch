@@ -736,7 +736,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
   const evento = estado.evento;
   const cuenta = restante(evento?.cierraEn ?? null, ahora);
-  const abierto = !!evento && evento.registroAbierto && cuenta !== null;
+  // Ya no hay registro: nadie se anota. Lo único que importa es si el Kundun sigue corriendo
+  // y si el que reparte ya cargó los drops.
+  const repartido = estado.items.length > 0;
   const sinAsignar = estado.items.filter((i) => i.estado === 'abierto').length;
   const vinieron = estado.orden.filter((p) => p.vino).length;
 
@@ -817,9 +819,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
           </h1>
           {evento ? (
             <>
-              <span className={`pastilla ${abierto ? 'ok' : 'mal'}`}>
+              <span className={`pastilla ${repartido ? 'ok' : 'av'}`}>
                 <span className="punto latir" />
-                {abierto ? 'Registro abierto' : 'Registro cerrado'}
+                {repartido ? 'Repartido' : 'Kundun en curso'}
               </span>
               <span
                 className="num"
@@ -829,7 +831,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 {cuenta ?? '00:00'}
               </span>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx3)' }}>
-                {vinieron} anotados
+                {vinieron} marcados
               </span>
             </>
           ) : (
@@ -913,9 +915,8 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 <div>
                   <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>No hay ningún Kundun en curso</h2>
                   <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                    Se abre solo {estado.agenda.abreAntesMin} minutos antes de cada horario. El próximo es a las{' '}
-                    <b style={{ color: 'var(--tx2)' }}>{horaEn(estado.agenda.proximo.empieza, zona)}</b> (registro desde
-                    las {horaEn(estado.agenda.proximo.abre, zona)}).
+                    El próximo arranca a las{' '}
+                    <b style={{ color: 'var(--tx2)' }}>{horaEn(estado.agenda.proximo.empieza, zona)}</b> y se abre solo.
                   </p>
                 </div>
                 {esAdmin && (
@@ -1053,9 +1054,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
                 {esAdmin && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-                    <button type="button" className={`btn btn-chico ${evento.registroAbierto ? 'btn-mal' : 'btn-ok'}`} disabled={ocupado} onClick={() => accion(() => api(`/eventos/${evento.id}`, { metodo: 'PATCH', cuerpo: { registroAbierto: !evento.registroAbierto } }))}>
-                      {evento.registroAbierto ? 'Cerrar registro' : 'Reabrir registro'}
-                    </button>
                     <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => accion(() => api(`/eventos/${evento.id}`, { metodo: 'PATCH', cuerpo: { minutos: 15 } }))}>
                       +15 min
                     </button>

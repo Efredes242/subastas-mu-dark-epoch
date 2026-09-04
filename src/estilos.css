@@ -927,6 +927,46 @@ select {
   background: var(--oroBg);
   box-shadow: inset 3px 0 0 var(--oro);
 }
+/* Mientras el Kundun corre no hay nada resuelto: cada uno lleva esta marca en vez de
+   quedar tachado, que es lo que corresponde recién cuando se sabe quién estuvo. */
+.marca-fila.en-juego {
+  color: var(--ok);
+  font-weight: 800;
+}
+
+/* En qué momento está el Kundun, arriba del tablero. */
+.estado-kundun {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tx3);
+}
+
+.estado-kundun > span:first-child {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.estado-kundun > .ahora {
+  background: var(--okBg);
+  border: 1px solid var(--okLn);
+  color: var(--ok);
+}
+
+.estado-kundun > .listo {
+  background: var(--oroBg);
+  border: 1px solid var(--oroLn);
+  color: var(--oro);
+}
+
 .fila-gremio.inactivo {
   background: var(--malBg);
   box-shadow: inset 3px 0 0 var(--mal);
