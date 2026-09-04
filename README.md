@@ -336,10 +336,18 @@ En **Historial** se abre cualquier Kundun viejo y se ve qué salió y quién se 
 
 ### Cómo se ve desde afuera
 
+Cuando **no hay Kundun**, un cartel tapa las tres cajas de drops con la hora del próximo y
+cuánto falta, difuminando lo de atrás: ahí no hay nada que mirar hasta que empiece. El orden del
+gremio queda a la vista.
+
 El tablero muestra en qué momento está el Kundun: **en curso** mientras corre, **repartido** apenas
 se cargan los drops. Mientras está en curso nadie aparece tachado — cada uno lleva la marca *en
 juego*, porque todavía no hay nada resuelto. El tachado y el *no estuvo* salen recién cuando el que
 reparte confirma quiénes estuvieron, que es cuando esa información existe.
+
+Los horarios se muestran en la zona del equipo que abre la página. El selector las trae **todas**,
+agrupadas por región y de oeste a este; arriba de todo quedan la de este equipo y la del servidor,
+que son las dos que se usan.
 
 ---
 

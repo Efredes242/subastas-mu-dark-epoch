@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { nombreCortoZona, zonaDelDispositivo } from '../api';
 
 const CLAVE = 'sk_zona';
@@ -63,6 +63,52 @@ export function useZona(zonaDelPerfil: string | null | undefined): [string, (z: 
 
 export const AUTO = 'auto';
 
+/**
+ * Todas las zonas horarias que conoce el navegador, agrupadas por región.
+ *
+ * `Intl.supportedValuesOf` está en todos los navegadores modernos; si falta, quedan las de
+ * siempre, que cubren de dónde entra el gremio. El desplazamiento se calcula una sola vez: son
+ * cuatrocientas y pico y no cambian mientras la página está abierta.
+ */
+const DE_EMERGENCIA = [
+  'America/Argentina/Buenos_Aires',
+  'America/Santiago',
+  'America/Sao_Paulo',
+  'America/Bogota',
+  'America/Mexico_City',
+  'America/New_York',
+  'America/Los_Angeles',
+  'Europe/Madrid',
+  'Europe/London',
+  'UTC',
+];
+
+function todasLasZonas(): string[] {
+  try {
+    const soportadas = (Intl as { supportedValuesOf?: (clave: string) => string[] }).supportedValuesOf;
+    const lista = soportadas?.('timeZone');
+    if (lista && lista.length > 0) return lista;
+  } catch {
+    /* navegador viejo: van las de siempre */
+  }
+  return DE_EMERGENCIA;
+}
+
+/** "America/Argentina/Buenos_Aires" → "Argentina / Buenos Aires". */
+function comoSeLee(zona: string): string {
+  const partes = zona.split('/');
+  return partes.slice(1).join(' / ').replace(/_/g, ' ') || zona;
+}
+
+/** El desplazamiento en minutos, para poder ordenar de oeste a este. */
+function desplazamiento(zona: string): number {
+  const corto = nombreCortoZona(zona);
+  const m = corto.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  if (!m) return 0;
+  const signo = m[1] === '-' ? -1 : 1;
+  return signo * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+}
+
 export function SelectorZona({
   zona,
   alCambiar,
@@ -76,13 +122,22 @@ export function SelectorZona({
   const automatica = !elegidaAMano();
   const delServidor = zonaDelServidor(offsetServidor);
 
-  const opciones = [
-    { valor: AUTO, texto: `Automática — la de este equipo (${nombreCortoZona(propia)})` },
-    { valor: delServidor, texto: `Hora del servidor (${nombreCortoZona(delServidor)})` },
-  ];
-  if (!automatica && zona !== delServidor) {
-    opciones.push({ valor: zona, texto: `${zona} (${nombreCortoZona(zona)})` });
-  }
+  // Las regiones se arman una sola vez: son cuatrocientas y pico de zonas.
+  const regiones = useMemo(() => {
+    const mapa = new Map<string, { valor: string; texto: string; min: number }[]>();
+    for (const z of todasLasZonas()) {
+      const region = z.includes('/') ? z.split('/')[0] : 'Otras';
+      const suyas = mapa.get(region) ?? [];
+      suyas.push({ valor: z, texto: `${comoSeLee(z)} (${nombreCortoZona(z)})`, min: desplazamiento(z) });
+      mapa.set(region, suyas);
+    }
+    for (const [region, suyas] of mapa) {
+      // De oeste a este, y a igual hora por nombre: así se encuentran las de al lado.
+      suyas.sort((a, b) => a.min - b.min || a.texto.localeCompare(b.texto, 'es'));
+      mapa.set(region, suyas);
+    }
+    return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+  }, []);
 
   return (
     <select
@@ -92,10 +147,17 @@ export function SelectorZona({
       onChange={(e) => alCambiar(e.target.value)}
       aria-label="Zona horaria"
     >
-      {opciones.map((o) => (
-        <option key={o.valor} value={o.valor}>
-          {o.texto}
-        </option>
+      {/* Primero la de este equipo, que es la que casi siempre se quiere. */}
+      <option value={AUTO}>Automática — la de este equipo ({nombreCortoZona(propia)})</option>
+      <option value={delServidor}>Hora del servidor ({nombreCortoZona(delServidor)})</option>
+      {regiones.map(([region, suyas]) => (
+        <optgroup key={region} label={region.replace(/_/g, ' ')}>
+          {suyas.map((o) => (
+            <option key={o.valor} value={o.valor}>
+              {o.texto}
+            </option>
+          ))}
+        </optgroup>
       ))}
     </select>
   );

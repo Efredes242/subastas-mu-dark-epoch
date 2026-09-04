@@ -373,6 +373,24 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                   : 'Todavía no cargaron los drops del asedio.'
             }
           />
+          {/* Sin Kundun no hay nada que mirar en las tres cajas: se tapan con el cartel del
+              próximo, difuminando lo de atrás. */}
+          {!evento && (
+            <div className="sin-kundun">
+              <div className="cartel">
+                <span className="sello">
+                  <Reloj tam={26} />
+                </span>
+                <span className="rotulo">Próximo Kundun</span>
+                <span className="hora">{horaEn(estado.agenda.proximo.empieza, zona)}</span>
+                <span className="falta">{faltan(estado.agenda.proximo.empieza, ahora)}</span>
+                <span className="pie">
+                  Se abre solo {estado.agenda.abreAntesMin} min antes · {nombreCortoZona(zona)}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* El gremio y sus PC */}
           <section className="caja gremio">
             <header style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
