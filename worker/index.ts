@@ -28,7 +28,7 @@ import {
   type Cola,
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
-import { comoHora, leerHoras } from './horarios';
+import { comoHora, leerHora, leerHoras } from './horarios';
 import {
   manejaLaApp,
   type Env,
@@ -680,6 +680,16 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
   // El PIN nunca puede aparecer antes de que abra el registro.
   const pinAntesMin = Math.min(enRango(cuerpo.pinAntesMin, actual.pinAntesMin, 0, 240), abreAntesMin);
   const cierraDespuesMin = enRango(cuerpo.cierraDespuesMin, actual.cierraDespuesMin, 1, 480);
+
+  // El asedio de los domingos, que sale más tarde que el Kundun y tiene su propia duración.
+  const asedioMinutos =
+    cuerpo.asedioHora === undefined || cuerpo.asedioHora === ''
+      ? actual.asedioMinutos
+      : leerHora(texto(cuerpo.asedioHora, 20));
+  if (asedioMinutos === null) {
+    return c.json({ error: 'No entendí la hora del asedio. Escribila así: 21:30' }, 400);
+  }
+  const asedioDuraMin = enRango(cuerpo.asedioDuraMin, actual.asedioDuraMin, 1, 480);
   // Cortar el registro después del cierre no significa nada: como mucho, en el cierre.
   const cierraRegistroAntesMin = Math.min(
     enRango(cuerpo.cierraRegistroAntesMin, actual.cierraRegistroAntesMin, 0, 480),
@@ -688,11 +698,13 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
 
   await c.env.DB.prepare(
     `INSERT INTO ajustes
-       (id, horas, offset_servidor, abre_antes_min, pin_antes_min, cierra_despues_min, cierra_registro_antes_min, actualizado_en)
-     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       (id, horas, offset_servidor, abre_antes_min, pin_antes_min, cierra_despues_min,
+        cierra_registro_antes_min, asedio_minutos, asedio_dura_min, actualizado_en)
+     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?8, ?9, ?7)
      ON CONFLICT(id) DO UPDATE SET
        horas = ?1, offset_servidor = ?2, abre_antes_min = ?3, pin_antes_min = ?4,
-       cierra_despues_min = ?5, cierra_registro_antes_min = ?6, actualizado_en = ?7`,
+       cierra_despues_min = ?5, cierra_registro_antes_min = ?6,
+       asedio_minutos = ?8, asedio_dura_min = ?9, actualizado_en = ?7`,
   )
     .bind(
       minutos.join(','),
@@ -702,6 +714,8 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
       cierraDespuesMin,
       cierraRegistroAntesMin,
       new Date().toISOString(),
+      asedioMinutos,
+      asedioDuraMin,
     )
     .run();
 

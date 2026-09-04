@@ -140,6 +140,14 @@ export interface Estado {
     /** Los domingos se mezclan los drops del Kundun con los del asedio. */
     esDomingo: boolean;
     proximo: { abre: string; empieza: string; cierra: string };
+    /**
+     * El asedio al castillo, que sale los domingos y más tarde que el Kundun.
+     *
+     * `desde` es cuándo se habilita cargar sus drops en el evento en curso: hasta esa hora el
+     * drop del asedio todavía no salió y no hay nada que cargar. null cuando ya se puede
+     * (las pruebas y cualquier evento que ya pasó esa hora).
+     */
+    asedio: { hora: string; duraMin: number; desde: string | null };
   };
   evento: {
     id: number;

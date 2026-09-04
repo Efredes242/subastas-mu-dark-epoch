@@ -252,12 +252,16 @@ function CargaDeDrops({
   estado,
   evento,
   domingo,
+  ahora,
+  zona,
   ocupado,
   accion,
 }: {
   estado: EstadoConAviso;
   evento: NonNullable<EstadoConAviso['evento']>;
   domingo: boolean;
+  ahora: number;
+  zona: string;
   ocupado: boolean;
   accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
 }) {
@@ -267,6 +271,14 @@ function CargaDeDrops({
   const [conTexto, setConTexto] = useState(false);
 
   const listo = evento.asistenciaLista;
+
+  /**
+   * El asedio sale más tarde que el Kundun, así que hasta su hora no hay nada que cargar.
+   * Los dos drops del domingo son independientes: el del Kundun se confirma apenas sale y el
+   * del asedio queda pendiente hasta que aparece, en el mismo evento.
+   */
+  const asedioDesde = estado.agenda.asedio.desde;
+  const asedioSalio = !asedioDesde || new Date(asedioDesde).getTime() <= ahora;
 
   /** Los items que salen en cada solapa, uno solo por item aunque esté en dos ruedas. */
   const catalogoDe = (cual: 'kundun' | 'asedio') => {
@@ -319,7 +331,7 @@ function CargaDeDrops({
 
   const cual = solapa;
   const lista = catalogoDe(cual);
-  const deshabilitada = !listo || (cual === 'asedio' && !domingo);
+  const deshabilitada = !listo || (cual === 'asedio' && (!domingo || !asedioSalio));
 
   return (
     <section className="panel subir" style={{ padding: 18 }}>
@@ -350,13 +362,24 @@ function CargaDeDrops({
         <button type="button" className={cual === 'asedio' ? 'activa' : ''} onClick={() => setSolapa('asedio')}>
           <Escudo tam={15} /> Castle Siege
           {domingo && cuantos('asedio') > 0 && <span className="cuenta">{cuantos('asedio')}</span>}
-          {domingo && <span className="hoy">hoy</span>}
+          {domingo && <span className={asedioSalio ? 'hoy' : 'luego'}>{asedioSalio ? 'hoy' : 'más tarde'}</span>}
         </button>
       </div>
 
       {cual === 'asedio' && !domingo && (
         <div className="vacio" style={{ marginBottom: 12 }}>
           El Castle Siege se reparte los domingos. Hoy se cargan solo los drops del Kundun.
+        </div>
+      )}
+
+      {cual === 'asedio' && domingo && !asedioSalio && (
+        <div className="aviso" style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.45 }}>
+          <Reloj tam={17} />
+          <span>
+            El drop del asedio todavía no salió: aparece{' '}
+            <b>{asedioDesde ? fechaHoraEn(asedioDesde, zona) : 'más tarde'}</b> y ahí se
+            habilita este cuadro. Mientras tanto cargá los del Kundun, que van por separado.
+          </span>
         </div>
       )}
 
@@ -926,6 +949,8 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 estado={estado}
                 evento={evento}
                 domingo={domingo}
+                ahora={ahora}
+                zona={zona}
                 ocupado={ocupado}
                 accion={accion}
               />
@@ -1892,6 +1917,8 @@ function CajaHorario({
   const [offset, setOffset] = useState(String(agenda.offsetServidorHoras));
   const [abre, setAbre] = useState(String(agenda.abreAntesMin));
   const [cierra, setCierra] = useState(String(agenda.cierraDespuesMin));
+  const [asedioHora, setAsedioHora] = useState(agenda.asedio.hora);
+  const [asedioDura, setAsedioDura] = useState(String(agenda.asedio.duraMin));
   const [ocupado, setOcupado] = useState(false);
 
   // Cuando el servidor confirma el cambio, los campos se acomodan a lo que quedó guardado.
@@ -1900,13 +1927,24 @@ function CajaHorario({
     setOffset(String(agenda.offsetServidorHoras));
     setAbre(String(agenda.abreAntesMin));
     setCierra(String(agenda.cierraDespuesMin));
-  }, [agenda.horasServidor.join(','), agenda.offsetServidorHoras, agenda.abreAntesMin, agenda.cierraDespuesMin]);
+    setAsedioHora(agenda.asedio.hora);
+    setAsedioDura(String(agenda.asedio.duraMin));
+  }, [
+    agenda.horasServidor.join(','),
+    agenda.offsetServidorHoras,
+    agenda.abreAntesMin,
+    agenda.cierraDespuesMin,
+    agenda.asedio.hora,
+    agenda.asedio.duraMin,
+  ]);
 
   const guardado =
     horas.trim() === agenda.horasServidor.join(', ') &&
     Number(offset) === agenda.offsetServidorHoras &&
     Number(abre) === agenda.abreAntesMin &&
-    Number(cierra) === agenda.cierraDespuesMin;
+    Number(cierra) === agenda.cierraDespuesMin &&
+    asedioHora.trim() === agenda.asedio.hora &&
+    Number(asedioDura) === agenda.asedio.duraMin;
 
   async function guardar() {
     setOcupado(true);
@@ -1920,6 +1958,8 @@ function CajaHorario({
             offsetServidor: Number(offset),
             abreAntesMin: Number(abre),
             cierraDespuesMin: Number(cierra),
+            asedioHora,
+            asedioDuraMin: Number(asedioDura),
           },
         }),
       );
@@ -1990,11 +2030,49 @@ function CajaHorario({
         ))}
       </div>
 
+      {/* El asedio va aparte: sale los domingos y más tarde que el Kundun. */}
+      <div className="bloque-asedio">
+        <span className="etiqueta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Escudo tam={13} /> Asedio al castillo · domingos
+        </span>
+        <div className="minutos-horario" style={{ marginTop: 8 }}>
+          <label style={{ display: 'grid', gap: 6, minWidth: 0 }} title="Hora del servidor a la que sale el drop del asedio">
+            <span className="etiqueta">Hora</span>
+            <input
+              className="campo campo-chico"
+              value={asedioHora}
+              placeholder="21:30"
+              disabled={ocupado}
+              onChange={(e) => setAsedioHora(e.target.value)}
+            />
+          </label>
+          <label
+            style={{ display: 'grid', gap: 6, minWidth: 0 }}
+            title="Cuánto queda el drop del asedio en la subasta del gremio antes de pasar a la mundial"
+          >
+            <span className="etiqueta">Dura</span>
+            <input
+              className="campo campo-chico"
+              type="number"
+              min={1}
+              max={480}
+              value={asedioDura}
+              disabled={ocupado}
+              onChange={(e) => setAsedioDura(e.target.value)}
+            />
+          </label>
+        </div>
+      </div>
+
       <div className="aviso" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, display: 'block' }}>
         Guardado: <b>{agenda.horasServidor.join(' y ')}</b> del servidor ({comoGmt(agenda.offsetServidorHoras)}).
         <br />
         En tu hora ({nombreCortoZona(zona)}): <b style={{ color: 'var(--oro)' }}>{enTuHora.join(' y ')}</b>. El
         evento abre {agenda.abreAntesMin} min antes y cierra solo {agenda.cierraDespuesMin} min después.
+        <br />
+        Los domingos el asedio sale a las <b>{agenda.asedio.hora}</b> del servidor y queda{' '}
+        {agenda.asedio.duraMin} min: el evento de esa noche se estira hasta el final del asedio en vez de
+        cerrarse en el medio.
       </div>
 
       <button

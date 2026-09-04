@@ -1,6 +1,7 @@
 import { comoClases, type FilaClase } from './clases';
 import { googleConfigurado } from './google';
 import {
+  asedioDelDia,
   comoHora,
   HORARIO_POR_DEFECTO,
   type Horario,
@@ -16,6 +17,8 @@ interface FilaAjustes {
   pin_antes_min: number;
   cierra_despues_min: number;
   cierra_registro_antes_min: number;
+  asedio_minutos: number | null;
+  asedio_dura_min: number | null;
 }
 
 /** El horario que fijó el admin. Si todavía no hay fila, vale el de siempre. */
@@ -36,7 +39,23 @@ export async function leerHorario(db: D1Database): Promise<Horario> {
     pinAntesMin: fila.pin_antes_min,
     cierraDespuesMin: fila.cierra_despues_min,
     cierraRegistroAntesMin: fila.cierra_registro_antes_min,
+    asedioMinutos: fila.asedio_minutos ?? HORARIO_POR_DEFECTO.asedioMinutos,
+    asedioDuraMin: fila.asedio_dura_min ?? HORARIO_POR_DEFECTO.asedioDuraMin,
   };
+}
+
+/**
+ * Desde cuándo se pueden cargar los drops del asedio del evento en curso.
+ *
+ * El drop del asedio aparece más tarde que el del Kundun, así que hasta esa hora no hay nada
+ * que cargar y el cuadro queda apagado. null significa "ya": las pruebas, que están para
+ * ensayar el circuito entero, y cualquier evento que ya pasó la hora.
+ */
+function asedioDesde(evento: FilaEvento | null, horario: Horario, ahora: Date): string | null {
+  if (!evento || evento.es_prueba === 1) return null;
+  const cuando = asedioDelDia(evento.empieza_en ? enUtc(evento.empieza_en) : ahora, horario);
+  if (!cuando || cuando.getTime() <= ahora.getTime()) return null;
+  return cuando.toISOString();
 }
 
 /** El Kundun en curso: el último evento sin cerrar. */
@@ -560,6 +579,11 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       esDomingo:
         evento?.forzar_domingo === 1 ||
         esDomingoEnElServidor(evento?.empieza_en ? enUtc(evento.empieza_en) : ahora, horario.offsetServidor),
+      asedio: {
+        hora: comoHora(horario.asedioMinutos),
+        duraMin: horario.asedioDuraMin,
+        desde: asedioDesde(evento, horario, ahora),
+      },
       proximo: {
         abre: proximo.abre.toISOString(),
         empieza: proximo.empieza.toISOString(),

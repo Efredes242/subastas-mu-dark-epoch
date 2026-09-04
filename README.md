@@ -259,12 +259,18 @@ Los drops se **eligen de una lista**, no se escriben. Están todos los del catá
 y se toca el que salió, una vez por unidad; el contador de cada uno se corrige con − y +.
 
 Hay **dos solapas**: *Kundun*, que se usa toda la semana, y *Castle Siege*, que es la de los
-domingos. Los domingos caen los dos repartos en el mismo evento, así que cada solapa lleva su
-cuenta aparte y lo que se elige en la del asedio entra a la rueda del asedio, aunque ese item
-también salga en el Kundun. Los otros días la solapa del asedio queda a la vista pero apagada. El
-domingo lo decide el evento en curso, no el reloj: el Kundun de las 21 se termina de cargar ya
-entrado el lunes y sigue contando como domingo. Para probarlo cualquier día está el botón
-**Probar un domingo**.
+domingos. Cada una lleva su cuenta aparte y lo que se elige en la del asedio entra a la rueda del
+asedio, aunque ese item también salga en el Kundun. Los otros días la solapa del asedio queda a la
+vista pero apagada.
+
+Los dos drops del domingo **no salen al mismo tiempo**: primero el del Kundun y más tarde el del
+asedio, mientras el del Kundun todavía está en el gremio. Así que son independientes: los del
+Kundun se cargan apenas salen y la solapa del asedio queda apagada, diciendo a qué hora se
+habilita, hasta que el drop del asedio aparece de verdad. Los dos entran al mismo evento.
+
+El domingo lo decide el evento en curso, no el reloj: el Kundun de la noche se termina de cargar ya
+entrado el lunes y sigue contando como domingo. Para probarlo cualquier día está el botón **Probar
+un domingo**, que abre las dos solapas de una porque está para ensayar el circuito entero.
 
 Cada unidad entra como un item aparte (*Pluma de Condor (1 de 2)*, *(2 de 2)*), porque cada una la
 puja una persona distinta. **Al cargar se reparten solos**, siguiendo la rueda de cada item, y el
@@ -294,6 +300,22 @@ En el chat del juego entra un renglón por vez, así que no sirve copiar el bloq
 línea tiene su botón y **queda tildada en verde al copiarla**, para no perder la cuenta yendo de a
 una. Arriba se ve cuántas van y hay un **Destildar** para volver a empezar. Los domingos las líneas
 salen en los mismos dos bloques que el botín.
+
+### Los horarios
+
+Los fija el admin desde el panel, en hora del servidor, y cada uno los ve en la suya. Hoy:
+
+| | Cuándo | El drop queda |
+| --- | --- | --- |
+| **Kundun** | todos los días 13:00 y 20:45 | 35 min |
+| **Asedio al castillo** | domingos 21:30 | 40 min |
+
+El evento abre 15 min antes del Kundun y se cierra solo cuando el drop se va a la subasta mundial.
+Los domingos **se estira hasta el final del asedio** (22:10) en vez de cerrarse a las 21:20 con el
+reparto del asedio a medio hacer: el asedio se cuelga del último Kundun del domingo que arranca
+antes que él.
+
+Los minutos que dura cada drop son los que se conocen hoy; se cambian en el panel sin tocar código.
 
 ### Si algo sale torcido
 

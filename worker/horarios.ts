@@ -24,16 +24,22 @@ export interface Horario {
   cierraDespuesMin: number;
   /** Anotarse corta esto antes del cierre, para que nadie entre con el reparto empezado. */
   cierraRegistroAntesMin: number;
+  /** A qué hora del servidor cae el asedio al castillo, los domingos. 21:30 → 1290. */
+  asedioMinutos: number;
+  /** Cuánto queda el drop del asedio en la subasta del gremio antes de irse a la mundial. */
+  asedioDuraMin: number;
 }
 
 /** Lo que valía antes de que el horario fuera configurable. Sirve de red si falta la fila. */
 export const HORARIO_POR_DEFECTO: Horario = {
-  minutos: [13 * 60, 21 * 60],
+  minutos: [13 * 60, 20 * 60 + 45],
   offsetServidor: -3,
   abreAntesMin: 15,
   pinAntesMin: 15,
-  cierraDespuesMin: 20,
+  cierraDespuesMin: 35,
   cierraRegistroAntesMin: 5,
+  asedioMinutos: 21 * 60 + 30,
+  asedioDuraMin: 40,
 };
 
 /** 780 → "13:00". */
@@ -83,19 +89,47 @@ export interface Corrida {
   /** Hasta cuándo se puede uno anotar. Siempre antes de `cierra`. */
   registroHasta: Date;
   cierra: Date;
+  /**
+   * Cuándo cae el asedio, si esta corrida es la que lo lleva colgado. Los domingos el drop del
+   * asedio aparece más tarde que el del Kundun, mientras el del Kundun todavía está en el
+   * gremio: se cargan en el mismo evento pero no al mismo tiempo.
+   */
+  asedio: Date | null;
 }
 
-const corrida = (empieza: Date, h: Horario): Corrida => ({
-  clave: empieza.toISOString().slice(0, 16) + 'Z',
-  abre: new Date(empieza.getTime() - h.abreAntesMin * MIN),
-  pinDesde: new Date(empieza.getTime() - h.pinAntesMin * MIN),
-  empieza,
-  // Si el corte se pasa del cierre, anotarse termina cuando arranca el Kundun.
-  registroHasta: new Date(
-    empieza.getTime() + Math.max(h.cierraDespuesMin - h.cierraRegistroAntesMin, 0) * MIN,
-  ),
-  cierra: new Date(empieza.getTime() + h.cierraDespuesMin * MIN),
-});
+const corrida = (empieza: Date, h: Horario, asedio: Date | null = null): Corrida => {
+  // El evento tiene que seguir abierto hasta que el asedio termine: si cerrara antes, el que
+  // está repartiendo los drops del asedio se queda sin evento a mitad de camino.
+  const propio = empieza.getTime() + h.cierraDespuesMin * MIN;
+  const conAsedio = asedio === null ? propio : Math.max(propio, asedio.getTime() + h.asedioDuraMin * MIN);
+
+  return {
+    clave: empieza.toISOString().slice(0, 16) + 'Z',
+    abre: new Date(empieza.getTime() - h.abreAntesMin * MIN),
+    pinDesde: new Date(empieza.getTime() - h.pinAntesMin * MIN),
+    empieza,
+    // Si el corte se pasa del cierre, anotarse termina cuando arranca el Kundun.
+    registroHasta: new Date(Math.max(conAsedio - h.cierraRegistroAntesMin * MIN, empieza.getTime())),
+    cierra: new Date(conAsedio),
+    asedio,
+  };
+};
+
+/** Medianoche, en hora del servidor, del día al que pertenece un momento. */
+function medianocheServidor(momento: Date, offsetServidor: number): number {
+  const local = new Date(momento.getTime() + offsetServidor * 3_600_000);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - offsetServidor * 3_600_000;
+}
+
+/**
+ * Cuándo cae el asedio del día al que pertenece `momento`, mire desde donde se mire.
+ * Devuelve null si ese día no es domingo.
+ */
+export function asedioDelDia(momento: Date, h: Horario): Date | null {
+  const medianoche = medianocheServidor(momento, h.offsetServidor);
+  if (new Date(medianoche + h.offsetServidor * 3_600_000).getUTCDay() !== 0) return null;
+  return new Date(medianoche + h.asedioMinutos * MIN);
+}
 
 /**
  * Las corridas de ayer, hoy y mañana. Con tres días alcanza para cualquier ventana que
@@ -106,10 +140,18 @@ function cercanas(ahora: Date, h: Horario): Corrida[] {
   for (const dia of [-1, 0, 1]) {
     const base = new Date(ahora.getTime() + dia * DIA * MIN);
     const medianoche = Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate());
-    for (const minutos of h.minutos) {
-      // El horario está en hora del servidor: restarle su offset lo lleva a UTC.
-      salida.push(corrida(new Date(medianoche + (minutos - h.offsetServidor * 60) * MIN), h));
-    }
+    // El horario está en hora del servidor: restarle su offset lo lleva a UTC.
+    const empiezan = h.minutos.map((m) => new Date(medianoche + (m - h.offsetServidor * 60) * MIN));
+
+    // El asedio se cuelga del último Kundun del domingo que arranca antes que él: es el que
+    // sigue abierto cuando aparece el drop del asedio.
+    const asedio = empiezan.length > 0 ? asedioDelDia(empiezan[0], h) : null;
+    const conElAsedio =
+      asedio === null
+        ? -1
+        : empiezan.reduce((mejor, e, i) => (e.getTime() <= asedio.getTime() ? i : mejor), -1);
+
+    empiezan.forEach((empieza, i) => salida.push(corrida(empieza, h, i === conElAsedio ? asedio : null)));
   }
   return salida.sort((a, b) => a.empieza.getTime() - b.empieza.getTime());
 }
