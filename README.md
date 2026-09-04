@@ -253,32 +253,32 @@ dejar sin confirmar. Es a propósito: el reparto sale en el momento de la carga,
 arrancar con la asistencia a medio marcar. Para corregirla está **Corregir la asistencia**, que
 reabre el paso 1.
 
-### 2. Cargar lo que salió
+### 2. Elegir lo que salió
 
-Se pega lo que salió, tal cual se lee del chat:
+Los drops se **eligen de una lista**, no se escriben. Están todos los del catálogo con su imagen
+y se toca el que salió, una vez por unidad; el contador de cada uno se corrige con − y +.
 
-```
-1 cqc, 2 condor flame, 2 almas de guerra
-```
+Hay **dos solapas**: *Kundun*, que se usa toda la semana, y *Castle Siege*, que es la de los
+domingos. Los domingos caen los dos repartos en el mismo evento, así que cada solapa lleva su
+cuenta aparte y lo que se elige en la del asedio entra a la rueda del asedio, aunque ese item
+también salga en el Kundun. Los otros días la solapa del asedio queda a la vista pero apagada. El
+domingo lo decide el evento en curso, no el reloj: el Kundun de las 21 se termina de cargar ya
+entrado el lunes y sigue contando como domingo. Para probarlo cualquier día está el botón
+**Probar un domingo**.
 
 Cada unidad entra como un item aparte (*Pluma de Condor (1 de 2)*, *(2 de 2)*), porque cada una la
 puja una persona distinta. **Al cargar se reparten solos**, siguiendo la rueda de cada item, y el
 aviso dice cuántos se repartieron, quiénes perdieron la vuelta y si algo quedó sin repartir porque
 su lista no tenía a nadie presente.
 
-Los nombres se resuelven contra el **catálogo**, y la imagen se lee de ahí cada vez que se muestra
-el item, así que subirla después también arregla los Kundun viejos del historial.
+Para lo que **todavía no está en el catálogo** queda **Salió algo que no está en la lista**: ahí se
+escribe como se lee del chat (`2 anillo de hielo`) y se resuelve por palabra clave, creando la
+entrada. Esa es la única forma de sumar un item nuevo; la próxima vez ya aparece en la lista y solo
+hay que ponerle la imagen una vez. Elegir de la lista, en cambio, no puede fallar: no hay palabra
+que se confunda con otra.
 
-**Los domingos** aparecen dos campos en vez de uno: *Drops del Kundun* y *Drops del Castle Siege*.
-Ese día se mezclan los dos repartos, así que lo que se pegue en el segundo campo entra a la lista
-del asedio, aunque ese item también salga en el Kundun. El domingo lo decide el evento en curso, no
-el reloj: el Kundun de las 21 se termina de cargar ya entrado el lunes y sigue contando como
-domingo. Para probarlo cualquier día está el botón **Probar un domingo**.
-
-Abajo, el botín queda **partido en dos bloques**: *Drops del Kundun* y *Drops del Castle Siege*,
-cada uno con su color al costado. Los domingos los dos repartos caen en el mismo evento y en una
-lista corrida no se distingue un Cristal del Kundun de uno del asedio. Los días que sale una sola
-clase de drop aparece un solo bloque.
+La imagen se lee del catálogo cada vez que se muestra el item, así que subirla después también
+arregla los Kundun viejos del historial.
 
 ### 3. Cantarlo por el chat
 

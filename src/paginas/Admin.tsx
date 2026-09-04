@@ -16,6 +16,7 @@ import {
   Glifo,
   IconoItem,
   Mas,
+  Menos,
   Orden,
   Reloj,
   Subir,
@@ -229,6 +230,228 @@ function AvisosDeChat({ items }: { items: EstadoConAviso['items'] }) {
             </div>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+type Cantidades = Record<number, number>;
+
+/**
+ * Elegir los drops que salieron, de una lista.
+ *
+ * Antes se escribían a mano y se resolvían por palabra clave: un "condor" de más y el item caía
+ * en la rueda equivocada. Acá están todos los del catálogo y se toca el que salió, así que no hay
+ * nada que se pueda escribir mal. Queda un campo de texto para lo que todavía no existe en el
+ * catálogo, que es la única forma de crear una entrada nueva.
+ *
+ * Dos solapas: los drops del Kundun, que salen toda la semana, y los del Castle Siege, que son de
+ * los domingos y van forzados a su propia rueda.
+ */
+function CargaDeDrops({
+  estado,
+  evento,
+  domingo,
+  ocupado,
+  accion,
+}: {
+  estado: EstadoConAviso;
+  evento: NonNullable<EstadoConAviso['evento']>;
+  domingo: boolean;
+  ocupado: boolean;
+  accion: (fn: () => Promise<EstadoConAviso>) => Promise<void>;
+}) {
+  const [solapa, setSolapa] = useState<'kundun' | 'asedio'>('kundun');
+  const [cant, setCant] = useState<{ kundun: Cantidades; asedio: Cantidades }>({ kundun: {}, asedio: {} });
+  const [otro, setOtro] = useState<{ kundun: string; asedio: string }>({ kundun: '', asedio: '' });
+  const [conTexto, setConTexto] = useState(false);
+
+  const listo = evento.asistenciaLista;
+
+  /** Los items que salen en cada solapa, uno solo por item aunque esté en dos ruedas. */
+  const catalogoDe = (cual: 'kundun' | 'asedio') => {
+    const vistos = new Map<number, EstadoConAviso['turnos'][number]>();
+    for (const t of estado.turnos) {
+      const suya = cual === 'asedio' ? t.cola === 'asedio' : t.cola !== 'asedio';
+      if (suya && !vistos.has(t.catalogoId)) vistos.set(t.catalogoId, t);
+    }
+    return [...vistos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  };
+
+  const sumar = (cual: 'kundun' | 'asedio', id: number, salto: number) =>
+    setCant((previas) => {
+      const suyas = { ...previas[cual] };
+      const n = Math.min(99, Math.max(0, (suyas[id] ?? 0) + salto));
+      if (n === 0) delete suyas[id];
+      else suyas[id] = n;
+      return { ...previas, [cual]: suyas };
+    });
+
+  const cuantos = (cual: 'kundun' | 'asedio') => Object.values(cant[cual]).reduce((a, b) => a + b, 0);
+
+  const total = cuantos('kundun') + (domingo ? cuantos('asedio') : 0);
+  const hayTexto = otro.kundun.trim().length >= 2 || (domingo && otro.asedio.trim().length >= 2);
+
+  const comoLista = (cual: 'kundun' | 'asedio') =>
+    Object.entries(cant[cual])
+      .filter(([, n]) => n > 0)
+      .map(([id, cantidad]) => ({ catalogoId: Number(id), cantidad }));
+
+  const cargar = () =>
+    accion(async () => {
+      let r: EstadoConAviso | null = null;
+      const kundun = comoLista('kundun');
+      const asedio = comoLista('asedio');
+
+      if (kundun.length > 0 || otro.kundun.trim().length >= 2) {
+        r = await api('/items/lote', { cuerpo: { items: kundun, texto: otro.kundun } });
+      }
+      // Los del asedio van forzados a su lista aunque el catálogo los tenga como del Kundun.
+      if (domingo && (asedio.length > 0 || otro.asedio.trim().length >= 2)) {
+        r = await api('/items/lote', { cuerpo: { items: asedio, texto: otro.asedio, cola: 'asedio' } });
+      }
+
+      setCant({ kundun: {}, asedio: {} });
+      setOtro({ kundun: '', asedio: '' });
+      setConTexto(false);
+      return r ?? estado;
+    });
+
+  const cual = solapa;
+  const lista = catalogoDe(cual);
+  const deshabilitada = !listo || (cual === 'asedio' && !domingo);
+
+  return (
+    <section className="panel subir" style={{ padding: 18 }}>
+      <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800 }}>
+        <span className="paso">2</span> Elegir lo que salió
+      </h2>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
+        Tocá cada drop que salió, una vez por unidad. Cada unidad entra como un item aparte, porque
+        cada una la puja una persona distinta. <b>Al cargar se reparten solos</b>, siguiendo la rueda
+        de cada item.
+      </p>
+
+      {!listo && (
+        <div className="aviso" style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.45 }}>
+          <Alerta tam={17} />
+          <span>
+            Primero marcá arriba quiénes estuvieron y tocá <b>Listo</b>. El reparto sale en el momento
+            de la carga, así que necesita saber entre quiénes.
+          </span>
+        </div>
+      )}
+
+      <div className="solapas-drops">
+        <button type="button" className={cual === 'kundun' ? 'activa' : ''} onClick={() => setSolapa('kundun')}>
+          <Cofre tam={15} /> Kundun
+          {cuantos('kundun') > 0 && <span className="cuenta">{cuantos('kundun')}</span>}
+        </button>
+        <button type="button" className={cual === 'asedio' ? 'activa' : ''} onClick={() => setSolapa('asedio')}>
+          <Escudo tam={15} /> Castle Siege
+          {domingo && cuantos('asedio') > 0 && <span className="cuenta">{cuantos('asedio')}</span>}
+          {domingo && <span className="hoy">hoy</span>}
+        </button>
+      </div>
+
+      {cual === 'asedio' && !domingo && (
+        <div className="vacio" style={{ marginBottom: 12 }}>
+          El Castle Siege se reparte los domingos. Hoy se cargan solo los drops del Kundun.
+        </div>
+      )}
+
+      {lista.length === 0 ? (
+        <div className="vacio">Todavía no hay items en esta lista. Se agregan desde el catálogo.</div>
+      ) : (
+        <div className="grilla-drops">
+          {lista.map((it) => {
+            const n = cant[cual][it.catalogoId] ?? 0;
+            return (
+              <div key={it.catalogoId} className={`drop-elegible${n > 0 ? ' elegido' : ''}`}>
+                <button
+                  type="button"
+                  className="tocar"
+                  disabled={ocupado || deshabilitada}
+                  title={`Salió un ${it.nombre}`}
+                  onClick={() => sumar(cual, it.catalogoId, 1)}
+                >
+                  <IconoItem icono={it.icono} imagen={it.imagen} rareza={it.rareza} tam={38} />
+                  <span className="nombre">{it.nombre}</span>
+                </button>
+                <div className="contador">
+                  <button
+                    type="button"
+                    className="btn btn-chico"
+                    style={{ width: 30, padding: 0 }}
+                    title="Uno menos"
+                    disabled={ocupado || deshabilitada || n === 0}
+                    onClick={() => sumar(cual, it.catalogoId, -1)}
+                  >
+                    <Menos tam={14} />
+                  </button>
+                  <span className="num cuantos">{n}</span>
+                  <button
+                    type="button"
+                    className="btn btn-chico"
+                    style={{ width: 30, padding: 0 }}
+                    title="Uno más"
+                    disabled={ocupado || deshabilitada}
+                    onClick={() => sumar(cual, it.catalogoId, 1)}
+                  >
+                    <Mas tam={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lo que no está en el catálogo se escribe: es la única forma de crear una entrada nueva. */}
+      <div style={{ marginTop: 12 }}>
+        {conTexto ? (
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="etiqueta">Salió algo que no está en la lista</span>
+            <textarea
+              className="campo"
+              value={otro[cual]}
+              disabled={ocupado || deshabilitada}
+              onChange={(e) => setOtro({ ...otro, [cual]: e.target.value })}
+              placeholder="por ejemplo:  1 anillo de hielo, 2 alas"
+              rows={2}
+              style={{ padding: 12, minHeight: 62, lineHeight: 1.5, resize: 'vertical', fontSize: 14 }}
+            />
+            <span style={{ fontSize: 11.5, color: 'var(--tx3)' }}>
+              Separado por comas. El nombre nuevo queda en el catálogo y la próxima vez ya aparece
+              acá arriba, con su imagen.
+            </span>
+          </label>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-chico"
+            disabled={ocupado || deshabilitada}
+            onClick={() => setConTexto(true)}
+          >
+            <Mas tam={14} /> Salió algo que no está en la lista
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+        <button
+          type="button"
+          className="btn btn-oro"
+          disabled={ocupado || !listo || (total === 0 && !hayTexto)}
+          onClick={() => void cargar()}
+        >
+          <Mas tam={16} /> Cargar y repartir{total > 0 ? ` (${total})` : ''}
+        </button>
+        {domingo && cuantos('kundun') > 0 && cuantos('asedio') > 0 && (
+          <span style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
+            Van los {cuantos('kundun')} del Kundun y los {cuantos('asedio')} del asedio.
+          </span>
+        )}
       </div>
     </section>
   );
@@ -475,7 +698,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
   const [ahora, setAhora] = useState(() => Date.now());
   const [zona, setZona] = useZona(yo.zona);
 
-  const [lote, setLote] = useState('');
   const [avisado, setAvisado] = useState<number | null>(() => yaAvisado());
 
   /**
@@ -483,7 +705,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
    * inicio y el paso 1 del panel, y se guarda entero al tocar Listo.
    */
   const [marcados, setMarcados] = useState<Set<number>>(new Set());
-  const [loteAsedio, setLoteAsedio] = useState('');
 
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 1000);
@@ -525,21 +746,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
     accion(() =>
       api(`/eventos/${eventoId}/asistencia`, { cuerpo: { listo: true, presentes: [...marcados] } }),
     );
-
-  const cargarLote = () =>
-    accion(async () => {
-      let r: EstadoConAviso | null = null;
-      if (lote.trim().length >= 2) {
-        r = await api('/items/lote', { cuerpo: { texto: lote } });
-        setLote('');
-      }
-      // Los del asedio entran forzados a su lista aunque el catálogo los tenga como items.
-      if (domingo && loteAsedio.trim().length >= 2) {
-        r = await api('/items/lote', { cuerpo: { texto: loteAsedio, cola: 'asedio' } });
-        setLoteAsedio('');
-      }
-      return r ?? estado;
-    });
 
   const mover = (indice: number, delta: number) => {
     const ids = estado.orden.map((p) => p.id);
@@ -716,73 +922,13 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                 )}
               </div>
             ) : (
-              <section className="panel subir" style={{ padding: 18 }}>
-                <h2 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 800 }}>
-                  <span className="paso">2</span> Cargar lo que salió subastado
-                </h2>
-                <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                  Pegalo tal cual, separado por comas o por renglones. Cada unidad entra como un item aparte,
-                  porque cada una la puja una persona distinta. <b>Al cargar se reparten solos</b>, siguiendo
-                  la rueda de cada item.
-                  {domingo && ' Hoy es domingo: separá los drops del asedio en el segundo campo.'}
-                </p>
-
-                {!evento.asistenciaLista && (
-                  <div className="aviso" style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.45 }}>
-                    <Alerta tam={17} />
-                    <span>
-                      Primero marcá arriba quiénes estuvieron y tocá <b>Listo</b>. El reparto sale en el
-                      momento de la carga, así que necesita saber entre quiénes.
-                    </span>
-                  </div>
-                )}
-
-                <div className={domingo ? 'campos-domingo' : undefined}>
-                  <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-                    {domingo && <span className="etiqueta">Drops del Kundun</span>}
-                    <textarea
-                      className="campo"
-                      value={lote}
-                      disabled={!evento.asistenciaLista}
-                      onChange={(e) => setLote(e.target.value)}
-                      placeholder={'por ejemplo:  1 cqc, 2 condor flame, 2 almas de guerra'}
-                      rows={3}
-                      style={{ padding: 14, minHeight: 92, lineHeight: 1.5, resize: 'vertical', fontSize: 15 }}
-                    />
-                  </label>
-
-                  {domingo && (
-                    <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-                      <span className="etiqueta">Drops del Castle Siege</span>
-                      <textarea
-                        className="campo"
-                        value={loteAsedio}
-                        disabled={!evento.asistenciaLista}
-                        onChange={(e) => setLoteAsedio(e.target.value)}
-                        placeholder={'por ejemplo:  1 cofre de asedio, 2 plumas'}
-                        rows={3}
-                        style={{ padding: 14, minHeight: 92, lineHeight: 1.5, resize: 'vertical', fontSize: 15 }}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-                  <button
-                    type="button"
-                    className="btn btn-oro"
-                    disabled={
-                      ocupado || !evento.asistenciaLista || (lote.trim().length < 2 && loteAsedio.trim().length < 2)
-                    }
-                    onClick={cargarLote}
-                  >
-                    <Mas tam={16} /> Cargar y repartir
-                  </button>
-                  <span style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
-                    Los nombres nuevos quedan en el catálogo para ponerles la imagen una sola vez.
-                  </span>
-                </div>
-              </section>
+              <CargaDeDrops
+                estado={estado}
+                evento={evento}
+                domingo={domingo}
+                ocupado={ocupado}
+                accion={accion}
+              />
             )}
 
             {evento && (

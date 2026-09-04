@@ -203,6 +203,12 @@ export const Copiar = ({ tam }: { tam?: number }) => (
   </Trazo>
 );
 
+export const Menos = ({ tam }: { tam?: number }) => (
+  <Trazo tam={tam}>
+    <path d="M5.5 12h13" />
+  </Trazo>
+);
+
 export const Tacho = ({ tam }: { tam?: number }) => (
   <Trazo tam={tam}>
     <path d="M5 7h14" />

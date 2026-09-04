@@ -391,10 +391,27 @@ app.post('/api/eventos/:id/asistencia', requiereGrandMaster, async (c) => {
   });
 });
 
+/**
+ * Cargar los drops del Kundun y repartirlos.
+ *
+ * Entran de dos formas. La normal es `items`: la lista del catálogo con cuánto salió de cada
+ * uno, que es lo que manda la pantalla y no se puede escribir mal. La otra es `texto`, para lo
+ * que todavía no está en el catálogo: se pega como se lee del chat, se resuelve por palabra
+ * clave y se crea la entrada si hace falta.
+ */
 app.post('/api/items/lote', requiereGrandMaster, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
+
+  const elegidos: { catalogoId: number; cantidad: number }[] = Array.isArray(cuerpo.items)
+    ? (cuerpo.items as { catalogoId?: unknown; cantidad?: unknown }[])
+        .map((x) => ({ catalogoId: entero(x?.catalogoId), cantidad: entero(x?.cantidad) }))
+        .filter((x) => x.catalogoId > 0 && x.cantidad > 0 && x.cantidad <= 99)
+    : [];
+
   const renglones = parsearLote(texto(cuerpo.texto, 4000));
-  if (renglones.length === 0) return c.json({ error: 'No encontré ningún item en ese texto.' }, 400);
+  if (renglones.length === 0 && elegidos.length === 0) {
+    return c.json({ error: 'No elegiste ningún drop.' }, 400);
+  }
 
   // Los domingos el asedio se carga en su propio campo: esos drops van a la lista del asedio
   // aunque el catálogo diga otra cosa.
@@ -411,8 +428,24 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
   const nuevos: number[] = [];
   const colasDe = await colasDeCatalogo(c.env.DB);
 
+  // Los dos caminos terminan en lo mismo: una entrada del catálogo y cuántas salieron.
+  const aCargar: { entrada: FilaCatalogo; cantidad: number }[] = [];
+
+  for (const elegido of elegidos) {
+    const entrada = await c.env.DB.prepare('SELECT * FROM catalogo WHERE id = ?')
+      .bind(elegido.catalogoId)
+      .first<FilaCatalogo>();
+    if (entrada) aCargar.push({ entrada, cantidad: elegido.cantidad });
+  }
+
   for (const renglon of renglones) {
-    const entrada = await asegurarEnCatalogo(c.env.DB, renglon);
+    aCargar.push({ entrada: await asegurarEnCatalogo(c.env.DB, renglon), cantidad: renglon.cantidad });
+  }
+
+  if (aCargar.length === 0) return c.json({ error: 'No elegiste ningún drop.' }, 400);
+
+  for (const renglon of aCargar) {
+    const entrada = renglon.entrada;
     if (!entrada.imagen) nuevosEnCatalogo.push(entrada.nombre);
     const cola = forzada ?? colaPorDefecto(colasDe.get(entrada.id) ?? ['items']);
 

@@ -624,6 +624,88 @@ select {
   color: var(--ok);
 }
 
+/* Elegir los drops de una lista en vez de escribirlos. Una tarjeta por item del catálogo:
+   se toca el item y sube la cuenta. */
+.grilla-drops {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 8px;
+}
+
+.drop-elegible {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px 7px 7px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel2);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.drop-elegible.elegido {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.drop-elegible > .tocar {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--tx);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.drop-elegible > .tocar:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.drop-elegible > .tocar > .nombre {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  /* El nombre parte en dos renglones antes que cortarse: "Almas de …" no dice nada. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.drop-elegible.elegido > .tocar > .nombre {
+  color: var(--oro);
+}
+
+.drop-elegible > .contador {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.drop-elegible > .contador > .cuantos {
+  width: 20px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--tx3);
+}
+
+.drop-elegible.elegido > .contador > .cuantos {
+  color: var(--oro);
+}
+
+@media (max-width: 519px) {
+  .grilla-drops {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1000px) {
   .admin-grid {
     grid-template-columns: 1fr;
@@ -1087,19 +1169,6 @@ select {
 .fila-lista input {
   accent-color: var(--ok);
   cursor: pointer;
-}
-
-/* Los domingos hay dos campos de carga: Kundun y asedio. */
-.campos-domingo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-@media (max-width: 720px) {
-  .campos-domingo {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Panel: los tres minutos de la ventana de registro, en fila. */
