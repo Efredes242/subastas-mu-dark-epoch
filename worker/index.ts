@@ -28,7 +28,7 @@ import {
   type Cola,
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
-import { comoHora, leerHora, leerHoras } from './horarios';
+import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import {
   manejaLaApp,
   type Env,
@@ -134,7 +134,11 @@ app.patch('/api/perfil', requiereSesion, async (c) => {
 app.post('/api/eventos', requiereAdmin, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
   const horario = await leerHorario(c.env.DB);
-  const minutos = Math.min(Math.max(entero(cuerpo.minutos) || horario.cierraDespuesMin, 1), 240);
+  const suelto = horario.franjas[0] ?? { duraMin: 10, premioMin: 30 };
+  const minutos = Math.min(
+    Math.max(entero(cuerpo.minutos) || suelto.duraMin + suelto.premioMin, 1),
+    240,
+  );
   const ahora = Date.now();
 
   const ultimo = await c.env.DB.prepare('SELECT MAX(numero) AS n FROM eventos').first<{ n: number | null }>();
@@ -664,65 +668,83 @@ app.patch('/api/horarios', requiereAdmin, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
   const actual = await leerHorario(c.env.DB);
 
-  const minutos = cuerpo.horas === undefined ? actual.minutos : leerHoras(texto(cuerpo.horas, 200));
-  if (minutos === null) {
-    return c.json({ error: 'No entendí las horas. Escribilas así: 13:00, 21:00' }, 400);
-  }
-
   const enRango = (valor: unknown, porDefecto: number, min: number, max: number) => {
     if (valor === undefined || valor === null || valor === '') return porDefecto;
     const n = entero(valor);
     return Math.min(Math.max(n, min), max);
   };
 
+  /**
+   * Una franja: la hora del Kundun, cuánto dura el evento y cuánto quedan sus recompensas.
+   * Son dos tramos distintos y el evento de la app tiene que cubrir los dos.
+   */
+  const comoFranja = (crudo: unknown, deFabrica: Franja): Franja | null => {
+    const x = (crudo ?? {}) as { hora?: unknown; duraMin?: unknown; premioMin?: unknown };
+    const minutos = x.hora === undefined ? deFabrica.minutos : leerHora(texto(x.hora, 20));
+    if (minutos === null) return null;
+    return {
+      minutos,
+      duraMin: enRango(x.duraMin, deFabrica.duraMin, 1, 480),
+      premioMin: enRango(x.premioMin, deFabrica.premioMin, 1, 480),
+    };
+  };
+
+  let franjas = actual.franjas;
+  if (Array.isArray(cuerpo.franjas)) {
+    if (cuerpo.franjas.length === 0 || cuerpo.franjas.length > 12) {
+      return c.json({ error: 'Tiene que haber entre 1 y 12 horarios.' }, 400);
+    }
+    const leidas: Franja[] = [];
+    for (const cruda of cuerpo.franjas) {
+      const f = comoFranja(cruda, actual.franjas[0] ?? { minutos: 780, duraMin: 10, premioMin: 30 });
+      if (!f) return c.json({ error: 'No entendí una de las horas. Escribilas así: 13:00' }, 400);
+      leidas.push(f);
+    }
+    // Dos Kundun a la misma hora no significan nada.
+    const vistas = new Set<number>();
+    franjas = leidas.filter((f) => !vistas.has(f.minutos) && vistas.add(f.minutos) !== undefined);
+    franjas.sort((a, b) => a.minutos - b.minutos);
+  }
+
   const offsetServidor = enRango(cuerpo.offsetServidor, actual.offsetServidor, -12, 14);
   const abreAntesMin = enRango(cuerpo.abreAntesMin, actual.abreAntesMin, 1, 240);
   // El PIN nunca puede aparecer antes de que abra el registro.
   const pinAntesMin = Math.min(enRango(cuerpo.pinAntesMin, actual.pinAntesMin, 0, 240), abreAntesMin);
-  const cierraDespuesMin = enRango(cuerpo.cierraDespuesMin, actual.cierraDespuesMin, 1, 480);
+  // El asedio de los domingos: sale más tarde que el Kundun y tiene sus propios dos tramos.
+  const asedio = comoFranja(cuerpo.asedio, actual.asedio);
+  if (!asedio) return c.json({ error: 'No entendí la hora del asedio. Escribila así: 21:30' }, 400);
 
-  // El asedio de los domingos, que sale más tarde que el Kundun y tiene su propia duración.
-  const asedioMinutos =
-    cuerpo.asedioHora === undefined || cuerpo.asedioHora === ''
-      ? actual.asedioMinutos
-      : leerHora(texto(cuerpo.asedioHora, 20));
-  if (asedioMinutos === null) {
-    return c.json({ error: 'No entendí la hora del asedio. Escribila así: 21:30' }, 400);
-  }
-  const asedioDuraMin = enRango(cuerpo.asedioDuraMin, actual.asedioDuraMin, 1, 480);
-  // Cortar el registro después del cierre no significa nada: como mucho, en el cierre.
-  const cierraRegistroAntesMin = Math.min(
-    enRango(cuerpo.cierraRegistroAntesMin, actual.cierraRegistroAntesMin, 0, 480),
-    cierraDespuesMin,
-  );
+  const cierraRegistroAntesMin = enRango(cuerpo.cierraRegistroAntesMin, actual.cierraRegistroAntesMin, 0, 480);
 
   await c.env.DB.prepare(
     `INSERT INTO ajustes
        (id, horas, offset_servidor, abre_antes_min, pin_antes_min, cierra_despues_min,
-        cierra_registro_antes_min, asedio_minutos, asedio_dura_min, actualizado_en)
-     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?8, ?9, ?7)
+        cierra_registro_antes_min, asedio_minutos, asedio_dura_min, asedio_premio_min, actualizado_en)
+     VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?8, ?9, ?10, ?7)
      ON CONFLICT(id) DO UPDATE SET
        horas = ?1, offset_servidor = ?2, abre_antes_min = ?3, pin_antes_min = ?4,
        cierra_despues_min = ?5, cierra_registro_antes_min = ?6,
-       asedio_minutos = ?8, asedio_dura_min = ?9, actualizado_en = ?7`,
+       asedio_minutos = ?8, asedio_dura_min = ?9, asedio_premio_min = ?10, actualizado_en = ?7`,
   )
     .bind(
-      minutos.join(','),
+      comoGuardadas(franjas),
       offsetServidor,
       abreAntesMin,
       pinAntesMin,
-      cierraDespuesMin,
+      // La columna vieja: la app ya no la lee, pero la fila la sigue teniendo.
+      franjas[0].duraMin + franjas[0].premioMin,
       cierraRegistroAntesMin,
       new Date().toISOString(),
-      asedioMinutos,
-      asedioDuraMin,
+      asedio.minutos,
+      asedio.duraMin,
+      asedio.premioMin,
     )
     .run();
 
   const estado = await construirEstado(c.env, c.get('usuario'));
   return c.json({
     ...estado,
-    aviso: `Horario guardado: ${enumerar(minutos.map(comoHora))} hora del servidor.`,
+    aviso: `Horario guardado: ${enumerar(franjas.map((f) => comoHora(f.minutos)))} hora del servidor.`,
   });
 });
 

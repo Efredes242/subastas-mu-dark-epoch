@@ -303,19 +303,27 @@ salen en los mismos dos bloques que el botín.
 
 ### Los horarios
 
-Los fija el admin desde el panel, en hora del servidor, y cada uno los ve en la suya. Hoy:
+Cada evento del juego son **dos tramos**, y no hay que confundirlos: primero corre el evento, y
+cuando termina cae el drop y arranca la **subasta del gremio**. Cuando esa se acaba, lo que quedó
+sin repartir se va a la subasta mundial. El evento de la app abre un rato antes del arranque y se
+cierra solo al final de las recompensas, que es lo último que hay para hacer.
 
-| | Cuándo | El drop queda |
-| --- | --- | --- |
-| **Kundun** | todos los días 13:00 y 20:45 | 35 min |
-| **Asedio al castillo** | domingos 21:30 | 40 min |
+| | Arranca | Cae el drop | Se va a la mundial |
+| --- | --- | --- | --- |
+| **Kundun del mediodía** | 13:00 | 13:10 | 13:40 |
+| **Kundun de la noche** | 20:45 | 21:00 | 21:40 |
+| **Asedio al castillo** (domingos) | 21:30 | 22:00 | 22:40 |
 
-El evento abre 15 min antes del Kundun y se cierra solo cuando el drop se va a la subasta mundial.
-Los domingos **se estira hasta el final del asedio** (22:10) en vez de cerrarse a las 21:20 con el
-reparto del asedio a medio hacer: el asedio se cuelga del último Kundun del domingo que arranca
-antes que él.
+Todo en hora del servidor (GMT-3); cada uno lo ve en la suya.
 
-Los minutos que dura cada drop son los que se conocen hoy; se cambian en el panel sin tocar código.
+Los domingos el asedio cae **con el drop del Kundun todavía en el gremio**, así que ese evento se
+estira hasta el final de las recompensas del asedio (22:40) en vez de cerrarse a las 21:40 con el
+reparto a medio hacer. El asedio se cuelga del último Kundun del domingo que arranca antes que él,
+así que el del mediodía no se toca.
+
+Todo esto se edita en el panel, en **Horario del Kundun**: una fila por horario con *arranca ·
+dura · premios*, más el bloque del asedio. Se agregan y se sacan horarios ahí mismo, sin tocar
+código.
 
 ### Si algo sale torcido
 

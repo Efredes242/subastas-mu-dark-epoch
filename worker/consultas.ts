@@ -5,6 +5,7 @@ import {
   comoHora,
   HORARIO_POR_DEFECTO,
   type Horario,
+  leerGuardadas,
   proximaCorrida,
   ventanaVigente,
 } from './horarios';
@@ -19,6 +20,7 @@ interface FilaAjustes {
   cierra_registro_antes_min: number;
   asedio_minutos: number | null;
   asedio_dura_min: number | null;
+  asedio_premio_min: number | null;
 }
 
 /** El horario que fijó el admin. Si todavía no hay fila, vale el de siempre. */
@@ -26,21 +28,19 @@ export async function leerHorario(db: D1Database): Promise<Horario> {
   const fila = await db.prepare('SELECT * FROM ajustes WHERE id = 1').first<FilaAjustes>();
   if (!fila) return HORARIO_POR_DEFECTO;
 
-  const minutos = fila.horas
-    .split(',')
-    .map((m) => Number(m.trim()))
-    .filter((m) => Number.isFinite(m))
-    .sort((a, b) => a - b);
+  const franjas = leerGuardadas(fila.horas, HORARIO_POR_DEFECTO.franjas[0]);
 
   return {
-    minutos: minutos.length > 0 ? minutos : HORARIO_POR_DEFECTO.minutos,
+    franjas: franjas.length > 0 ? franjas : HORARIO_POR_DEFECTO.franjas,
     offsetServidor: fila.offset_servidor,
     abreAntesMin: fila.abre_antes_min,
     pinAntesMin: fila.pin_antes_min,
-    cierraDespuesMin: fila.cierra_despues_min,
     cierraRegistroAntesMin: fila.cierra_registro_antes_min,
-    asedioMinutos: fila.asedio_minutos ?? HORARIO_POR_DEFECTO.asedioMinutos,
-    asedioDuraMin: fila.asedio_dura_min ?? HORARIO_POR_DEFECTO.asedioDuraMin,
+    asedio: {
+      minutos: fila.asedio_minutos ?? HORARIO_POR_DEFECTO.asedio.minutos,
+      duraMin: fila.asedio_dura_min ?? HORARIO_POR_DEFECTO.asedio.duraMin,
+      premioMin: fila.asedio_premio_min ?? HORARIO_POR_DEFECTO.asedio.premioMin,
+    },
   };
 }
 
@@ -53,9 +53,11 @@ export async function leerHorario(db: D1Database): Promise<Horario> {
  */
 function asedioDesde(evento: FilaEvento | null, horario: Horario, ahora: Date): string | null {
   if (!evento || evento.es_prueba === 1) return null;
-  const cuando = asedioDelDia(evento.empieza_en ? enUtc(evento.empieza_en) : ahora, horario);
-  if (!cuando || cuando.getTime() <= ahora.getTime()) return null;
-  return cuando.toISOString();
+  const suyo = asedioDelDia(evento.empieza_en ? enUtc(evento.empieza_en) : ahora, horario);
+  // Lo que importa no es cuándo arranca el asedio, sino cuándo cae su drop: antes de eso no
+  // hay nada que cargar.
+  if (!suyo || suyo.premios.getTime() <= ahora.getTime()) return null;
+  return suyo.premios.toISOString();
 }
 
 /** El Kundun en curso: el último evento sin cerrar. */
@@ -570,23 +572,31 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
       : null,
     googleActivo: googleConfigurado(env),
     agenda: {
-      horasServidor: horario.minutos.map(comoHora),
+      horasServidor: horario.franjas.map((f) => comoHora(f.minutos)),
+      franjas: horario.franjas.map((f) => ({
+        hora: comoHora(f.minutos),
+        duraMin: f.duraMin,
+        premioMin: f.premioMin,
+        premiosHora: comoHora(f.minutos + f.duraMin),
+      })),
       offsetServidorHoras: horario.offsetServidor,
       abreAntesMin: horario.abreAntesMin,
-      cierraDespuesMin: horario.cierraDespuesMin,
       // El Kundun de las 21 termina de repartirse ya entrado el lunes en el servidor, así que
       // el domingo lo decide el evento en curso, no el reloj.
       esDomingo:
         evento?.forzar_domingo === 1 ||
         esDomingoEnElServidor(evento?.empieza_en ? enUtc(evento.empieza_en) : ahora, horario.offsetServidor),
       asedio: {
-        hora: comoHora(horario.asedioMinutos),
-        duraMin: horario.asedioDuraMin,
+        hora: comoHora(horario.asedio.minutos),
+        duraMin: horario.asedio.duraMin,
+        premioMin: horario.asedio.premioMin,
+        premiosHora: comoHora(horario.asedio.minutos + horario.asedio.duraMin),
         desde: asedioDesde(evento, horario, ahora),
       },
       proximo: {
         abre: proximo.abre.toISOString(),
         empieza: proximo.empieza.toISOString(),
+        premios: proximo.premios.toISOString(),
         cierra: proximo.cierra.toISOString(),
       },
     },

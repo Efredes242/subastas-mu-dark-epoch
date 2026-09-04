@@ -133,13 +133,15 @@ export interface Estado {
   googleActivo: boolean;
   /** Horarios fijos del Kundun, para que el front los muestre en la hora de cada uno. */
   agenda: {
+    /** Solo las horas, para mostrarlas. La app las traduce a la zona de cada uno. */
     horasServidor: string[];
+    /** Cada Kundun del día con sus dos tramos: cuánto dura y cuánto quedan sus recompensas. */
+    franjas: Array<{ hora: string; duraMin: number; premioMin: number; premiosHora: string }>;
     offsetServidorHoras: number;
     abreAntesMin: number;
-    cierraDespuesMin: number;
     /** Los domingos se mezclan los drops del Kundun con los del asedio. */
     esDomingo: boolean;
-    proximo: { abre: string; empieza: string; cierra: string };
+    proximo: { abre: string; empieza: string; premios: string; cierra: string };
     /**
      * El asedio al castillo, que sale los domingos y más tarde que el Kundun.
      *
@@ -147,7 +149,14 @@ export interface Estado {
      * drop del asedio todavía no salió y no hay nada que cargar. null cuando ya se puede
      * (las pruebas y cualquier evento que ya pasó esa hora).
      */
-    asedio: { hora: string; duraMin: number; desde: string | null };
+    asedio: {
+      hora: string;
+      duraMin: number;
+      premioMin: number;
+      /** A qué hora del servidor caen sus recompensas: la hora más lo que dura el evento. */
+      premiosHora: string;
+      desde: string | null;
+    };
   };
   evento: {
     id: number;

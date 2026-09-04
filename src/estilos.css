@@ -1172,11 +1172,23 @@ select {
 }
 
 /* Panel: los tres minutos de la ventana de registro, en fila. */
-.minutos-horario {
+/* Un horario del panel: arranca a tal hora, dura tanto, y las recompensas quedan tanto más. */
+.franja-horario {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 7px;
+}
+
+.pie-franja {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 5px;
+  padding-left: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Catálogo: en qué listas sale un item. Se prende y se apaga cada una. */

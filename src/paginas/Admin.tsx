@@ -1901,6 +1901,22 @@ function Listas({
  * El horario del Kundun. Se escribe en hora del servidor del juego y la app se lo traduce
  * a cada uno a su hora local, así nadie tiene que hacer la cuenta.
  */
+type FranjaEditable = { hora: string; duraMin: string; premioMin: string };
+
+const comoEditable = (f: { hora: string; duraMin: number; premioMin: number }): FranjaEditable => ({
+  hora: f.hora,
+  duraMin: String(f.duraMin),
+  premioMin: String(f.premioMin),
+});
+
+/**
+ * Los horarios del servidor.
+ *
+ * Cada Kundun tiene dos tramos y hay que cargar los dos: cuánto dura el evento en sí y cuánto
+ * quedan después sus recompensas en la subasta del gremio. El evento de la app abre un rato
+ * antes del arranque y se cierra solo cuando terminan las recompensas, que es lo último que
+ * hay para hacer. El asedio de los domingos va aparte, con sus propios dos tramos.
+ */
 function CajaHorario({
   estado,
   alError,
@@ -1913,38 +1929,39 @@ function CajaHorario({
   zona: string;
 }) {
   const { agenda } = estado;
-  const [horas, setHoras] = useState(agenda.horasServidor.join(', '));
+  const [franjas, setFranjas] = useState<FranjaEditable[]>(agenda.franjas.map(comoEditable));
+  const [asedio, setAsedio] = useState<FranjaEditable>(comoEditable(agenda.asedio));
   const [offset, setOffset] = useState(String(agenda.offsetServidorHoras));
   const [abre, setAbre] = useState(String(agenda.abreAntesMin));
-  const [cierra, setCierra] = useState(String(agenda.cierraDespuesMin));
-  const [asedioHora, setAsedioHora] = useState(agenda.asedio.hora);
-  const [asedioDura, setAsedioDura] = useState(String(agenda.asedio.duraMin));
   const [ocupado, setOcupado] = useState(false);
+
+  const guardadoEnServidor = JSON.stringify([
+    agenda.franjas.map(comoEditable),
+    comoEditable(agenda.asedio),
+    agenda.offsetServidorHoras,
+    agenda.abreAntesMin,
+  ]);
 
   // Cuando el servidor confirma el cambio, los campos se acomodan a lo que quedó guardado.
   useEffect(() => {
-    setHoras(agenda.horasServidor.join(', '));
+    setFranjas(agenda.franjas.map(comoEditable));
+    setAsedio(comoEditable(agenda.asedio));
     setOffset(String(agenda.offsetServidorHoras));
     setAbre(String(agenda.abreAntesMin));
-    setCierra(String(agenda.cierraDespuesMin));
-    setAsedioHora(agenda.asedio.hora);
-    setAsedioDura(String(agenda.asedio.duraMin));
-  }, [
-    agenda.horasServidor.join(','),
-    agenda.offsetServidorHoras,
-    agenda.abreAntesMin,
-    agenda.cierraDespuesMin,
-    agenda.asedio.hora,
-    agenda.asedio.duraMin,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardadoEnServidor]);
 
   const guardado =
-    horas.trim() === agenda.horasServidor.join(', ') &&
-    Number(offset) === agenda.offsetServidorHoras &&
-    Number(abre) === agenda.abreAntesMin &&
-    Number(cierra) === agenda.cierraDespuesMin &&
-    asedioHora.trim() === agenda.asedio.hora &&
-    Number(asedioDura) === agenda.asedio.duraMin;
+    JSON.stringify([franjas, asedio, Number(offset), Number(abre)]) === guardadoEnServidor;
+
+  const tocar = (i: number, campo: keyof FranjaEditable, valor: string) =>
+    setFranjas((previas) => previas.map((f, k) => (k === i ? { ...f, [campo]: valor } : f)));
+
+  const comoNumeros = (f: FranjaEditable) => ({
+    hora: f.hora,
+    duraMin: Number(f.duraMin),
+    premioMin: Number(f.premioMin),
+  });
 
   async function guardar() {
     setOcupado(true);
@@ -1954,12 +1971,10 @@ function CajaHorario({
         await api('/horarios', {
           metodo: 'PATCH',
           cuerpo: {
-            horas,
+            franjas: franjas.map(comoNumeros),
+            asedio: comoNumeros(asedio),
             offsetServidor: Number(offset),
             abreAntesMin: Number(abre),
-            cierraDespuesMin: Number(cierra),
-            asedioHora,
-            asedioDuraMin: Number(asedioDura),
           },
         }),
       );
@@ -1972,28 +1987,110 @@ function CajaHorario({
 
   const enTuHora = horariosEnZona(agenda, zona);
 
+  /** "13:00 → 13:10 → 13:40": arranca, cae el drop, se va a la subasta mundial. */
+  const linea = (f: { hora: string; duraMin: number; premioMin: number; premiosHora: string }) => {
+    const [h, m] = f.premiosHora.split(':').map(Number);
+    const fin = (h * 60 + m + f.premioMin) % 1440;
+    return `${f.hora} → ${f.premiosHora} → ${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`;
+  };
+
+  const campos = (f: FranjaEditable, poner: (campo: keyof FranjaEditable, valor: string) => void) => (
+    <div className="franja-horario">
+      <label style={{ display: 'grid', gap: 5, minWidth: 0 }} title="Hora del servidor a la que arranca">
+        <span className="etiqueta">Arranca</span>
+        <input
+          className="campo campo-chico"
+          value={f.hora}
+          placeholder="13:00"
+          disabled={ocupado}
+          onChange={(e) => poner('hora', e.target.value)}
+        />
+      </label>
+      <label style={{ display: 'grid', gap: 5, minWidth: 0 }} title="Cuánto dura el evento, del arranque hasta que cae el drop">
+        <span className="etiqueta">Dura</span>
+        <input
+          className="campo campo-chico"
+          type="number"
+          min={1}
+          max={480}
+          value={f.duraMin}
+          disabled={ocupado}
+          onChange={(e) => poner('duraMin', e.target.value)}
+        />
+      </label>
+      <label
+        style={{ display: 'grid', gap: 5, minWidth: 0 }}
+        title="Cuánto quedan las recompensas en la subasta del gremio antes de pasar a la mundial"
+      >
+        <span className="etiqueta">Premios</span>
+        <input
+          className="campo campo-chico"
+          type="number"
+          min={1}
+          max={480}
+          value={f.premioMin}
+          disabled={ocupado}
+          onChange={(e) => poner('premioMin', e.target.value)}
+        />
+      </label>
+    </div>
+  );
+
   return (
     <section className="panel subir" style={{ padding: '16px 14px 14px' }}>
       <h2 style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 800 }}>Horario del Kundun</h2>
       <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.45 }}>
-        Escribilo como lo dice el juego. Cada uno lo ve en su propia hora sin tocar nada.
+        Cada evento son dos tramos: lo que dura el evento en sí y lo que quedan después sus
+        recompensas en el gremio. Cada uno lo ve en su propia hora sin tocar nada.
       </p>
 
-      <label style={{ display: 'grid', gap: 6 }}>
-        <span className="etiqueta">Horas del servidor</span>
-        <input
-          className="campo"
-          value={horas}
-          onChange={(e) => setHoras(e.target.value)}
-          placeholder="13:00, 21:00"
-          disabled={ocupado}
-        />
-      </label>
+      {franjas.map((f, i) => (
+        <div key={i} style={{ marginBottom: 8 }}>
+          {campos(f, (campo, valor) => tocar(i, campo, valor))}
+          {agenda.franjas[i] && (
+            <div className="pie-franja">
+              {linea(agenda.franjas[i])}
+              {franjas.length > 1 && (
+                <button
+                  type="button"
+                  className="btn btn-chico"
+                  style={{ marginLeft: 'auto', width: 30, padding: 0 }}
+                  title="Sacar este horario"
+                  disabled={ocupado}
+                  onClick={() => setFranjas(franjas.filter((_, k) => k !== i))}
+                >
+                  <Tacho tam={13} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
 
-      <label style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+      {franjas.length < 12 && (
+        <button
+          type="button"
+          className="btn btn-chico"
+          disabled={ocupado}
+          onClick={() => setFranjas([...franjas, { hora: '', duraMin: '10', premioMin: '30' }])}
+        >
+          <Mas tam={14} /> Otro horario
+        </button>
+      )}
+
+      {/* El asedio va aparte: sale los domingos y más tarde que el Kundun de la noche. */}
+      <div className="bloque-asedio">
+        <span className="etiqueta" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <Escudo tam={13} /> Asedio al castillo · domingos
+        </span>
+        {campos(asedio, (campo, valor) => setAsedio({ ...asedio, [campo]: valor }))}
+        <div className="pie-franja">{linea(agenda.asedio)}</div>
+      </div>
+
+      <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
         <span className="etiqueta">Zona del servidor</span>
         <select
-          className="campo"
+          className="campo campo-chico"
           style={{ cursor: 'pointer' }}
           value={offset}
           disabled={ocupado}
@@ -2008,71 +2105,26 @@ function CajaHorario({
         </select>
       </label>
 
-      <div className="minutos-horario">
-        {(
-          [
-            ['Abre antes', abre, setAbre, 'Minutos antes del Kundun en que se abre el registro'],
-            ['Cierra después', cierra, setCierra, 'Minutos después del Kundun en que el evento se cierra solo'],
-          ] as const
-        ).map(([rotulo, valor, poner, ayuda]) => (
-          <label key={rotulo} style={{ display: 'grid', gap: 6, minWidth: 0 }} title={ayuda}>
-            <span className="etiqueta">{rotulo}</span>
-            <input
-              className="campo campo-chico"
-              type="number"
-              min={0}
-              max={480}
-              value={valor}
-              disabled={ocupado}
-              onChange={(e) => poner(e.target.value)}
-            />
-          </label>
-        ))}
-      </div>
-
-      {/* El asedio va aparte: sale los domingos y más tarde que el Kundun. */}
-      <div className="bloque-asedio">
-        <span className="etiqueta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Escudo tam={13} /> Asedio al castillo · domingos
-        </span>
-        <div className="minutos-horario" style={{ marginTop: 8 }}>
-          <label style={{ display: 'grid', gap: 6, minWidth: 0 }} title="Hora del servidor a la que sale el drop del asedio">
-            <span className="etiqueta">Hora</span>
-            <input
-              className="campo campo-chico"
-              value={asedioHora}
-              placeholder="21:30"
-              disabled={ocupado}
-              onChange={(e) => setAsedioHora(e.target.value)}
-            />
-          </label>
-          <label
-            style={{ display: 'grid', gap: 6, minWidth: 0 }}
-            title="Cuánto queda el drop del asedio en la subasta del gremio antes de pasar a la mundial"
-          >
-            <span className="etiqueta">Dura</span>
-            <input
-              className="campo campo-chico"
-              type="number"
-              min={1}
-              max={480}
-              value={asedioDura}
-              disabled={ocupado}
-              onChange={(e) => setAsedioDura(e.target.value)}
-            />
-          </label>
-        </div>
-      </div>
+      <label style={{ display: 'grid', gap: 6, marginTop: 10 }} title="Minutos antes del arranque en que se abre el evento en la app">
+        <span className="etiqueta">El evento abre antes</span>
+        <input
+          className="campo campo-chico"
+          type="number"
+          min={1}
+          max={240}
+          value={abre}
+          disabled={ocupado}
+          onChange={(e) => setAbre(e.target.value)}
+        />
+      </label>
 
       <div className="aviso" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, display: 'block' }}>
-        Guardado: <b>{agenda.horasServidor.join(' y ')}</b> del servidor ({comoGmt(agenda.offsetServidorHoras)}).
+        Guardado en hora del servidor ({comoGmt(agenda.offsetServidorHoras)}); en la tuya (
+        {nombreCortoZona(zona)}) arrancan <b style={{ color: 'var(--oro)' }}>{enTuHora.join(' y ')}</b>.
         <br />
-        En tu hora ({nombreCortoZona(zona)}): <b style={{ color: 'var(--oro)' }}>{enTuHora.join(' y ')}</b>. El
-        evento abre {agenda.abreAntesMin} min antes y cierra solo {agenda.cierraDespuesMin} min después.
-        <br />
-        Los domingos el asedio sale a las <b>{agenda.asedio.hora}</b> del servidor y queda{' '}
-        {agenda.asedio.duraMin} min: el evento de esa noche se estira hasta el final del asedio en vez de
-        cerrarse en el medio.
+        El evento de la app abre {agenda.abreAntesMin} min antes y se cierra solo cuando terminan las
+        recompensas. Los domingos se estira hasta el final del asedio, así no cierra con el reparto a
+        medio hacer.
       </div>
 
       <button
