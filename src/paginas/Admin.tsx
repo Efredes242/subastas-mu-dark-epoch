@@ -1137,38 +1137,8 @@ function Catalogo({
     }
   }
 
-  /**
-   * Acomodar el orden de una rueda a mano.
-   *
-   * El orden de PC es el que sirve casi siempre, pero el de un item puede acordarse aparte.
-   * Se manda la lista entera; si queda vacía, esa rueda vuelve al orden de PC.
-   */
-  async function guardarOrden(catalogoId: number, cola: string, usuarios: number[]) {
-    setOcupado(true);
-    alError('');
-    try {
-      setEstado(await api(`/turnos/${catalogoId}/orden`, { cuerpo: { cola, usuarios } }));
-      await traer();
-    } catch (e) {
-      alError(e instanceof Error ? e.message : 'No se pudo guardar el orden.');
-    } finally {
-      setOcupado(false);
-    }
-  }
-
-  function moverEnOrden(catalogoId: number, cola: string, usuarioId: number, salto: -1 | 1) {
-    const ids = [...(ruedaDe(catalogoId, cola)?.ordenIds ?? [])];
-    const i = ids.indexOf(usuarioId);
-    const j = i + salto;
-    if (i < 0 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    void guardarOrden(catalogoId, cola, ids);
-  }
-
-  // Qué item tiene abierto el selector de imagen, y qué rueda el de orden.
+  // Qué item tiene abierto el selector de imagen.
   const [eligiendo, setEligiendo] = useState<number | null>(null);
-  const [ordenando, setOrdenando] = useState<string | null>(null);
-  const esAdmin = estado.yo?.rol === 'admin';
 
   const sinImagen = lista.filter((e) => !e.imagen).length;
 
@@ -1342,20 +1312,6 @@ function Catalogo({
                             </option>
                           ))}
                         </select>
-                        {esAdmin && (
-                          <button
-                            type="button"
-                            className={`btn btn-chico${ordenando === `${e.id}|${cola}` ? ' btn-oro' : ''}`}
-                            style={{ flexShrink: 0, paddingInline: 10 }}
-                            disabled={ocupado || vuelta.length === 0}
-                            title={`Acomodar el orden de ${e.nombre} en ${largo}`}
-                            onClick={() =>
-                              setOrdenando(ordenando === `${e.id}|${cola}` ? null : `${e.id}|${cola}`)
-                            }
-                          >
-                            <Orden tam={14} />
-                          </button>
-                        )}
                       </label>
                     );
                   })}
@@ -1372,70 +1328,6 @@ function Catalogo({
                     Quitar imagen
                   </button>
                 )}
-
-                {esAdmin &&
-                  LISTAS.filter(([cola]) => e.colas.includes(cola) && ordenando === `${e.id}|${cola}`).map(
-                    ([cola, , largo]) => {
-                      const rueda = ruedaDe(e.id, cola);
-                      const nombreDe = new Map((rueda?.vuelta ?? []).map((p) => [p.id, p.personaje]));
-                      const ids = rueda?.ordenIds ?? [];
-                      // Sin Kundun abierto no hay nadie marcado: ahí manda el primero de la vuelta.
-                      const proximo = leTocaEn(e.id, cola) ?? rueda?.vuelta[0]?.id;
-                      return (
-                        <div key={cola} className="orden-rueda">
-                          <div className="encabezado">
-                            <span className="etiqueta">Orden de la rueda · {largo}</span>
-                            {rueda?.ordenPropio ? (
-                              <button
-                                type="button"
-                                className="btn btn-chico"
-                                disabled={ocupado}
-                                title="Esta rueda vuelve a dar la vuelta en el orden de PC del gremio"
-                                onClick={() => void guardarOrden(e.id, cola, [])}
-                              >
-                                Volver al orden por PC
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: 11.5, color: 'var(--tx3)' }}>sigue el orden de PC</span>
-                            )}
-                          </div>
-                          <ol>
-                            {ids.map((id, i) => (
-                              <li key={id}>
-                                <span className="puesto">{i + 1}</span>
-                                <span className="recorte quien">{nombreDe.get(id) ?? '—'}</span>
-                                {id === proximo && <span className="toca">le toca</span>}
-                                <button
-                                  type="button"
-                                  className="btn btn-chico"
-                                  style={{ width: 32, padding: 0 }}
-                                  title="Subir"
-                                  disabled={ocupado || i === 0}
-                                  onClick={() => moverEnOrden(e.id, cola, id, -1)}
-                                >
-                                  <Arriba tam={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-chico"
-                                  style={{ width: 32, padding: 0 }}
-                                  title="Bajar"
-                                  disabled={ocupado || i === ids.length - 1}
-                                  onClick={() => moverEnOrden(e.id, cola, id, 1)}
-                                >
-                                  <Abajo tam={14} />
-                                </button>
-                              </li>
-                            ))}
-                          </ol>
-                          <p className="pie">
-                            Este es el orden en el que da la vuelta <b>{e.nombre}</b> en {largo}. El que
-                            no estuvo en el Kundun se saltea y pierde la vuelta, pero no cambia de lugar.
-                          </p>
-                        </div>
-                      );
-                    },
-                  )}
 
                 {eligiendo === e.id && (
                   <SelectorIcono

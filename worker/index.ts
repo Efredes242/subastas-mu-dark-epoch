@@ -1144,51 +1144,6 @@ app.post('/api/turnos/:catalogoId', requiereGrandMaster, async (c) => {
   return c.json(await construirEstado(c.env, c.get('usuario')));
 });
 
-/**
- * El orden propio de una rueda. Solo el admin.
- *
- * Cada item da la vuelta en el orden de PC del gremio salvo que se le arme uno propio acá, que
- * es lo que pasa cuando el orden de un item se acuerda aparte. Se manda la lista entera de una;
- * vacía, la rueda vuelve al orden de PC.
- */
-app.post('/api/turnos/:catalogoId/orden', requiereAdmin, async (c) => {
-  const catalogoId = entero(c.req.param('catalogoId'));
-  const cuerpo = await c.req.json().catch(() => ({}));
-  if (!COLAS.includes(cuerpo.cola)) return c.json({ error: 'Falta decir de qué lista es el orden.' }, 400);
-  const cola: Cola = cuerpo.cola;
-
-  const entrada = await c.env.DB.prepare('SELECT id FROM catalogo WHERE id = ?').bind(catalogoId).first();
-  if (!entrada) return c.json({ error: 'Ese item no está en el catálogo.' }, 404);
-
-  const pedidos = Array.isArray(cuerpo.usuarios) ? (cuerpo.usuarios as unknown[]).map(entero) : [];
-  const enLista = await c.env.DB.prepare('SELECT usuario_id FROM participantes WHERE cola = ?')
-    .bind(cola)
-    .all<{ usuario_id: number }>();
-  const permitidos = new Set(enLista.results.map((r) => r.usuario_id));
-
-  // Solo los que participan de esa lista, y una vez cada uno.
-  const vistos = new Set<number>();
-  const usuarios = pedidos.filter((id) => permitidos.has(id) && !vistos.has(id) && vistos.add(id) !== undefined);
-
-  const escrituras = [
-    c.env.DB.prepare('DELETE FROM orden_rueda WHERE catalogo_id = ? AND cola = ?').bind(catalogoId, cola),
-    ...usuarios.map((id, i) =>
-      c.env.DB.prepare('INSERT INTO orden_rueda (catalogo_id, cola, usuario_id, posicion) VALUES (?, ?, ?, ?)').bind(
-        catalogoId,
-        cola,
-        id,
-        i,
-      ),
-    ),
-  ];
-  await c.env.DB.batch(escrituras);
-
-  return c.json({
-    ...(await construirEstado(c.env, c.get('usuario'))),
-    aviso: usuarios.length === 0 ? 'Esa rueda vuelve al orden de PC.' : 'Orden guardado.',
-  });
-});
-
 app.post('/api/orden/por-pc', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare('SELECT id FROM usuarios WHERE activo = 1 ORDER BY pc DESC, id ASC').all<{
     id: number;

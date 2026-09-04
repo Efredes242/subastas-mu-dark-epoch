@@ -189,10 +189,6 @@ export interface Estado {
     cola: string;
     /** Cuántos de este item salieron en el Kundun de ahora. */
     salieron: number;
-    /** El orden de la rueda sin girar: es el que el admin acomoda a mano. */
-    ordenIds: number[];
-    /** true si ese orden lo armó el admin; false si sigue el orden de PC del gremio. */
-    ordenPropio: boolean;
     vuelta: Array<{ id: number; personaje: string; vino: boolean; seLlevo: number; clase: string }>;
   }>;
   /** El reparto del Kundun anterior, para que todos vean quién se llevó qué. */

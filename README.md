@@ -304,20 +304,6 @@ mano con las flechitas.
 
 En **Historial** se abre cualquier Kundun viejo y se ve qué salió y quién se lo llevó.
 
-### El orden de cada item
-
-Toda rueda da la vuelta en el **orden de PC** del gremio. Cuando el orden de un item se acuerda
-aparte, el admin lo acomoda a mano: en **Catálogo**, al lado de *Le toca a*, el botón de orden
-abre la rueda de ese item en esa lista y se sube o baja a cada uno con las flechitas.
-
-Es **por item y por lista**: la CQC del Kundun y la CQC del asedio son dos ruedas distintas y se
-acomodan por separado; tocar una no mueve las demás. El que se suma después a la lista entra al
-final. **Volver al orden por PC** deshace el orden propio y esa rueda vuelve a seguir al PC.
-
-Esto lo hace **solo el admin**: el Grand Master puede mover el turno (*Le toca a*) pero no el
-orden. El que no estuvo en el Kundun se saltea igual y pierde la vuelta, pero no cambia de lugar
-en la rueda.
-
 ---
 
 ## Quién participa en cada lista
