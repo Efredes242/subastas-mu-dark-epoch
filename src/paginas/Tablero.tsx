@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { api, comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import { Escudo, IconoItem, Lineas, Orden, Reloj } from '../iconos';
+import { FormularioEntrar } from './Login';
 
-type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas';
+type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'entrar';
 type Turno = PropsPagina['estado']['turnos'][number];
 
 const NOMBRE_COLA: Record<string, string> = {
@@ -521,13 +522,70 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
 
           {/* La puerta de entrada. Sin esto el login solo se encontraba escribiendo /admin. */}
           {ve('boton_entrar') && (
-            <button type="button" className="btn-esquina" onClick={() => ir('/admin')}>
+            <button type="button" className="btn-esquina" onClick={() => setHoja('entrar')}>
               <Escudo tam={18} />
-              <span>{estado.yo ? 'Mi panel' : 'Entrar'}</span>
+              <span>{estado.yo ? 'Mi cuenta' : 'Entrar'}</span>
             </button>
           )}
         </div>
       </div>
+
+      {hoja === 'entrar' && (
+        <div className="hoja" onClick={() => setHoja(null)} role="presentation">
+          <div
+            className="hoja-cuerpo"
+            style={{ maxWidth: 400, padding: 24 }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Entrar"
+          >
+            {estado.yo ? (
+              // Con la sesión abierta no hay nada que pedir: se muestra quién sos y las salidas.
+              <div style={{ display: 'grid', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                  <div className="icono-item r-divino" style={{ width: 46, height: 46, borderRadius: 15 }}>
+                    <Escudo tam={23} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                      {estado.yo.personaje}
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
+                      {estado.yo.rol === 'admin' ? 'Admin' : estado.yo.rol === 'grandmaster' ? 'Grand Master' : 'Jugador'}
+                      {' · '}
+                      {estado.yo.usuario}
+                    </div>
+                  </div>
+                </div>
+
+                <button type="button" className="btn btn-oro" style={{ minHeight: 50 }} onClick={() => ir('/admin')}>
+                  Ir a mi panel
+                </button>
+
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={async () => {
+                    await api('/auth/logout', { cuerpo: {} }).catch(() => {});
+                    window.location.href = '/';
+                  }}
+                >
+                  Salir
+                </button>
+              </div>
+            ) : (
+              <FormularioEntrar
+                googleActivo={estado.googleActivo}
+                alEntrar={async () => {
+                  // Recargar entera: el estado cambia de raíz al entrar, y así vale para
+                  // cualquier rol sin pensar a qué pantalla mandarlo.
+                  window.location.href = '/admin';
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {hoja === 'anterior' && (
         <HojaPanel titulo="La puja anterior" alCerrar={() => setHoja(null)}>

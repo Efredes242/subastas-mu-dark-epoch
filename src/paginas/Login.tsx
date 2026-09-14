@@ -24,14 +24,16 @@ function LogoGoogle() {
   );
 }
 
-export default function Login({
-  tema,
-  alternarTema,
+/**
+ * El formulario de entrada, sin la página alrededor.
+ *
+ * Lo usan la pantalla de /admin y la ventana que se abre desde el tablero: el mismo formulario
+ * en los dos lados, para que no haya uno que se actualice y el otro no.
+ */
+export function FormularioEntrar({
   alEntrar,
   googleActivo,
 }: {
-  tema: Tema;
-  alternarTema: () => void;
   alEntrar: () => Promise<void>;
   googleActivo: boolean;
 }) {
@@ -65,24 +67,18 @@ export default function Login({
   }
 
   return (
-    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 20 }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-          <BotonTema tema={tema} alternar={alternarTema} />
+    <form onSubmit={entrar}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 22 }}>
+        <div className="icono-item r-divino" style={{ width: 46, height: 46, borderRadius: 15 }} aria-hidden="true">
+          <Escudo tam={23} />
         </div>
-
-        <form className="panel subir" onSubmit={entrar} style={{ padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 22 }}>
-            <div className="icono-item r-divino" style={{ width: 46, height: 46, borderRadius: 15 }} aria-hidden="true">
-              <Escudo tam={23} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div className="marca" style={{ fontSize: 13 }}>
-                MU DARK EPOCH
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Panel del gremio</div>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div className="marca" style={{ fontSize: 13 }}>
+            MU DARK EPOCH
           </div>
+          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>Panel del gremio</div>
+        </div>
+      </div>
 
           {error && (
             <div className="aviso mal aparecer" style={{ marginBottom: 14 }}>
@@ -135,11 +131,35 @@ export default function Login({
             </button>
           </div>
 
-          <div style={{ marginTop: 18, fontSize: 12.5, fontWeight: 500, color: 'var(--tx3)', lineHeight: 1.5 }}>
-            Esta pantalla es para el admin, el Grand Master y los jugadores del gremio. El tablero no necesita
-            contraseña: <a href="/">está acá</a>.
-          </div>
-        </form>
+      <div style={{ marginTop: 18, fontSize: 12.5, fontWeight: 500, color: 'var(--tx3)', lineHeight: 1.5 }}>
+        Entran el admin, el Grand Master y los jugadores del gremio. El tablero no necesita
+        contraseña.
+      </div>
+    </form>
+  );
+}
+
+/** La pantalla de /admin: el mismo formulario, centrado y con el botón del tema. */
+export default function Login({
+  tema,
+  alternarTema,
+  alEntrar,
+  googleActivo,
+}: {
+  tema: Tema;
+  alternarTema: () => void;
+  alEntrar: () => Promise<void>;
+  googleActivo: boolean;
+}) {
+  return (
+    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 380 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+          <BotonTema tema={tema} alternar={alternarTema} />
+        </div>
+        <div className="panel subir" style={{ padding: 24 }}>
+          <FormularioEntrar alEntrar={alEntrar} googleActivo={googleActivo} />
+        </div>
       </div>
     </div>
   );
