@@ -1,87 +1,90 @@
 /* Tokens. El tema por defecto es el oscuro; el claro se activa con data-tema="claro" en <html>. */
 :root {
   /*
-   * El fondo de la página va más hondo y el de las tarjetas más alto: antes estaban a 1.06:1
-   * y las tarjetas no se despegaban de la página. El borde acompaña, porque cerca del negro
-   * la diferencia de relleno sola no alcanza para dibujar el canto.
+   * Paleta: azul pizarra con acento índigo.
+   *
+   * Los nombres --oro* quedaron del tema original de Mu; hoy son "el acento" y valen lo que
+   * diga la paleta. Cambiar de paleta es cambiar este bloque y nada más: todo lo demás usa
+   * los tokens.
+   *
+   * El fondo de la página va más hondo que el de las tarjetas, y el borde acompaña, porque
+   * cerca del negro la diferencia de relleno sola no alcanza para dibujar el canto.
    */
-  --bg: #0b0907;
-  --panel: #241d16;
-  --panel2: #2d251b;
-  --line: #453a2c;
-  --line2: #5c4c34;
-  --tx: #f1e9db;
-  --tx2: #a99d89;
-  /* Contra el panel daba 3.7:1 y el texto chico se perdía en el fondo. Ahora 5.1:1. */
-  --tx3: #948876;
-  --oro: #e0b871;
-  --oroBg: #2a2015;
-  --oroLn: #5b4826;
-  --sobreOro: #1a1409;
-  --ok: #79c895;
-  --okBg: #132119;
-  --okLn: #2d4b36;
-  --av: #dcb26b;
-  --avBg: #241b10;
-  --avLn: #4e3e1d;
-  --mal: #e08d7c;
-  --malBg: #251310;
-  --malLn: #4e231b;
-  --c1: #a29883;
-  --c1Bg: #201b15;
-  --c1Ln: #3a352c;
-  --c2: #8fc97c;
-  --c2Bg: #16240f;
-  --c2Ln: #33522a;
-  --c3: #7fbcdd;
-  --c3Bg: #0f1d26;
-  --c3Ln: #2b566e;
-  --c4: #e0b871;
-  --c4Bg: #2a2015;
-  --c4Ln: #5b4826;
+  --bg: #080a11;
+  --panel: #151a27;
+  --panel2: #1d2334;
+  --line: #2f3750;
+  --line2: #414c6d;
+  --tx: #e9edf7;
+  --tx2: #a3adc6;
+  --tx3: #8490aa;
+  --oro: #8f90f8;
+  --oroBg: #1b1e3a;
+  --oroLn: #3c3f76;
+  --sobreOro: #0a0b18;
+  --ok: #58d39b;
+  --okBg: #0d2620;
+  --okLn: #245a46;
+  --av: #f0b455;
+  --avBg: #2a2011;
+  --avLn: #5a4622;
+  --mal: #f4788e;
+  --malBg: #2b121b;
+  --malLn: #5e2739;
+  --c1: #9aa4bd;
+  --c1Bg: #1a1f2d;
+  --c1Ln: #333b52;
+  --c2: #67d089;
+  --c2Bg: #10251a;
+  --c2Ln: #2b573a;
+  --c3: #61b6e8;
+  --c3Bg: #0f2030;
+  --c3Ln: #2a5273;
+  --c4: #8f90f8;
+  --c4Bg: #1b1e3a;
+  --c4Ln: #3c3f76;
   --sh: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 34px rgba(0, 0, 0, 0.55);
   --shs: 0 1px 2px rgba(0, 0, 0, 0.45);
   /* El brillo de arriba, que es lo que termina de levantar la tarjeta del fondo. */
-  --luz: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --luz: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 :root[data-tema='claro'] {
-  --bg: #ece5d6;
+  --bg: #e6e9f2;
   --panel: #ffffff;
-  --panel2: #f8f4eb;
-  --line: #ddd2bd;
-  --line2: #c9bca2;
-  --tx: #2b251c;
-  --tx2: #6d6355;
-  /* Lo mismo en el tema claro: venía de 3.2:1. */
-  --tx3: #7b7263;
-  --oro: #a8752a;
-  --oroBg: #fbf2e0;
-  --oroLn: #e8d5ab;
+  --panel2: #f4f6fb;
+  --line: #d3d9e8;
+  --line2: #b6bed3;
+  --tx: #1b2130;
+  --tx2: #5a6379;
+  --tx3: #6d7689;
+  --oro: #4f4fd0;
+  --oroBg: #eeeefc;
+  --oroLn: #c6c7f2;
   --sobreOro: #ffffff;
-  --ok: #2f7d4f;
-  --okBg: #eaf5ee;
-  --okLn: #c2e2ce;
-  --av: #98671a;
-  --avBg: #fdf3df;
-  --avLn: #eed9a9;
-  --mal: #a63a29;
-  --malBg: #fdeeea;
-  --malLn: #f1cabf;
-  --c1: #6d6355;
-  --c1Bg: #f2ece2;
-  --c1Ln: #ddd4c4;
-  --c2: #3f7a35;
-  --c2Bg: #eef6ea;
-  --c2Ln: #cbe3c0;
-  --c3: #2c6e8c;
-  --c3Bg: #eaf4f8;
-  --c3Ln: #bcdbe8;
-  --c4: #a8752a;
-  --c4Bg: #fbf2e0;
-  --c4Ln: #e8d5ab;
-  --sh: 0 1px 2px rgba(43, 37, 28, 0.08), 0 10px 26px rgba(43, 37, 28, 0.1);
-  --shs: 0 1px 2px rgba(43, 37, 28, 0.08);
+  --ok: #17794f;
+  --okBg: #e8f6ef;
+  --okLn: #bde2d0;
+  --av: #8a5f12;
+  --avBg: #fdf2dd;
+  --avLn: #edd6a4;
+  --mal: #b3304b;
+  --malBg: #fdecef;
+  --malLn: #f3c6d0;
+  --c1: #5a6379;
+  --c1Bg: #eef0f6;
+  --c1Ln: #d5dae6;
+  --c2: #1d7a45;
+  --c2Bg: #e9f6ee;
+  --c2Ln: #c3e4d0;
+  --c3: #1f6b98;
+  --c3Bg: #e8f3fa;
+  --c3Ln: #bcdaeb;
+  --c4: #4f4fd0;
+  --c4Bg: #eeeefc;
+  --c4Ln: #c6c7f2;
+  --sh: 0 1px 2px rgba(20, 26, 40, 0.09), 0 10px 26px rgba(20, 26, 40, 0.11);
+  --shs: 0 1px 2px rgba(20, 26, 40, 0.09);
   --luz: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
