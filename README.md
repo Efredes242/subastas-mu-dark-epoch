@@ -351,6 +351,38 @@ que son las dos que se usan.
 
 ---
 
+## Avisos del gremio
+
+Una solapa del panel, solo para el admin, donde se arma lo que el gremio va a recibir antes de
+cada evento. Un aviso es:
+
+| | |
+| --- | --- |
+| **Nombre** | Cómo se llama el evento: *Kundun*, *Asedio al castillo* |
+| **Días** | En qué días de la semana cae |
+| **Horas** | A qué hora del servidor, una o varias |
+| **Cuánto antes** | Los recordatorios: 1 hora, 30 min, 15 min… hasta 60, que más temprano nadie lo registra |
+| **Texto** | Lo que se manda |
+
+Los eventos se agregan y se borran a gusto, y cada uno se prende y se apaga sin perder lo cargado.
+
+El texto lleva **marcas entre llaves** que se reemplazan al mandarlo, así el mismo sirve para el
+aviso de una hora antes y el de cinco minutos: `{evento}`, `{hora}`, `{falta}` y `{dia}`.
+
+**Que lo escriba la IA** redacta el aviso con Workers AI, que corre en el mismo Worker. Se le puede
+pedir un tono ("más corto", "que nombre al gremio") y después se corrige a mano: lo que devuelve es
+un borrador, no algo que se guarde solo. Si la cuenta no tiene Workers AI habilitado, en vez de
+fallar deja una plantilla para editar.
+
+Abajo está el **simulador**: el mensaje pintado como lo va a ver el gremio en Telegram, con la
+negrita resuelta y las marcas ya reemplazadas, eligiendo qué recordatorio mirar. Al pie dice cuántos
+avisos por semana salen con lo que está cargado.
+
+**Todavía no se manda a ningún lado.** Colgarlo de un bot de Telegram es el paso siguiente; cuando
+se haga, el token del bot va como secreto del Worker, nunca en la base.
+
+---
+
 ## El menú Desarrollador
 
 Una solapa del panel, solo para el admin, con dos cosas.
