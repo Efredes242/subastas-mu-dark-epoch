@@ -25,6 +25,18 @@ interface FilaAjustes {
   cartel_sin_kundun: number | null;
   interfaz: string | null;
   permisos: string | null;
+  telegram_chat: string | null;
+  telegram_nombre: string | null;
+  telegram_activo: number | null;
+}
+
+export interface Telegram {
+  /** A qué chat se manda. Vacío = todavía no se eligió ninguno. */
+  chat: string;
+  /** Cómo se llama ese chat, para que el panel no muestre un número pelado. */
+  nombre: string;
+  /** Si los avisos salen de verdad. Se puede tener el chat elegido y esto apagado. */
+  activo: boolean;
 }
 
 export interface Ajustes {
@@ -33,6 +45,8 @@ export interface Ajustes {
   interfaz: Record<string, Escondido>;
   /** Quién puede tocar lo que cambia las reglas del reparto. */
   permisos: Record<Permiso, Quien>;
+  /** A dónde manda los avisos el bot. El token no está acá: es un secreto del Worker. */
+  telegram: Telegram;
 }
 
 /**
@@ -44,6 +58,11 @@ export async function leerAjustes(db: D1Database): Promise<Ajustes> {
     horario: comoHorario(fila),
     interfaz: leerInterfaz(fila?.interfaz ?? null),
     permisos: leerPermisos(fila?.permisos ?? null),
+    telegram: {
+      chat: fila?.telegram_chat ?? '',
+      nombre: fila?.telegram_nombre ?? '',
+      activo: (fila?.telegram_activo ?? 0) === 1,
+    },
   };
 }
 

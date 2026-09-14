@@ -873,6 +873,106 @@ select {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* El bot de Telegram: los tres pasos hasta que los avisos salen solos. */
+.filas-bot {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.fila-bot {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+
+.fila-bot .paso-ok,
+.fila-bot .paso-falta {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.fila-bot .paso-ok {
+  background: var(--okBg);
+  border: 1px solid var(--okLn);
+  color: var(--ok);
+}
+
+.fila-bot .paso-falta {
+  background: var(--avBg);
+  border: 1px solid var(--avLn);
+  color: var(--av);
+}
+
+.chats-vistos {
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px dashed var(--line2);
+  border-radius: 12px;
+}
+
+.chat-visto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--tx);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.chat-visto:hover:not(:disabled) {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.chat-visto > .nombre {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.chat-visto > .tipo {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tx3);
+}
+
+/* El comando que hay que correr en la terminal, para poder copiarlo de un vistazo. */
+.comando {
+  margin: 9px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line2);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--oro);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 /* ── Avisos del gremio ─────────────────────────────────────────────────────── */
 
 .aviso-evento {

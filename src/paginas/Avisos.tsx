@@ -108,6 +108,217 @@ function comoTelegram(texto: string) {
   );
 }
 
+interface EstadoBot {
+  conToken: boolean;
+  bot: { nombre: string; usuario: string } | null;
+  problema?: string;
+  chat: string;
+  nombre: string;
+  activo: boolean;
+}
+
+interface ChatVisto {
+  id: string;
+  nombre: string;
+  tipo: string;
+}
+
+/**
+ * El bot de Telegram.
+ *
+ * El token no pasa por acá: es un secreto del Worker y el panel solo sabe si está puesto. Lo
+ * único que se elige desde la pantalla es a qué chat mandar, que se descubre mirando dónde le
+ * hablaron al bot —Telegram no tiene forma de listar los grupos de un bot—.
+ */
+function Bot({ alError }: { alError: (m: string) => void }) {
+  const [estado, setEstado] = useState<EstadoBot | null>(null);
+  const [chats, setChats] = useState<ChatVisto[] | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState('');
+
+  async function traer() {
+    try {
+      setEstado(await api<EstadoBot>('/telegram'));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo leer el bot.');
+    }
+  }
+
+  useEffect(() => {
+    void traer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function correr(fn: () => Promise<void>) {
+    setOcupado(true);
+    alError('');
+    try {
+      await fn();
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const buscarChats = () =>
+    correr(async () => {
+      const r = await api<{ chats: ChatVisto[] }>('/telegram/chats');
+      setChats(r.chats);
+      setAviso(
+        r.chats.length === 0
+          ? 'No vi ningún chat. Agregá el bot al grupo, escribí cualquier cosa ahí y probá de nuevo.'
+          : '',
+      );
+    });
+
+  const elegir = (c: ChatVisto) =>
+    correr(async () => {
+      setEstado(await api<EstadoBot>('/telegram', { metodo: 'PATCH', cuerpo: { chat: c.id, nombre: c.nombre } }));
+      setChats(null);
+      setAviso(`Van a salir a "${c.nombre}".`);
+    });
+
+  const prender = (activo: boolean) =>
+    correr(async () => {
+      setEstado(await api<EstadoBot>('/telegram', { metodo: 'PATCH', cuerpo: { activo } }));
+      setAviso(activo ? 'Los avisos salen solos de acá en más.' : 'Los avisos quedaron apagados.');
+    });
+
+  const probar = () =>
+    correr(async () => {
+      const r = await api<{ aviso: string }>('/telegram/probar', { cuerpo: {} });
+      setAviso(r.aviso);
+    });
+
+  if (!estado) {
+    return (
+      <section className="panel subir" style={{ padding: 18 }}>
+        <div style={{ display: 'grid', placeItems: 'center', padding: 20 }}>
+          <div className="cargando" />
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel subir" style={{ padding: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>El bot de Telegram</h2>
+        {estado.conToken && estado.chat && (
+          <button
+            type="button"
+            className={`btn btn-chico ${estado.activo ? 'btn-ok' : 'btn-oro'}`}
+            disabled={ocupado}
+            onClick={() => void prender(!estado.activo)}
+          >
+            {estado.activo ? 'Avisos prendidos' : 'Prender los avisos'}
+          </button>
+        )}
+      </div>
+
+      {/* Paso 1: el token, que no pasa por esta pantalla. */}
+      {!estado.conToken ? (
+        <div style={{ marginTop: 12 }}>
+          <div className="aviso" style={{ display: 'block', fontSize: 12.5, lineHeight: 1.6 }}>
+            <b>Falta el token del bot.</b> No se carga desde acá a propósito: con el token cualquiera
+            publica en el grupo haciéndose pasar por el bot, y lo que se guarda en la base se exporta
+            en cada respaldo. Va como secreto del Worker, que no sale nunca de Cloudflare:
+            <pre className="comando">npx wrangler secret put TELEGRAM_TOKEN</pre>
+            Pega el token cuando lo pida, volvé a desplegar y recargá esta página.
+          </div>
+        </div>
+      ) : estado.problema ? (
+        <div className="aviso mal" style={{ marginTop: 12, fontSize: 12.5 }}>
+          <Alerta tam={16} />
+          <span>
+            El token está puesto pero Telegram lo rechaza: <b>{estado.problema}</b>. Si lo revocaste,
+            cargá el nuevo con <code>wrangler secret put TELEGRAM_TOKEN</code>.
+          </span>
+        </div>
+      ) : (
+        <div className="filas-bot">
+          <div className="fila-bot">
+            <span className="paso-ok">
+              <Tilde tam={13} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                {estado.bot?.nombre}
+                {estado.bot?.usuario && (
+                  <span style={{ color: 'var(--tx3)', fontWeight: 600 }}> · @{estado.bot.usuario}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>Token cargado y aceptado por Telegram</div>
+            </div>
+          </div>
+
+          <div className="fila-bot">
+            <span className={estado.chat ? 'paso-ok' : 'paso-falta'}>
+              {estado.chat ? <Tilde tam={13} /> : '2'}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                {estado.chat ? estado.nombre || estado.chat : 'Falta elegir a qué chat mandar'}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--tx3)', lineHeight: 1.45 }}>
+                {estado.chat
+                  ? `Los avisos salen acá · id ${estado.chat}`
+                  : 'Agregá el bot al grupo del gremio, escribí cualquier cosa ahí y tocá Buscar.'}
+              </div>
+            </div>
+            <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => void buscarChats()}>
+              {estado.chat ? 'Cambiar' : 'Buscar el grupo'}
+            </button>
+          </div>
+
+          {chats && (
+            <div className="chats-vistos">
+              {chats.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
+                  No apareció ninguno. Telegram solo muestra los chats donde al bot le hablaron: mandá
+                  un mensaje en el grupo y volvé a buscar.
+                </div>
+              ) : (
+                chats.map((ch) => (
+                  <button key={ch.id} type="button" className="chat-visto" disabled={ocupado} onClick={() => void elegir(ch)}>
+                    <span className="nombre">{ch.nombre}</span>
+                    <span className="tipo">{ch.tipo}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {estado.chat && (
+            <div className="fila-bot">
+              <span className={estado.activo ? 'paso-ok' : 'paso-falta'}>{estado.activo ? <Tilde tam={13} /> : '3'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                  {estado.activo ? 'Los avisos salen solos' : 'Los avisos están apagados'}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--tx3)' }}>
+                  El Worker mira cada minuto qué aviso toca y lo manda una sola vez.
+                </div>
+              </div>
+              <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => void probar()}>
+                Mandar una prueba
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {aviso && (
+        <div className="aviso aparecer" style={{ marginTop: 12, fontSize: 12.5 }}>
+          <Tilde tam={16} />
+          <span>{aviso}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [lista, setLista] = useState<Aviso[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -192,6 +403,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 980 }}>
+      <Bot alError={alError} />
+
       <section className="panel subir" style={{ padding: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Avisos del gremio</h2>
@@ -210,8 +423,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
           antes y el de cinco minutos.
         </p>
         <div className="aviso" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, display: 'block' }}>
-          <b>Todavía no sale a ningún lado.</b> Acá se configura y se mira cómo va a quedar; conectarlo
-          al bot de Telegram es el paso siguiente.
+          Con el bot prendido, el Worker mira cada minuto qué aviso toca y lo manda una sola vez. El
+          simulador de abajo muestra el mensaje tal cual va a llegar.
         </div>
         {aviso && (
           <div className="aviso aparecer" style={{ marginTop: 10 }}>

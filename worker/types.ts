@@ -10,6 +10,11 @@ export interface Env {
    * de redactar avisa y el texto se escribe a mano, que es lo que pasaba antes.
    */
   AI?: { run: (modelo: string, entrada: unknown) => Promise<unknown> };
+  /**
+   * El token del bot de Telegram. Va como secreto del Worker, nunca en la base ni en el repo:
+   * con el token cualquiera publica en el grupo haciéndose pasar por el bot.
+   */
+  TELEGRAM_TOKEN?: string;
 }
 
 /**

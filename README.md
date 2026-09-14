@@ -378,8 +378,32 @@ Abajo está el **simulador**: el mensaje pintado como lo va a ver el gremio en T
 negrita resuelta y las marcas ya reemplazadas, eligiendo qué recordatorio mirar. Al pie dice cuántos
 avisos por semana salen con lo que está cargado.
 
-**Todavía no se manda a ningún lado.** Colgarlo de un bot de Telegram es el paso siguiente; cuando
-se haga, el token del bot va como secreto del Worker, nunca en la base.
+### El bot de Telegram
+
+Arriba de todo está el bot, en tres pasos que el panel va marcando en verde.
+
+**1. El token.** No se carga desde la pantalla a propósito: con el token cualquiera publica en el
+grupo haciéndose pasar por el bot, y lo que vive en la base se exporta en cada respaldo. Va como
+secreto del Worker, que no sale nunca de Cloudflare:
+
+```
+npx wrangler secret put TELEGRAM_TOKEN
+```
+
+Después hay que volver a desplegar. Si el token se revoca en @BotFather, se vuelve a correr lo
+mismo con el nuevo.
+
+**2. El chat.** Telegram no tiene forma de listar los grupos de un bot: la única es mirar lo que le
+llegó. Así que se agrega el bot al grupo, se escribe cualquier cosa ahí, y **Buscar el grupo** lo
+encuentra. Se elige de la lista y queda guardado el id, que no es secreto.
+
+**3. Prender.** Con el chat elegido aparece **Prender los avisos** y un botón para mandar una
+prueba. De ahí en más el Worker, que ya se despierta cada minuto, mira qué aviso toca y lo manda.
+
+Cada disparo queda anotado en `avisos_enviados` con su minuto exacto, y esa clave única es lo que
+evita que el grupo reciba el mismo aviso dos veces si el cron corre de más o llega tarde. Si el
+envío falla se borra la marca, así el minuto siguiente lo reintenta. Lo anotado se limpia solo a la
+semana.
 
 ---
 

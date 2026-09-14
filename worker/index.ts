@@ -31,9 +31,11 @@ import {
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
+import { chatsVistos, mandar, quienEs } from './telegram';
 import {
   ANTES_MAXIMO,
   comoAviso,
+  disparosEntre,
   comoHora as comoHoraAviso,
   DIAS_LARGOS,
   leerAviso,
@@ -805,6 +807,77 @@ app.post('/api/avisos/:id/redactar', requiereAdmin, async (c) => {
   }
 });
 
+// ── El bot de Telegram ───────────────────────────────────────────────────────
+//
+// El token es un secreto del Worker y no sale nunca de acá: el panel solo ve si está puesto,
+// a qué chat se manda y si está prendido.
+
+app.get('/api/telegram', requiereAdmin, async (c) => {
+  const { telegram } = await leerAjustes(c.env.DB);
+  const token = c.env.TELEGRAM_TOKEN ?? '';
+
+  let bot: { nombre: string; usuario: string } | null = null;
+  let problema = '';
+  if (token) {
+    try {
+      bot = await quienEs(token);
+    } catch (e) {
+      problema = e instanceof Error ? e.message : 'no pude hablar con Telegram';
+    }
+  }
+
+  return c.json({ conToken: token.length > 0, bot, problema, ...telegram });
+});
+
+/** Los chats donde al bot le hablaron. Es la única forma de saber a dónde puede escribir. */
+app.get('/api/telegram/chats', requiereAdmin, async (c) => {
+  const token = c.env.TELEGRAM_TOKEN;
+  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+  try {
+    return c.json({ chats: await chatsVistos(token) });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'No pude hablar con Telegram.' }, 502);
+  }
+});
+
+app.patch('/api/telegram', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const actual = (await leerAjustes(c.env.DB)).telegram;
+
+  const chat = cuerpo.chat === undefined ? actual.chat : texto(cuerpo.chat, 40);
+  const nombre = cuerpo.nombre === undefined ? actual.nombre : texto(cuerpo.nombre, 80);
+  const activo = typeof cuerpo.activo === 'boolean' ? cuerpo.activo : actual.activo;
+
+  // Prender los avisos sin chat elegido no manda nada y hace creer que sí.
+  if (activo && !chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+
+  await c.env.DB.prepare(
+    'UPDATE ajustes SET telegram_chat = ?, telegram_nombre = ?, telegram_activo = ?, actualizado_en = ? WHERE id = 1',
+  )
+    .bind(chat, nombre, activo ? 1 : 0, new Date().toISOString())
+    .run();
+
+  return c.json({ chat, nombre, activo, conToken: !!c.env.TELEGRAM_TOKEN });
+});
+
+/** Mandar un mensaje de prueba, para ver que llega antes de dejarlo solo. */
+app.post('/api/telegram/probar', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const token = c.env.TELEGRAM_TOKEN;
+  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+
+  const { telegram } = await leerAjustes(c.env.DB);
+  if (!telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+
+  const cuerpoTexto = texto(cuerpo.texto, 1000) || '🔔 Prueba desde el panel. Si leés esto, el bot quedó conectado.';
+  try {
+    await mandar(token, telegram.chat, cuerpoTexto);
+    return c.json({ aviso: `Mandado a ${telegram.nombre || telegram.chat}.` });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
+  }
+});
+
 /**
  * Qué se ve y quién puede tocar qué. Solo el admin.
  *
@@ -1443,8 +1516,68 @@ const programado = async (env: Env) => {
   const ahora = new Date();
   const cerrados = await cerrarVencidos(env.DB, ahora);
   const evento = await asegurarEvento(env.DB, ahora, await leerHorario(env.DB));
-  console.log('cron:', cerrados, 'cerrados |', evento ? `Kundun #${evento.numero} en curso` : 'sin evento');
+  const mandados = await mandarAvisos(env, ahora);
+  console.log(
+    'cron:',
+    cerrados,
+    'cerrados |',
+    evento ? `Kundun #${evento.numero} en curso` : 'sin evento',
+    '|',
+    mandados,
+    'avisos',
+  );
 };
+
+/**
+ * Los avisos que les toca salir en este minuto.
+ *
+ * Se mira una ventana de dos minutos hacia atrás y no el minuto exacto, porque el cron puede
+ * llegar unos segundos tarde y perderse el disparo. Lo que evita que el grupo reciba el mismo
+ * aviso dos veces no es la ventana sino `avisos_enviados`: la clave es (aviso, momento exacto),
+ * y si el INSERT no escribió nada es porque ya había salido.
+ */
+async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
+  const token = env.TELEGRAM_TOKEN;
+  if (!token) return 0;
+
+  const ajustes = await leerAjustes(env.DB);
+  if (!ajustes.telegram.activo || !ajustes.telegram.chat) return 0;
+
+  const { results } = await env.DB.prepare('SELECT * FROM avisos WHERE activo = 1').all<FilaAviso>();
+  if (results.length === 0) return 0;
+
+  const desde = new Date(ahora.getTime() - 2 * 60_000);
+  let mandados = 0;
+
+  for (const fila of results) {
+    const aviso = comoAviso(fila);
+    for (const d of disparosEntre(aviso, desde, ahora, ajustes.horario.offsetServidor)) {
+      const clave = d.cuando.toISOString().slice(0, 16);
+      const puesto = await env.DB.prepare(
+        'INSERT INTO avisos_enviados (aviso_id, clave) VALUES (?, ?) ON CONFLICT DO NOTHING',
+      )
+        .bind(aviso.id, clave)
+        .run();
+      if ((puesto.meta.changes ?? 0) === 0) continue;
+
+      try {
+        await mandar(token, ajustes.telegram.chat, d.texto);
+        mandados++;
+      } catch (e) {
+        // Si no salió, se borra la marca para que el próximo minuto lo reintente.
+        await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = ? AND clave = ?')
+          .bind(aviso.id, clave)
+          .run();
+        console.error('aviso sin mandar:', aviso.nombre, e);
+      }
+    }
+  }
+
+  // La tabla de enviados no tiene por qué crecer para siempre: con una semana alcanza.
+  await env.DB.prepare("DELETE FROM avisos_enviados WHERE enviado_en < datetime('now', '-7 days')").run();
+
+  return mandados;
+}
 
 app.onError((err, c) => {
   console.error('Error del worker:', err);
