@@ -378,6 +378,28 @@ Abajo está el **simulador**: el mensaje pintado como lo va a ver el gremio en T
 negrita resuelta y las marcas ya reemplazadas, eligiendo qué recordatorio mirar. Al pie dice cuántos
 avisos por semana salen con lo que está cargado.
 
+### El resumen de la mañana
+
+Una vez por día, a la hora que fije el admin (10:00 de fábrica), sale la agenda del día: los
+eventos que caen ese día, con sus horarios, en el orden en que vienen.
+
+```
+📅 Hoy es domingo 20 de septiembre
+
+⚔️ Kundun — 13:00 y 20:45
+🏰 Asedio al castillo — 21:30
+
+Horarios del servidor.
+```
+
+La lista se arma sola con lo que esté cargado en ese momento, así que un evento agregado de noche
+aparece a la mañana siguiente sin tocar nada. El emoji de cada renglón sale del texto de ese
+evento. El texto de alrededor se edita, con sus propias marcas: `{dia}`, `{fecha}`, `{lista}` y
+`{cuantos}`.
+
+Se ve en el mismo simulador, en la pastilla **Resumen del día**, y hay un **Mandarlo ahora** para
+verlo en el grupo sin esperar a mañana.
+
 ### El bot de Telegram
 
 Arriba de todo está el bot, en tres pasos que el panel va marcando en verde.

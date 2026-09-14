@@ -84,6 +84,81 @@ export function mensajePorDefecto(nombre: string): string {
   return `⚔️ *${nombre || 'El evento'}* en {falta}\n\nArranca {dia} a las {hora} hora del servidor. Prepárense.`;
 }
 
+// ── El resumen de la mañana ──────────────────────────────────────────────────
+//
+// Una vez por día, a la hora que fije el admin, la lista de lo que cae ese día. Sirve para que
+// el gremio arranque sabiendo qué hay, sobre todo si se agregó algo de noche.
+
+export const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+export const RESUMEN_POR_DEFECTO =
+  '📅 *Hoy es {dia} {fecha}*\n\n{lista}\n\n_Horarios del servidor._';
+
+/** Las marcas que entiende el texto del resumen. */
+export const MARCAS_RESUMEN: Array<[string, string]> = [
+  ['{dia}', 'Qué día es: "domingo"'],
+  ['{fecha}', 'La fecha: "20 de septiembre"'],
+  ['{lista}', 'Los eventos del día, uno por renglón'],
+  ['{cuantos}', 'Cuántos eventos hay'],
+];
+
+/** El emoji con el que arranca el aviso del evento, para reusarlo en la lista. */
+function emojiDe(mensaje: string): string {
+  const m = mensaje.trim().match(/^(\p{Extended_Pictographic}\uFE0F?)/u);
+  return m ? m[1] : '•';
+}
+
+/**
+ * El texto del resumen del día.
+ *
+ * `dia` es el momento que se quiere resumir; lo que importa es en qué día cae en hora del
+ * servidor, porque a las 10 de la mañana del servidor puede ser otro día en UTC.
+ */
+export function armarResumen(
+  avisos: Aviso[],
+  dia: Date,
+  offsetServidor: number,
+  plantilla: string,
+): string {
+  const local = new Date(dia.getTime() + offsetServidor * 3_600_000);
+  const diaSemana = local.getUTCDay();
+
+  const delDia = avisos
+    .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
+    .map((a) => ({ ...a, primera: Math.min(...a.horas) }))
+    .sort((a, b) => a.primera - b.primera);
+
+  const lista =
+    delDia.length === 0
+      ? 'Hoy no hay eventos cargados.'
+      : delDia
+          .map((a) => {
+            const horas = a.horas.map(comoHora);
+            const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
+            return `${emojiDe(a.mensaje)} *${a.nombre}* — ${cuando}`;
+          })
+          .join('\n');
+
+  return plantilla
+    .replace(/\{dia\}/g, DIAS_LARGOS[diaSemana] ?? '')
+    .replace(/\{fecha\}/g, `${local.getUTCDate()} de ${MESES[local.getUTCMonth()]}`)
+    .replace(/\{cuantos\}/g, String(delDia.length))
+    .replace(/\{lista\}/g, lista);
+}
+
 // ── Cómo se guarda ───────────────────────────────────────────────────────────
 
 export interface FilaAviso {

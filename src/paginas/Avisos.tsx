@@ -108,6 +108,63 @@ function comoTelegram(texto: string) {
   );
 }
 
+interface Resumen {
+  hora: number;
+  activo: boolean;
+  texto: string;
+}
+
+const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+const MARCAS_RESUMEN: Array<[string, string]> = [
+  ['{dia}', 'domingo'],
+  ['{fecha}', '20 de septiembre'],
+  ['{lista}', 'los eventos del día'],
+  ['{cuantos}', 'cuántos hay'],
+];
+
+/** El mismo armado que hace el Worker, para que el simulador muestre lo que va a salir. */
+function armarResumen(avisos: Aviso[], plantilla: string, diaSemana: number, fecha: Date): string {
+  const delDia = avisos
+    .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
+    .sort((a, b) => Math.min(...a.horas) - Math.min(...b.horas));
+
+  const emojiDe = (mensaje: string) => {
+    const m = mensaje.trim().match(/^(\p{Extended_Pictographic}\uFE0F?)/u);
+    return m ? m[1] : '•';
+  };
+
+  const lista =
+    delDia.length === 0
+      ? 'Hoy no hay eventos cargados.'
+      : delDia
+          .map((a) => {
+            const horas = a.horas.map(comoHora);
+            const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
+            return `${emojiDe(a.mensaje)} *${a.nombre}* — ${cuando}`;
+          })
+          .join('\n');
+
+  return plantilla
+    .replace(/\{dia\}/g, DIAS_LARGOS[diaSemana] ?? '')
+    .replace(/\{fecha\}/g, `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`)
+    .replace(/\{cuantos\}/g, String(delDia.length))
+    .replace(/\{lista\}/g, lista);
+}
+
 interface EstadoBot {
   conToken: boolean;
   bot: { nombre: string; usuario: string } | null;
@@ -325,9 +382,12 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
 
-  /** Qué evento y qué recordatorio está mirando el simulador. */
+  const [resumen, setResumen] = useState<Resumen | null>(null);
+
+  /** Qué evento y qué recordatorio está mirando el simulador. null = el resumen del día. */
   const [mirando, setMirando] = useState<number | null>(null);
   const [conAntes, setConAntes] = useState(15);
+  const [verResumen, setVerResumen] = useState(false);
 
   /** El pedido que se le hace a la IA, por si quiere otro tono. */
   const [tono, setTono] = useState('');
@@ -335,8 +395,9 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
   async function traer() {
     try {
-      const r = await api<{ avisos: Aviso[] }>('/avisos');
+      const r = await api<{ avisos: Aviso[]; resumen: Resumen }>('/avisos');
       setLista(r.avisos);
+      setResumen(r.resumen);
       setMirando((previo) => previo ?? r.avisos[0]?.id ?? null);
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudieron traer los avisos.');
@@ -354,12 +415,13 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const tocar = (id: number, cambios: Partial<Aviso>) =>
     setLista((previos) => previos.map((a) => (a.id === id ? { ...a, ...cambios } : a)));
 
-  async function correr(fn: () => Promise<{ avisos: Aviso[]; aviso?: string }>) {
+  async function correr(fn: () => Promise<{ avisos: Aviso[]; resumen?: Resumen; aviso?: string }>) {
     setOcupado(true);
     alError('');
     try {
       const r = await fn();
       setLista(r.avisos);
+      if (r.resumen) setResumen(r.resumen);
       setAviso(r.aviso ?? '');
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudo guardar.');
@@ -673,6 +735,109 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
         ))
       )}
 
+      {/* El resumen de la mañana: la agenda del día, una vez por día. */}
+      {resumen && (
+        <section className="panel subir" style={{ padding: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>El resumen de la mañana</h2>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-chico"
+                disabled={ocupado}
+                onClick={() => void correr(() => api('/avisos/resumen/probar', { cuerpo: {} }).then((r) => ({ avisos: lista, ...(r as object) })))}
+              >
+                Mandarlo ahora
+              </button>
+              <button
+                type="button"
+                className={`btn btn-chico ${resumen.activo ? 'btn-ok' : 'btn-oro'}`}
+                disabled={ocupado}
+                onClick={() =>
+                  void correr(() =>
+                    api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { activo: !resumen.activo } }),
+                  )
+                }
+              >
+                {resumen.activo ? 'Prendido' : 'Prender'}
+              </button>
+            </div>
+          </div>
+          <p style={{ margin: '6px 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
+            Una vez por día, la lista de lo que cae ese día. Sirve para que el gremio arranque sabiendo
+            qué hay, sobre todo si se agregó algún evento de noche.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span className="etiqueta">A qué hora (del servidor)</span>
+              <input
+                className="campo campo-chico"
+                style={{ width: 100 }}
+                defaultValue={comoHora(resumen.hora)}
+                disabled={ocupado}
+                onBlur={(e) => {
+                  const m = leerHora(e.target.value);
+                  if (m === null || m === resumen.hora) {
+                    e.target.value = comoHora(resumen.hora);
+                    return;
+                  }
+                  void correr(() => api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { hora: e.target.value } }));
+                }}
+              />
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--tx3)', paddingBottom: 9 }}>
+              Sale todos los días a esa hora, una sola vez.
+            </div>
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <span className="etiqueta">El texto</span>
+              <div className="marcas-aviso">
+                {MARCAS_RESUMEN.map(([marca, que]) => (
+                  <button
+                    key={marca}
+                    type="button"
+                    title={que}
+                    disabled={ocupado}
+                    onClick={() => setResumen({ ...resumen, texto: `${resumen.texto}${marca}` })}
+                  >
+                    {marca}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea
+              className="campo"
+              rows={4}
+              value={resumen.texto}
+              disabled={ocupado}
+              onChange={(e) => setResumen({ ...resumen, texto: e.target.value })}
+              style={{ padding: 12, minHeight: 96, lineHeight: 1.5, resize: 'vertical', marginTop: 6 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`btn btn-chico${verResumen ? ' btn-suave' : ''}`}
+                disabled={ocupado}
+                onClick={() => setVerResumen(true)}
+              >
+                Ver en el simulador
+              </button>
+              <button
+                type="button"
+                className="btn btn-oro btn-chico"
+                disabled={ocupado}
+                onClick={() => void correr(() => api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { texto: resumen.texto } }))}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* El simulador: cómo se va a ver el mensaje en Telegram. */}
       {elSimulado && (
         <section className="panel subir" style={{ padding: 18 }}>
@@ -686,16 +851,29 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               <button
                 key={a.id}
                 type="button"
-                className={`chip-lista${elSimulado.id === a.id ? ' dentro' : ''}`}
-                onClick={() => setMirando(a.id)}
+                className={`chip-lista${!verResumen && elSimulado.id === a.id ? ' dentro' : ''}`}
+                onClick={() => {
+                  setMirando(a.id);
+                  setVerResumen(false);
+                }}
               >
                 {a.nombre}
               </button>
             ))}
+            {resumen && (
+              <button
+                type="button"
+                className={`chip-lista${verResumen ? ' dentro' : ''}`}
+                onClick={() => setVerResumen(true)}
+              >
+                📅 Resumen del día
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            {(elSimulado.antes.length > 0 ? elSimulado.antes : [15]).map((n) => (
+            {!verResumen &&
+              (elSimulado.antes.length > 0 ? elSimulado.antes : [15]).map((n) => (
               <button
                 key={n}
                 type="button"
@@ -703,8 +881,13 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 onClick={() => setConAntes(n)}
               >
                 <Reloj tam={12} /> {n === 60 ? '1 hora antes' : `${n} min antes`}
-              </button>
-            ))}
+                </button>
+              ))}
+            {verResumen && resumen && (
+              <span className="chip-lista dentro">
+                <Reloj tam={12} /> todos los días a las {comoHora(resumen.hora)}
+              </span>
+            )}
           </div>
 
           <div className="telegram">
@@ -719,30 +902,43 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               <div className="burbuja">
                 <div className="texto">
                   {comoTelegram(
-                    armarMensaje(
-                      elSimulado.mensaje,
-                      elSimulado.nombre,
-                      elSimulado.horas[0] ?? 780,
-                      (elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15,
-                      'hoy',
-                    ),
+                    verResumen && resumen
+                      ? armarResumen(lista, resumen.texto, new Date().getDay(), new Date())
+                      : armarMensaje(
+                          elSimulado.mensaje,
+                          elSimulado.nombre,
+                          elSimulado.horas[0] ?? 780,
+                          (elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15,
+                          'hoy',
+                        ),
                   )}
                 </div>
                 <div className="hora">
-                  {comoHora(
-                    Math.max(
-                      0,
-                      (elSimulado.horas[0] ?? 780) -
-                        ((elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15),
-                    ),
-                  )}
+                  {verResumen && resumen
+                    ? comoHora(resumen.hora)
+                    : comoHora(
+                        Math.max(
+                          0,
+                          (elSimulado.horas[0] ?? 780) -
+                            ((elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15),
+                        ),
+                      )}
                 </div>
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
-            {elSimulado.dias.length === 0 || elSimulado.horas.length === 0 ? (
+            {verResumen && resumen ? (
+              resumen.activo ? (
+                <>
+                  Sale <b style={{ color: 'var(--oro)' }}>todos los días a las {comoHora(resumen.hora)}</b> del
+                  servidor, con los eventos de ese día.
+                </>
+              ) : (
+                <>El resumen está apagado: se prende arriba.</>
+              )
+            ) : elSimulado.dias.length === 0 || elSimulado.horas.length === 0 ? (
               <>Sin días o sin horas, este evento no dispara ningún aviso.</>
             ) : (
               <>

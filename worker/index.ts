@@ -34,8 +34,10 @@ import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import { chatsVistos, mandar, quienEs } from './telegram';
 import {
   ANTES_MAXIMO,
+  armarResumen,
   comoAviso,
   disparosEntre,
+  RESUMEN_POR_DEFECTO,
   comoHora as comoHoraAviso,
   DIAS_LARGOS,
   leerAviso,
@@ -693,7 +695,57 @@ app.post('/api/eventos/:id/repartir', requiereGrandMaster, async (c) => {
 
 app.get('/api/avisos', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: results.map(comoAviso), antesMaximo: ANTES_MAXIMO });
+  const { resumen } = await leerAjustes(c.env.DB);
+  return c.json({ avisos: results.map(comoAviso), antesMaximo: ANTES_MAXIMO, resumen });
+});
+
+/** El resumen de la mañana: a qué hora sale, si sale, y con qué texto. */
+app.patch('/api/avisos/resumen', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const actual = (await leerAjustes(c.env.DB)).resumen;
+
+  const hora = cuerpo.hora === undefined ? actual.hora : leerHora(texto(cuerpo.hora, 20));
+  if (hora === null) return c.json({ error: 'No entendí la hora. Escribila así: 10:00' }, 400);
+
+  const activo = typeof cuerpo.activo === 'boolean' ? cuerpo.activo : actual.activo;
+  const plantilla = cuerpo.texto === undefined ? actual.texto : texto(cuerpo.texto, 1000) || RESUMEN_POR_DEFECTO;
+
+  await c.env.DB.prepare(
+    'UPDATE ajustes SET resumen_hora = ?, resumen_activo = ?, resumen_texto = ?, actualizado_en = ? WHERE id = 1',
+  )
+    .bind(hora, activo ? 1 : 0, plantilla, new Date().toISOString())
+    .run();
+
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
+  return c.json({
+    avisos: results.map(comoAviso),
+    resumen: { hora, activo, texto: plantilla },
+    aviso: activo ? `El resumen sale todos los días a las ${comoHoraAviso(hora)}.` : 'El resumen quedó apagado.',
+  });
+});
+
+/** Mandar el resumen de hoy ahora mismo, para verlo en el grupo. */
+app.post('/api/avisos/resumen/probar', requiereAdmin, async (c) => {
+  const token = c.env.TELEGRAM_TOKEN;
+  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+
+  const ajustes = await leerAjustes(c.env.DB);
+  if (!ajustes.telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
+  const texto2 = armarResumen(
+    results.map(comoAviso),
+    new Date(),
+    ajustes.horario.offsetServidor,
+    ajustes.resumen.texto,
+  );
+
+  try {
+    await mandar(token, ajustes.telegram.chat, texto2);
+    return c.json({ aviso: `Mandado a ${ajustes.telegram.nombre || ajustes.telegram.chat}.` });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
+  }
 });
 
 app.post('/api/avisos', requiereAdmin, async (c) => {
@@ -1517,6 +1569,7 @@ const programado = async (env: Env) => {
   const cerrados = await cerrarVencidos(env.DB, ahora);
   const evento = await asegurarEvento(env.DB, ahora, await leerHorario(env.DB));
   const mandados = await mandarAvisos(env, ahora);
+  const conResumen = await mandarResumen(env, ahora);
   console.log(
     'cron:',
     cerrados,
@@ -1525,8 +1578,51 @@ const programado = async (env: Env) => {
     '|',
     mandados,
     'avisos',
+    conResumen ? '| resumen' : '',
   );
 };
+
+/**
+ * El resumen de la mañana, una vez por día.
+ *
+ * La marca en `avisos_enviados` va con el id 0, que no es de ningún evento, y el día como clave:
+ * así sale una sola vez aunque el cron pase mil veces por esa hora.
+ */
+async function mandarResumen(env: Env, ahora: Date): Promise<boolean> {
+  const token = env.TELEGRAM_TOKEN;
+  if (!token) return false;
+
+  const ajustes = await leerAjustes(env.DB);
+  if (!ajustes.resumen.activo || !ajustes.telegram.activo || !ajustes.telegram.chat) return false;
+
+  // En qué minuto del día del servidor estamos.
+  const local = new Date(ahora.getTime() + ajustes.horario.offsetServidor * 3_600_000);
+  const minutoDelDia = local.getUTCHours() * 60 + local.getUTCMinutes();
+  // Una ventana de dos minutos, por si el cron llegó tarde.
+  if (minutoDelDia < ajustes.resumen.hora || minutoDelDia > ajustes.resumen.hora + 2) return false;
+
+  const clave = `resumen-${local.toISOString().slice(0, 10)}`;
+  const puesto = await env.DB.prepare(
+    'INSERT INTO avisos_enviados (aviso_id, clave) VALUES (0, ?) ON CONFLICT DO NOTHING',
+  )
+    .bind(clave)
+    .run();
+  if ((puesto.meta.changes ?? 0) === 0) return false;
+
+  const { results } = await env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
+  try {
+    await mandar(
+      token,
+      ajustes.telegram.chat,
+      armarResumen(results.map(comoAviso), ahora, ajustes.horario.offsetServidor, ajustes.resumen.texto),
+    );
+    return true;
+  } catch (e) {
+    await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = 0 AND clave = ?').bind(clave).run();
+    console.error('resumen sin mandar:', e);
+    return false;
+  }
+}
 
 /**
  * Los avisos que les toca salir en este minuto.
