@@ -351,6 +351,37 @@ que son las dos que se usan.
 
 ---
 
+## Los tres roles
+
+| | Admin | Grand Master | Jugador |
+| --- | --- | --- | --- |
+| Ver el tablero y entrar al panel | sí | sí | sí |
+| Ver el botín y a quién le toca cada item | sí | sí | sí |
+| Marcar quiénes estuvieron | sí | sí | no |
+| Elegir y cargar los drops | sí | sí | no |
+| Arreglar el botín: repartir, mover, borrar | sí | sí | no |
+| Copiar las líneas para el chat | sí | sí | no |
+| Editar el catálogo | sí | *según* | no |
+| Mover el turno de una rueda | sí | *según* | no |
+| Repartir los turnos de arranque | sí | no | no |
+| Listas, miembros, horarios, avisos | sí | no | no |
+| Abrir eventos fuera de hora y ensayos | sí | no | no |
+| Menú Desarrollador y borrar el historial | sí | no | no |
+
+El **admin** no tiene límites: lo que se agregue a la app le pertenece de entrada.
+
+El **Grand Master** hace la noche entera y nada más. La línea está donde algo cambia las reglas
+del reparto de ahí en adelante sin dejar rastro: renombrar un item o mover el *le toca a*. Las dos
+se le pueden habilitar desde el menú Desarrollador (*según* en el cuadro).
+
+El **jugador** entra a **su propia pantalla**, no al panel con los botones escondidos. Es una
+pantalla que no sabe escribir, así que no depende de que nadie se acuerde de deshabilitar un
+control; el servidor tampoco depende de ella, porque toda ruta que escribe pide Grand Master o
+admin. Ve el botín, quiénes están marcados, a quién le toca cada item —con lo suyo resaltado— y
+el reparto anterior.
+
+---
+
 ## Empezar de cero
 
 Al final del menú Desarrollador está el único botón de la app que no se puede deshacer: borra

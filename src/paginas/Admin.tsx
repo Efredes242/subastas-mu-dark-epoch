@@ -483,7 +483,7 @@ function CargaDeDrops({
 }
 
 const ROLES = [
-  ['invitado', 'Invitado'],
+  ['jugador', 'Jugador'],
   ['grandmaster', 'Grand Master'],
   ['admin', 'Admin'],
 ] as const;
@@ -493,7 +493,7 @@ interface Miembro {
   usuario: string;
   personaje: string;
   email: string | null;
-  rol: 'admin' | 'grandmaster' | 'invitado';
+  rol: 'admin' | 'grandmaster' | 'jugador';
   pc: number;
   activo: boolean;
   clase: string;
@@ -2377,6 +2377,70 @@ const PERMISOS_DEL_GM: Array<[string, string, string]> = [
   ],
 ];
 
+/**
+ * Qué puede cada rol, escrito para leer de un vistazo.
+ *
+ * Es documentación, no configuración: lo que manda son los guardianes de cada ruta. Está acá
+ * porque un cuadro de permisos que solo vive en el código no lo revisa nadie.
+ *
+ * Las dos filas con "según" son las que el admin mueve más abajo, en "Qué puede el Grand Master".
+ */
+const QUE_PUEDE: Array<[string, string, string | null, boolean]> = [
+  // [qué, admin, grand master (null = según lo configurado), jugador]
+  ['Ver el tablero del gremio', 'sí', 'sí', true],
+  ['Entrar al panel', 'sí', 'sí', true],
+  ['Ver el botín y a quién le toca cada item', 'sí', 'sí', true],
+  ['Marcar quiénes estuvieron', 'sí', 'sí', false],
+  ['Elegir y cargar los drops', 'sí', 'sí', false],
+  ['Arreglar el botín: repartir, mover, borrar', 'sí', 'sí', false],
+  ['Copiar las líneas para el chat', 'sí', 'sí', false],
+  ['Editar el catálogo', 'sí', null, false],
+  ['Mover el turno de una rueda', 'sí', null, false],
+  ['Repartir los turnos de arranque', 'sí', 'no', false],
+  ['Listas de quién participa en cada drop', 'sí', 'no', false],
+  ['Miembros, roles y orden de PC', 'sí', 'no', false],
+  ['Horarios del Kundun y del asedio', 'sí', 'no', false],
+  ['Avisos y el bot de Telegram', 'sí', 'no', false],
+  ['Abrir eventos fuera de hora y ensayos', 'sí', 'no', false],
+  ['Menú Desarrollador y borrar el historial', 'sí', 'no', false],
+];
+
+function Roles() {
+  return (
+    <section className="panel subir tabla-roles">
+      <h2>Qué puede cada rol</h2>
+      <p>
+        El <b>admin</b> no tiene límites: todo lo que se agregue a la app entra acá arriba solo. El{' '}
+        <b>Grand Master</b> hace la noche —la asistencia, los drops, el botín— pero no cambia las
+        reglas del reparto. El <b>jugador</b> entra y mira: tiene su propia pantalla, que no sabe
+        escribir, así que no depende de esconderle botones.
+      </p>
+
+      <div className="rejilla-roles">
+        <div className="fila encabezado">
+          <span className="que" />
+          <span>Admin</span>
+          <span>Grand Master</span>
+          <span>Jugador</span>
+        </div>
+        {QUE_PUEDE.map(([que, adm, gm, jug]) => (
+          <div key={que} className="fila">
+            <span className="que">{que}</span>
+            <span className="si">{adm}</span>
+            <span className={gm === null ? 'segun' : gm === 'sí' ? 'si' : 'no'}>{gm ?? 'según'}</span>
+            <span className={jug ? 'si' : 'no'}>{jug ? 'sí' : 'no'}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="pie">
+        <b>Según</b> son las dos que se prenden y se apagan acá abajo. Todo esto lo controla el
+        servidor, no la pantalla: una ruta que pide admin devuelve 403 aunque el botón se vea.
+      </p>
+    </section>
+  );
+}
+
 interface Cuanto {
   eventos: number;
   items: number;
@@ -2680,6 +2744,8 @@ function Desarrollador({
           })}
         </div>
       </section>
+
+      <Roles />
 
       <EmpezarDeCero alError={alError} setEstado={setEstado} />
     </div>

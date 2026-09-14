@@ -5,6 +5,7 @@ import { ProveedorClases } from './componentes/Clase';
 import Login from './paginas/Login';
 import Tablero from './paginas/Tablero';
 import Admin from './paginas/Admin';
+import Jugador from './paginas/Jugador';
 
 export function ir(ruta: string) {
   if (window.location.pathname === ruta) return;
@@ -81,11 +82,9 @@ export default function App() {
     if (!estado.yo) {
       return <Login tema={tema} alternarTema={alternarTema} alEntrar={recargar} googleActivo={estado.googleActivo} />;
     }
-    // La Grand Master entra al panel: carga drops y reparte, pero no ve miembros ni el orden.
-    if (estado.yo.rol === 'invitado') {
-      ir('/');
-      return null;
-    }
+    // El jugador entra a su propia pantalla: ve lo mismo que el que reparte, pero no puede tocar
+    // nada. No es el panel con los botones escondidos, es otra pantalla que no sabe escribir.
+    if (estado.yo.rol === 'jugador') return conClases(<Jugador {...props} />);
     return conClases(<Admin {...props} />);
   }
 

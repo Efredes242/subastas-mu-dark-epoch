@@ -1285,6 +1285,91 @@ select {
   font-size: 12.5px;
 }
 
+/* El cuadro de qué puede cada rol. */
+.tabla-roles {
+  padding: 18px;
+}
+
+.tabla-roles > h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.tabla-roles > p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.tabla-roles > p > b {
+  color: var(--tx2);
+}
+
+.tabla-roles > p.pie {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+}
+
+.rejilla-roles {
+  display: grid;
+  gap: 3px;
+  overflow-x: auto;
+}
+
+.rejilla-roles > .fila {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 72px 104px 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: var(--panel2);
+  font-size: 12.5px;
+}
+
+.rejilla-roles > .fila.encabezado {
+  background: transparent;
+  padding-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tx3);
+}
+
+.rejilla-roles > .fila > .que {
+  font-weight: 600;
+}
+
+.rejilla-roles > .fila > span:not(.que) {
+  text-align: center;
+  font-weight: 800;
+}
+
+.rejilla-roles .si {
+  color: var(--ok);
+}
+
+.rejilla-roles .no {
+  color: var(--tx3);
+}
+
+.rejilla-roles .segun {
+  color: var(--av);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* El panel del jugador usa la misma grilla que el del admin. */
+.panel-jugador {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 20px 28px;
+}
+
 /* Empezar de cero: lo único del panel que no se puede deshacer, y se nota. */
 .zona-roja {
   padding: 17px 16px 16px;

@@ -18,11 +18,16 @@ export interface Env {
 }
 
 /**
- * admin       — Alckron, y nadie más: gremio, roles, orden de prioridad, abrir y cerrar el Kundun.
- * grandmaster — sube los drops y arranca el reparto. Nada más.
- * invitado    — se anota al Kundun y pide items.
+ * Los tres roles del gremio.
+ *
+ * admin       — control total: gremio, roles, catálogo, horarios, avisos, historial. Sin límites.
+ * grandmaster — hace la noche: marca la asistencia, carga los drops y arregla el botín. Lo que
+ *               cambia las reglas del reparto de ahí en adelante —el catálogo y el turno de las
+ *               ruedas— es del admin, salvo que se lo habilite en el menú Desarrollador.
+ * jugador     — mira. Entra al panel y ve el evento, la asistencia, el botín y a quién le toca
+ *               cada item, pero no puede tocar nada.
  */
-export type Rol = 'admin' | 'grandmaster' | 'invitado';
+export type Rol = 'admin' | 'grandmaster' | 'jugador';
 export type Rareza = 'comun' | 'excelente' | 'ancient' | 'divino';
 /** abierto = nadie lo tiene · reclamado = le toca pujarlo · entregado = ya lo ganó */
 export type EstadoItem = 'abierto' | 'reclamado' | 'entregado';
@@ -30,7 +35,7 @@ export type EstadoItem = 'abierto' | 'reclamado' | 'entregado';
 /** Quién puede subir drops y repartir. */
 export const puedeCargar = (rol: Rol) => rol === 'admin' || rol === 'grandmaster';
 /** Los roles que manejan la app entran con contraseña, no tocando su nombre. */
-export const manejaLaApp = (rol: Rol) => rol !== 'invitado';
+export const manejaLaApp = (rol: Rol) => rol !== 'jugador';
 
 export interface FilaUsuario {
   id: number;

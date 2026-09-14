@@ -1388,7 +1388,7 @@ app.delete('/api/clases/:codigo', requiereAdmin, async (c) => {
 
 // ── Miembros y orden de prioridad ─────────────────────────────────────────────
 
-const ROLES = ['admin', 'grandmaster', 'invitado'];
+const ROLES = ['admin', 'grandmaster', 'jugador'];
 
 app.get('/api/miembros', requiereAdmin, async (c) => {
   const orden = await ordenDePrioridad(c.env.DB);
@@ -1445,7 +1445,7 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
       personaje,
       email,
       password.length >= 6 ? await hashearPassword(password) : '',
-      ROLES.includes(cuerpo.rol) ? cuerpo.rol : 'invitado',
+      ROLES.includes(cuerpo.rol) ? cuerpo.rol : 'jugador',
       Math.max(0, entero(cuerpo.pc)),
       (ultimo?.n ?? 0) + 1,
       claseDelAlta,
