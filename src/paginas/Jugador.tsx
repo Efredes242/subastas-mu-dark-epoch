@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { fechaHoraEn, formatoPC, horaEn, nombreCortoZona, restante, seVe } from '../api';
-import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase } from '../componentes/Clase';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
@@ -70,7 +69,7 @@ export default function Jugador({ estado, tema, alternarTema }: PropsPagina) {
           <button type="button" className="btn btn-chico" onClick={() => ir('/')}>
             Ver el tablero
           </button>
-          <BotonTema tema={tema} alternar={alternarTema} />
+
         </div>
       </div>
 

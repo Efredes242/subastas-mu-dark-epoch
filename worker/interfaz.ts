@@ -34,9 +34,7 @@ export const PARTES = [
   'boton_puja',
   'boton_drops',
   'boton_historial',
-  'boton_entrar',
   'boton_horarios',
-  'boton_tema',
   'boton_zona',
   // El panel
   'panel_catalogo',

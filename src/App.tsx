@@ -7,6 +7,7 @@ import Tablero from './paginas/Tablero';
 import Admin from './paginas/Admin';
 import Jugador from './paginas/Jugador';
 import { CambiarClave } from './paginas/CambiarClave';
+import { MiCuenta } from './componentes/MiCuenta';
 
 export function ir(ruta: string) {
   if (window.location.pathname === ruta) return;
@@ -74,8 +75,17 @@ export default function App() {
   }
 
   const props = { estado, setEstado, recargar, tema, alternarTema };
+  /*
+   * Con la sesión abierta, toda pantalla lleva la esquina de la cuenta.
+   *
+   * Se monta acá y no en cada página para que no haya una donde falte: salir no puede depender
+   * de en qué menú estés.
+   */
   const conClases = (pantalla: ReactNode) => (
-    <ProveedorClases clases={estado.clases}>{pantalla}</ProveedorClases>
+    <ProveedorClases clases={estado.clases}>
+      {estado.yo && <MiCuenta estado={estado} tema={tema} alternarTema={alternarTema} />}
+      {pantalla}
+    </ProveedorClases>
   );
 
   /*

@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
-import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
@@ -349,7 +348,8 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             )}
           </div>
 
-          {ve('boton_tema') ? <BotonTema tema={tema} alternar={alternarTema} /> : <span />}
+          {/* El tema y la cuenta viven en la esquina fija, igual en todas las pantallas. */}
+          <span />
         </div>
 
         <div className={`cuerpo-tablero${ve('tablero_gremio') ? '' : ' sin-gremio'}`}>
@@ -519,13 +519,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             </button>
           )}
 
-          {/* La puerta de entrada. Sin esto el login solo se encontraba escribiendo /admin. */}
-          {ve('boton_entrar') && (
-            <button type="button" className="btn-esquina" onClick={() => setHoja('entrar')}>
-              <Escudo tam={18} />
-              <span>{estado.yo ? 'Mi cuenta' : 'Entrar'}</span>
-            </button>
-          )}
+
         </div>
       </div>
 
