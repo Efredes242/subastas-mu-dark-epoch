@@ -1589,6 +1589,64 @@ app.post('/api/participantes/:cola/todos', requiereAdmin, async (c) => {
  * Mover a mano el turno de un item: deja como "último que cobró" al que se le pase,
  * así el próximo le toca al que sigue. Sirve para corregir un reparto.
  */
+// ── Empezar de cero ──────────────────────────────────────────────────────────
+//
+// Borra los Kundun y todo lo que cuelga de ellos. No se puede deshacer, así que hay que pedirlo
+// dos veces: primero se mira cuánto hay y después se manda la palabra exacta.
+
+/** Cuánto hay para borrar, para que el panel lo diga antes de preguntar. */
+app.get('/api/historial/resumen', requiereAdmin, async (c) => {
+  const r = await c.env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM eventos)     AS eventos,
+            (SELECT COUNT(*) FROM items)       AS items,
+            (SELECT COUNT(*) FROM asistencias) AS asistencias,
+            (SELECT COUNT(*) FROM turnos)      AS turnos`,
+  ).first<{ eventos: number; items: number; asistencias: number; turnos: number }>();
+  return c.json(r ?? { eventos: 0, items: 0, asistencias: 0, turnos: 0 });
+});
+
+/**
+ * Borrar el historial y volver a empezar.
+ *
+ * Se van los Kundun, sus drops y sus asistencias. NO se tocan los personajes, el catálogo, las
+ * listas de participantes, las clases ni los horarios: eso es la configuración del gremio, no
+ * el historial. Las ruedas se reinician solo si se pide, porque reflejan lo que ya se repartió
+ * de verdad en el juego y no siempre uno quiere perder esa cuenta.
+ */
+app.post('/api/historial/borrar', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  if (texto(cuerpo.confirmar, 20) !== 'BORRAR') {
+    return c.json({ error: 'Para borrar el historial hay que escribir BORRAR.' }, 400);
+  }
+  const conRuedas = cuerpo.ruedas === true;
+
+  const antes = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM eventos').first<{ n: number }>();
+
+  const escrituras = [
+    c.env.DB.prepare('DELETE FROM pedidos'),
+    c.env.DB.prepare('DELETE FROM items'),
+    c.env.DB.prepare('DELETE FROM asistencias'),
+    c.env.DB.prepare('DELETE FROM eventos'),
+  ];
+  if (conRuedas) {
+    escrituras.push(c.env.DB.prepare('DELETE FROM turnos'), c.env.DB.prepare('DELETE FROM turnos_respaldo'));
+  }
+  // Para que el próximo Kundun sea el #1 y no siga la numeración de los borrados.
+  escrituras.push(
+    c.env.DB.prepare("DELETE FROM sqlite_sequence WHERE name IN ('eventos','items','asistencias','pedidos')"),
+  );
+
+  await c.env.DB.batch(escrituras);
+
+  const cuantos = antes?.n ?? 0;
+  return c.json({
+    ...(await construirEstado(c.env, c.get('usuario'))),
+    aviso:
+      `Borré ${cuantos} ${cuantos === 1 ? 'Kundun' : 'Kundun'} del historial. El próximo va a ser el #1.` +
+      (conRuedas ? ' Las ruedas volvieron al principio.' : ' Las ruedas quedaron donde estaban.'),
+  });
+});
+
 /**
  * Repartir los turnos de arranque entre todos.
  *

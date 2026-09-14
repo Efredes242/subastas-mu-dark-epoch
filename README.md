@@ -351,6 +351,22 @@ que son las dos que se usan.
 
 ---
 
+## Empezar de cero
+
+Al final del menú Desarrollador está el único botón de la app que no se puede deshacer: borra
+**todos los Kundun del historial** con sus drops y sus asistencias, y el próximo vuelve a ser el #1.
+
+No se tocan los personajes, el catálogo, las listas de drops, las clases, los horarios ni los
+avisos: eso es la configuración del gremio, no el historial. Las ruedas se reinician solo si se
+tilda la casilla, porque reflejan lo que ya se repartió de verdad en el juego y no siempre
+conviene perder esa cuenta.
+
+Antes de preguntar dice cuánto hay para borrar, y pide **escribir la palabra BORRAR**: un botón
+suelto ahí se toca sin querer una vez cada tanto. El servidor exige lo mismo, así que llamar la
+ruta de casualidad no borra nada.
+
+---
+
 ## Avisos del gremio
 
 Una solapa del panel, solo para el admin, donde se arma lo que el gremio va a recibir antes de

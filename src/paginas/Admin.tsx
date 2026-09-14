@@ -2377,6 +2377,169 @@ const PERMISOS_DEL_GM: Array<[string, string, string]> = [
   ],
 ];
 
+interface Cuanto {
+  eventos: number;
+  items: number;
+  asistencias: number;
+  turnos: number;
+}
+
+/**
+ * Empezar de cero.
+ *
+ * Borra los Kundun y lo que cuelga de ellos. No se puede deshacer y no hay papelera, así que
+ * pide escribir la palabra: un botón suelto acá se toca sin querer una vez cada tanto.
+ */
+function EmpezarDeCero({
+  alError,
+  setEstado,
+}: {
+  alError: (m: string) => void;
+  setEstado: (e: EstadoConAviso) => void;
+}) {
+  const [cuanto, setCuanto] = useState<Cuanto | null>(null);
+  const [abierto, setAbierto] = useState(false);
+  const [escrito, setEscrito] = useState('');
+  const [conRuedas, setConRuedas] = useState(true);
+  const [ocupado, setOcupado] = useState(false);
+  const [hecho, setHecho] = useState('');
+
+  async function mirar() {
+    try {
+      setCuanto(await api<Cuanto>('/historial/resumen'));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No pude contar el historial.');
+    }
+  }
+
+  useEffect(() => {
+    void mirar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function borrar() {
+    setOcupado(true);
+    alError('');
+    try {
+      const r = await api<EstadoConAviso>('/historial/borrar', {
+        cuerpo: { confirmar: 'BORRAR', ruedas: conRuedas },
+      });
+      setEstado(r);
+      setHecho(r.aviso ?? 'Listo.');
+      setAbierto(false);
+      setEscrito('');
+      await mirar();
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo borrar.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const vacio = (cuanto?.eventos ?? 0) === 0;
+
+  return (
+    <section className="panel subir zona-roja">
+      <h2>Empezar de cero</h2>
+      <p>
+        Borra <b>todos los Kundun del historial</b> con sus drops y sus asistencias, y el próximo
+        vuelve a ser el #1.
+      </p>
+      <p className="queda">
+        No se tocan los personajes, el catálogo, las listas de drops, las clases, los horarios ni los
+        avisos: eso es la configuración del gremio, no el historial.
+      </p>
+
+      {cuanto && (
+        <div className="cuenta-borrar">
+          <span>
+            <b>{cuanto.eventos}</b> Kundun
+          </span>
+          <span>
+            <b>{cuanto.items}</b> drops
+          </span>
+          <span>
+            <b>{cuanto.asistencias}</b> asistencias
+          </span>
+          <span>
+            <b>{cuanto.turnos}</b> ruedas movidas
+          </span>
+        </div>
+      )}
+
+      {hecho && (
+        <div className="aviso aparecer" style={{ marginTop: 12, fontSize: 12.5 }}>
+          <Tilde tam={16} />
+          <span>{hecho}</span>
+        </div>
+      )}
+
+      {!abierto ? (
+        <button
+          type="button"
+          className="btn btn-mal btn-chico"
+          style={{ marginTop: 14 }}
+          disabled={ocupado || vacio}
+          onClick={() => {
+            setAbierto(true);
+            setHecho('');
+          }}
+        >
+          <Tacho tam={15} /> {vacio ? 'El historial ya está vacío' : 'Borrar el historial'}
+        </button>
+      ) : (
+        <div className="confirmar-borrado">
+          <label className="con-ruedas">
+            <input type="checkbox" checked={conRuedas} onChange={(e) => setConRuedas(e.target.checked)} />
+            <span>
+              Reiniciar también las ruedas
+              <em>
+                {conRuedas
+                  ? 'cada item vuelve a arrancar por el primero del orden'
+                  : 'quién sigue en cada item se mantiene, porque refleja lo que ya se repartió en el juego'}
+              </em>
+            </span>
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="etiqueta">Escribí BORRAR para confirmar</span>
+            <input
+              className="campo campo-chico"
+              value={escrito}
+              disabled={ocupado}
+              placeholder="BORRAR"
+              autoFocus
+              onChange={(e) => setEscrito(e.target.value)}
+            />
+          </label>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-mal btn-chico"
+              disabled={ocupado || escrito.trim().toUpperCase() !== 'BORRAR'}
+              onClick={() => void borrar()}
+            >
+              Borrar para siempre
+            </button>
+            <button
+              type="button"
+              className="btn btn-chico"
+              disabled={ocupado}
+              onClick={() => {
+                setAbierto(false);
+                setEscrito('');
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /**
  * El menú Desarrollador: qué se ve y quién puede tocar qué.
  *
@@ -2517,6 +2680,8 @@ function Desarrollador({
           })}
         </div>
       </section>
+
+      <EmpezarDeCero alError={alError} setEstado={setEstado} />
     </div>
   );
 }

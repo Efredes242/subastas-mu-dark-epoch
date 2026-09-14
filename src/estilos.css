@@ -1285,6 +1285,94 @@ select {
   font-size: 12.5px;
 }
 
+/* Empezar de cero: lo único del panel que no se puede deshacer, y se nota. */
+.zona-roja {
+  padding: 17px 16px 16px;
+  border-color: var(--malLn);
+}
+
+.zona-roja > h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--mal);
+}
+
+.zona-roja > p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.zona-roja > p > b {
+  color: var(--tx2);
+}
+
+.zona-roja > p.queda {
+  margin-top: 7px;
+  font-size: 11.5px;
+}
+
+.cuenta-borrar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+}
+
+.cuenta-borrar > span {
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+  font-size: 12px;
+  color: var(--tx3);
+}
+
+.cuenta-borrar b {
+  color: var(--tx);
+  font-variant-numeric: tabular-nums;
+}
+
+.confirmar-borrado {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 13px 14px 14px;
+  border: 1px solid var(--malLn);
+  border-radius: 13px;
+  background: var(--malBg);
+}
+
+.con-ruedas {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.con-ruedas input {
+  margin-top: 2px;
+  accent-color: var(--mal);
+  cursor: pointer;
+}
+
+.con-ruedas > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.con-ruedas em {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--tx3);
+}
+
 /* ── Avisos del gremio ─────────────────────────────────────────────────────── */
 
 .aviso-evento {
