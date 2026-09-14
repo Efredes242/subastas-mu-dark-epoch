@@ -1,10 +1,15 @@
 /* Tokens. El tema por defecto es el oscuro; el claro se activa con data-tema="claro" en <html>. */
 :root {
-  --bg: #14110d;
-  --panel: #1c1712;
-  --panel2: #231d16;
-  --line: #2e2720;
-  --line2: #443729;
+  /*
+   * El fondo de la página va más hondo y el de las tarjetas más alto: antes estaban a 1.06:1
+   * y las tarjetas no se despegaban de la página. El borde acompaña, porque cerca del negro
+   * la diferencia de relleno sola no alcanza para dibujar el canto.
+   */
+  --bg: #0b0907;
+  --panel: #241d16;
+  --panel2: #2d251b;
+  --line: #453a2c;
+  --line2: #5c4c34;
   --tx: #f1e9db;
   --tx2: #a99d89;
   /* Contra el panel daba 3.7:1 y el texto chico se perdía en el fondo. Ahora 5.1:1. */
@@ -34,16 +39,18 @@
   --c4: #e0b871;
   --c4Bg: #2a2015;
   --c4Ln: #5b4826;
-  --sh: 0 1px 2px rgba(0, 0, 0, 0.34), 0 12px 30px rgba(0, 0, 0, 0.4);
-  --shs: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 34px rgba(0, 0, 0, 0.55);
+  --shs: 0 1px 2px rgba(0, 0, 0, 0.45);
+  /* El brillo de arriba, que es lo que termina de levantar la tarjeta del fondo. */
+  --luz: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 :root[data-tema='claro'] {
-  --bg: #f6f2ea;
+  --bg: #ece5d6;
   --panel: #ffffff;
-  --panel2: #faf6ef;
-  --line: #e7dfd1;
-  --line2: #d6c9b3;
+  --panel2: #f8f4eb;
+  --line: #ddd2bd;
+  --line2: #c9bca2;
   --tx: #2b251c;
   --tx2: #6d6355;
   /* Lo mismo en el tema claro: venía de 3.2:1. */
@@ -73,8 +80,9 @@
   --c4: #a8752a;
   --c4Bg: #fbf2e0;
   --c4Ln: #e8d5ab;
-  --sh: 0 1px 2px rgba(43, 37, 28, 0.05), 0 10px 26px rgba(43, 37, 28, 0.07);
-  --shs: 0 1px 2px rgba(43, 37, 28, 0.06);
+  --sh: 0 1px 2px rgba(43, 37, 28, 0.08), 0 10px 26px rgba(43, 37, 28, 0.1);
+  --shs: 0 1px 2px rgba(43, 37, 28, 0.08);
+  --luz: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 * {
@@ -197,7 +205,7 @@ select {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 18px;
-  box-shadow: var(--sh);
+  box-shadow: var(--sh), var(--luz);
 }
 
 .btn {
