@@ -185,43 +185,49 @@ cuántos fueron. Un personaje sin clase no muestra retrato, el nombre queda solo
 
 ---
 
-## Roles
+## Entrar
 
-| Rol | Qué puede hacer | Cómo entra |
-|---|---|---|
-| `admin` | Todo: gremio, roles, clases, listas, orden de prioridad, horarios y catálogo | contraseña |
-| `grandmaster` | Marca la asistencia, carga los drops y corrige el reparto | contraseña |
-| `invitado` | Mira el tablero | no entra: el tablero es público |
+**Sin sesión no se ve nada**, ni siquiera el tablero. La pantalla de entrada tiene las dos puertas:
+Google y usuario con contraseña.
 
-El rol se cambia desde **Admin → Miembros**. Nadie se puede sacar el rol a sí mismo ni darse de baja
-solo, para no quedar sin ningún admin.
+### La primera contraseña
 
-Como el admin y la Grand Master son los únicos que entran, y lo hacen con contraseña, **no se puede
-ascender a alguien que no tenga clave**: la app lo rechaza con un aviso, para que no quede afuera de las dos
-puertas. La clave se pone en la misma fila de la lista de miembros.
+La pone el admin al dar de alta a alguien, o después desde su ficha en *Miembros*. Esa clave la sabe
+otro, así que la primera vez que la persona entra, la app la manda a **elegir la suya** y no la deja
+hacer nada más hasta que lo haga. No es solo la pantalla: mientras la marca esté puesta, el servidor
+rechaza cualquier cosa que esa cuenta intente escribir.
 
----
+Si alguien se la olvida, el admin le pone una nueva y vuelve a pasar por lo mismo. Un rol que maneja
+la app **no se puede dar sin una forma de entrar**: la app avisa antes de intentarlo.
 
-## Login con Google
+### La esquina de la cuenta
 
-Los jugadores **no usan Google ni contraseña**: entran tocando su Main. Google sirve para las cuentas
-que manejan la app (admin y cargador), que sí entran con credenciales por `/admin`.
+Arriba a la derecha, **fija en todas las pantallas y para todos los roles**: el tema, tu personaje y
+**Salir**. Cerrar sesión no puede depender de en qué menú estés ni de encontrar un botón que se
+confunde con los de consulta, así que está siempre a la vista y no adentro de un menú.
 
-El alta de un miembro pide **personaje, PC y contraseña** — el usuario sale del nombre del personaje
-(*El Brujo* → `elbrujo`). El Gmail es opcional y se vincula después, desde la columna *Gmail* de la
-lista de miembros. **No hay alta automática**: si el mail no está cargado por el admin, rebota con
-"pedile al admin que te dé de alta".
+Tocando tu nombre se abre la ficha: clase, PC, en qué puesto del orden estás, en qué listas de drops
+participás, el Gmail vinculado si lo hay, y **Cambiar mi contraseña**. Esa sí pide la actual: una
+sesión olvidada en una máquina ajena no debería poder cambiarla.
 
-1. Google Cloud Console → *APIs y servicios* → *Credenciales* → **ID de cliente de OAuth**
-   (tipo: aplicación web).
-2. En *URI de redireccionamiento autorizados* poner las dos:
+Se monta una sola vez, en el enrutador, para que no quede una pantalla sin ella.
+
+### Con Google
+
+El botón aparece solo si el Worker tiene las credenciales:
+
+1. Google Cloud Console → *APIs y servicios* → **Credenciales** → **ID de cliente de OAuth**, tipo
+   *Aplicación web*. Si la opción aparece gris, falta configurar antes la pantalla de consentimiento
+   en *Google Auth Platform*.
+2. En *URI de redireccionamiento autorizados*, las dos:
    - `http://localhost:5173/api/auth/google/callback` (local)
-   - `https://TU-DOMINIO/api/auth/google/callback` (producción)
-3. Local: pegar `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.dev.vars`.
-4. Producción: cargarlos como secrets (ver abajo).
+   - `https://kundun.ezequielfredes.com.ar/api/auth/google/callback` (producción)
+3. Local: `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.dev.vars`.
+   Producción: `npx wrangler secret put` para cada una, en una terminal de verdad.
 
-Mientras esas dos variables estén vacías, el botón de Google no aparece y se entra con usuario y
-contraseña.
+**No hay alta automática.** Google confirma quién es, pero el mail tiene que estar cargado en la
+ficha del miembro; si no, rebota con *"Ese mail no está en el gremio todavía"* y muestra la dirección
+que Google devolvió, para copiarla tal cual.
 
 ---
 
@@ -582,8 +588,6 @@ correr `npm run db:seed:remote`.
 - **Tope de items por persona.** Al repartir, el que ya se llevó algo pasa al final para el resto de
   los items; solo repite si nadie más pidió ese item. Si querés un tope duro de uno por evento, se
   cambia en `elegirGanador` (`worker/consultas.ts`).
-- **Cambiar la propia contraseña.** Con Google no hace falta; para los que entran con usuario, hoy la
-  cambia el admin.
 - **Imágenes.** Se guardan como data URL dentro de la fila de D1, achicadas a 128×128. Si en algún
   momento se quieren imágenes grandes, el lugar es R2, no D1.
 - **Tiempo real.** La pantalla se refresca sola cada 8 segundos mientras hay un Kundun abierto. Si
