@@ -5,6 +5,11 @@ export interface Env {
   /** Opcionales: sin ellos el botón de "Entrar con Google" no aparece. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * Workers AI, para que el panel redacte los avisos. Es opcional: sin el binding, el botón
+   * de redactar avisa y el texto se escribe a mano, que es lo que pasaba antes.
+   */
+  AI?: { run: (modelo: string, entrada: unknown) => Promise<unknown> };
 }
 
 /**

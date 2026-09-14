@@ -60,6 +60,18 @@ export const BIBLIOTECA: IconoBiblioteca[] = [
     "tipo": "item"
   },
   {
+    "id": "poderes-ricki",
+    "nombre": "Poderes ricki",
+    "url": "/iconos/poderes-ricki.webp",
+    "tipo": "item"
+  },
+  {
+    "id": "propiedades-riki",
+    "nombre": "Propiedades riki",
+    "url": "/iconos/propiedades-riki.webp",
+    "tipo": "item"
+  },
+  {
     "id": "sm",
     "nombre": "SM",
     "url": "/iconos/sm.webp",

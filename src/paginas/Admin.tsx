@@ -3,6 +3,7 @@ import { api, seVe, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, lee
 import { BotonTema } from '../componentes/BotonTema';
 import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorIcono } from '../componentes/SelectorIcono';
+import { Avisos } from './Avisos';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import {
@@ -25,7 +26,7 @@ import {
   Tilde,
 } from '../iconos';
 
-type Solapa = 'evento' | 'catalogo' | 'listas' | 'miembros' | 'desarrollador';
+type Solapa = 'evento' | 'catalogo' | 'listas' | 'miembros' | 'avisos' | 'desarrollador';
 
 /** De qué lista sale cada drop. La rareza y el ícono ya no se eligen: manda la imagen. */
 /** Las tres listas: clave, nombre corto para el panel y nombre largo. */
@@ -872,6 +873,16 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
             <Gente tam={15} /> Miembros
           </button>
         )}
+        {esAdmin && ve('panel_avisos') && (
+          <button
+            type="button"
+            className={`btn btn-chico${solapa === 'avisos' ? ' btn-suave' : ''}`}
+            onClick={() => setSolapa('avisos')}
+            title="Los recordatorios que recibe el gremio antes de cada evento"
+          >
+            <Reloj tam={15} /> Avisos
+          </button>
+        )}
         {esAdmin && (
           <button
             type="button"
@@ -927,6 +938,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
       {solapa === 'catalogo' && ve('panel_catalogo') && (
         <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />
       )}
+      {solapa === 'avisos' && esAdmin && ve('panel_avisos') && <Avisos alError={setError} />}
       {solapa === 'desarrollador' && esAdmin && (
         <Desarrollador estado={estado} alError={setError} setEstado={setEstado} />
       )}
@@ -2209,6 +2221,7 @@ const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
       ['panel_turnos', 'Le toca a', 'El turno de cada rueda, dentro del catálogo'],
       ['panel_chat', 'Líneas para el chat', 'El bloque para copiar el reparto de a una'],
       ['panel_pruebas', 'Botones de prueba', 'Probar un Kundun y probar un domingo'],
+      ['panel_avisos', 'Solapa Avisos', 'Los recordatorios del gremio antes de cada evento'],
       ['panel_horarios', 'Horario del Kundun', 'La caja donde se cargan las horas'],
       ['panel_orden', 'Orden de prioridad', 'El orden base del gremio'],
       ['panel_anterior', 'Puja anterior', 'El reparto del Kundun pasado'],

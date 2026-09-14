@@ -873,6 +873,158 @@ select {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* ── Avisos del gremio ─────────────────────────────────────────────────────── */
+
+.aviso-evento {
+  padding: 16px 15px 15px;
+}
+
+.aviso-evento.apagado {
+  opacity: 0.6;
+}
+
+.aviso-evento > .encabezado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.campos-aviso {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.campos-aviso .chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.marcas-aviso {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.marcas-aviso button {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--tx3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.marcas-aviso button:hover:not(:disabled) {
+  color: var(--oro);
+  border-color: var(--oroLn);
+}
+
+.pie-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+/* El simulador: una conversación de Telegram, para ver el mensaje como lo va a ver el gremio. */
+.telegram {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--panel2);
+  max-width: 480px;
+}
+
+/* Ojo: .cabecera suelta es otra cosa y lleva space-between; esta tiene nombre propio. */
+.telegram > .tapa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.telegram .foto {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #4aa3df, #2a7ab0);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.telegram .nombre {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.telegram .estado {
+  font-size: 11px;
+  color: var(--tx3);
+}
+
+.telegram > .burbujas {
+  padding: 16px 13px;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  /* El fondo cuadriculado del chat, insinuado. */
+  background-image: radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.telegram .burbuja {
+  position: relative;
+  max-width: 92%;
+  padding: 9px 13px 20px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  box-shadow: var(--shs);
+}
+
+.telegram .burbuja > .texto {
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.telegram .burbuja code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--panel2);
+}
+
+.telegram .burbuja > .hora {
+  position: absolute;
+  right: 11px;
+  bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
+}
+
 /* El menú Desarrollador: una fila por pedazo de la app, con sus tres estados. */
 .fila-parte {
   display: flex;

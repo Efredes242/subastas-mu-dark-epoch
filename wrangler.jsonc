@@ -18,6 +18,9 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Para que el panel pueda redactar los avisos del gremio. Si la cuenta no lo tiene
+  // habilitado, el botón devuelve una plantilla en vez de fallar.
+  "ai": { "binding": "AI" },
   // El dominio propio. Cloudflare crea el registro DNS solo al desplegar.
   "routes": [
     { "pattern": "kundun.ezequielfredes.com.ar", "custom_domain": true }

@@ -44,6 +44,7 @@ export const PARTES = [
   'panel_turnos',
   'panel_chat',
   'panel_pruebas',
+  'panel_avisos',
   'panel_horarios',
   'panel_orden',
   'panel_anterior',

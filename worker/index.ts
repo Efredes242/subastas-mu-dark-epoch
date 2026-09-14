@@ -32,6 +32,15 @@ import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './go
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import {
+  ANTES_MAXIMO,
+  comoAviso,
+  comoHora as comoHoraAviso,
+  DIAS_LARGOS,
+  leerAviso,
+  mensajePorDefecto,
+  type FilaAviso,
+} from './avisos';
+import {
   manejaLaApp,
   type Env,
   type FilaCatalogo,
@@ -674,6 +683,127 @@ app.post('/api/eventos/:id/repartir', requiereGrandMaster, async (c) => {
 });
 
 // ── Horario del Kundun ────────────────────────────────────────────────────────
+
+// ── Avisos del gremio ────────────────────────────────────────────────────────
+//
+// Un evento con sus días, sus horas, cuánto antes recordarlo y el texto que se manda. Por ahora
+// no sale a ningún lado: se configura y se mira en el simulador del panel.
+
+app.get('/api/avisos', requiereAdmin, async (c) => {
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
+  return c.json({ avisos: results.map(comoAviso), antesMaximo: ANTES_MAXIMO });
+});
+
+app.post('/api/avisos', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const nombre = texto(cuerpo.nombre, 60) || 'Evento nuevo';
+
+  const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM avisos').first<{ n: number | null }>();
+  await c.env.DB.prepare(
+    `INSERT INTO avisos (nombre, dias, horas, antes, mensaje, activo, orden)
+     VALUES (?, '0,1,2,3,4,5,6', '', '15', ?, 1, ?)`,
+  )
+    .bind(nombre, mensajePorDefecto(nombre), (ultimo?.n ?? 0) + 1)
+    .run();
+
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
+  return c.json({ avisos: results.map(comoAviso), aviso: `Agregué "${nombre}". Cargale los horarios.` });
+});
+
+app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const limpio = leerAviso(await c.req.json().catch(() => ({})));
+  if (!limpio) return c.json({ error: 'Al evento le falta el nombre.' }, 400);
+
+  const r = await c.env.DB.prepare(
+    'UPDATE avisos SET nombre = ?, dias = ?, horas = ?, antes = ?, mensaje = ?, activo = ? WHERE id = ?',
+  )
+    .bind(
+      limpio.nombre,
+      limpio.dias.join(','),
+      limpio.horas.join(','),
+      limpio.antes.join(','),
+      limpio.mensaje,
+      limpio.activo ? 1 : 0,
+      id,
+    )
+    .run();
+  if ((r.meta.changes ?? 0) === 0) return c.json({ error: 'Ese evento ya no está.' }, 404);
+
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
+  return c.json({ avisos: results.map(comoAviso) });
+});
+
+app.delete('/api/avisos/:id', requiereAdmin, async (c) => {
+  await c.env.DB.prepare('DELETE FROM avisos WHERE id = ?').bind(entero(c.req.param('id'))).run();
+  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
+  return c.json({ avisos: results.map(comoAviso), aviso: 'Borrado.' });
+});
+
+/**
+ * Que la IA escriba el aviso.
+ *
+ * Corre en Workers AI, que va con el mismo Worker. Si el binding no está —la cuenta no lo tiene
+ * habilitado, o se corre local sin él— se devuelve un texto armado con plantilla en vez de un
+ * error: el panel tiene que servir igual.
+ */
+app.post('/api/avisos/:id/redactar', requiereAdmin, async (c) => {
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const nombre = texto(cuerpo.nombre, 60) || 'el evento';
+  const tono = texto(cuerpo.tono, 200);
+  const dias: number[] = Array.isArray(cuerpo.dias) ? cuerpo.dias.map(entero) : [];
+  const horas: number[] = Array.isArray(cuerpo.horas) ? cuerpo.horas.map(entero) : [];
+
+  const cuando = [
+    dias.length === 7 ? 'todos los días' : dias.length > 0 ? `los ${dias.map((d) => DIAS_LARGOS[d] ?? '').join(', ')}` : '',
+    horas.length > 0 ? `a las ${horas.map(comoHoraAviso).join(' y ')}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  if (!c.env.AI) {
+    return c.json({
+      mensaje: mensajePorDefecto(nombre),
+      aviso: 'Workers AI no está habilitado acá: te dejo el texto de plantilla para editar.',
+    });
+  }
+
+  const instruccion = [
+    'Escribí un recordatorio corto para el chat de un gremio del juego Mu Dark Epoch.',
+    `El evento se llama "${nombre}"${cuando ? ` y cae ${cuando} (hora del servidor)` : ''}.`,
+    'Reglas:',
+    '- Español rioplatense, voseo, tono de gremio, nada solemne.',
+    '- Dos o tres renglones como mucho. Sin listas ni títulos.',
+    '- Usá exactamente estas marcas donde corresponda, sin inventar otras: {evento}, {hora}, {falta}, {dia}.',
+    '- {falta} es cuánto falta ("30 minutos"), {hora} la hora de arranque, {dia} el día ("hoy", "mañana").',
+    '- Nunca pongas el valor literal al lado de la marca: va "{hora}", no "{hora} 13:00".',
+    '- Si usás {evento} no escribas además el nombre del evento: la marca ya lo pone.',
+    '- Podés usar un emoji al principio y *negrita de Telegram* con asteriscos simples.',
+    '- Devolvé SOLO el texto del mensaje, sin comillas ni explicaciones.',
+    tono ? `- Tené en cuenta esto que pidió el admin: ${tono}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  try {
+    const r = (await c.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'Sos el community manager de un gremio. Escribís corto y al grano.' },
+        { role: 'user', content: instruccion },
+      ],
+      max_tokens: 300,
+    })) as { response?: string };
+
+    const salida = (r?.response ?? '').trim().replace(/^["'`]+|["'`]+$/g, '');
+    if (salida.length < 10) throw new Error('respuesta vacía');
+    return c.json({ mensaje: salida.slice(0, 1000) });
+  } catch (e) {
+    return c.json({
+      mensaje: mensajePorDefecto(nombre),
+      aviso: `No pude redactarlo con IA (${e instanceof Error ? e.message : 'error'}). Te dejo la plantilla.`,
+    });
+  }
+});
 
 /**
  * Qué se ve y quién puede tocar qué. Solo el admin.
