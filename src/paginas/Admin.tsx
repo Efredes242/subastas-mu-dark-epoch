@@ -947,39 +947,83 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
         <div className="admin-grid">
           <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
             {!evento ? (
-              <div className="panel subir" style={{ padding: 24, display: 'grid', gap: 14, justifyItems: 'start' }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>No hay ningún Kundun en curso</h2>
-                  <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
+              <div className="panel subir sin-evento">
+                <div className="cabezal">
+                  <h2>No hay ningún Kundun en curso</h2>
+                  <p>
                     El próximo arranca a las{' '}
-                    <b style={{ color: 'var(--tx2)' }}>{horaEn(estado.agenda.proximo.empieza, zona)}</b> y se abre solo.
+                    <b>{horaEn(estado.agenda.proximo.empieza, zona)}</b> y se abre solo, sin que nadie
+                    toque nada.
                   </p>
                 </div>
+
                 {esAdmin && (
-                  <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-                    <button type="button" className="btn" disabled={ocupado} onClick={() => accion(() => api('/eventos', { cuerpo: {} }))}>
-                      <Mas tam={16} /> Abrir uno fuera de hora
-                    </button>
+                  <div className="acciones-evento">
+                    <div className="fila-accion">
+                      <span className="marca">
+                        <Escudo tam={15} />
+                      </span>
+                      <div className="que">
+                        <div className="titulo">Abrir un Kundun fuera de hora</div>
+                        <div className="detalle">
+                          Para cuando cae un drop salteado. Cuenta para el historial como cualquier otro.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-chico"
+                        disabled={ocupado}
+                        onClick={() => accion(() => api('/eventos', { cuerpo: {} }))}
+                      >
+                        Abrir
+                      </button>
+                    </div>
+
                     {ve('panel_pruebas') && (
                       <>
-                        <button
-                          type="button"
-                          className="btn btn-suave"
-                          disabled={ocupado}
-                          title="Abre un Kundun de mentira con todo el gremio"
-                          onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
-                        >
-                          Probar un Kundun
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-suave"
-                          disabled={ocupado}
-                          title="Como el anterior, pero se hace pasar por domingo: aparecen las dos solapas de carga"
-                          onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
-                        >
-                          Probar un domingo
-                        </button>
+                        <div className="titulo-grupo-accion">Ensayos</div>
+
+                        <div className="fila-accion">
+                          <span className="marca ensayo">
+                            <Cofre tam={15} />
+                          </span>
+                          <div className="que">
+                            <div className="titulo">Ensayar un día de semana</div>
+                            <div className="detalle">
+                              Un Kundun de mentira para recorrer el circuito entero. No cuenta para el
+                              historial y las ruedas vuelven a su lugar al terminarlo.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-chico"
+                            disabled={ocupado}
+                            onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
+                          >
+                            Ensayar
+                          </button>
+                        </div>
+
+                        <div className="fila-accion">
+                          <span className="marca ensayo">
+                            <Escudo tam={15} />
+                          </span>
+                          <div className="que">
+                            <div className="titulo">Ensayar un domingo, con asedio</div>
+                            <div className="detalle">
+                              Igual que el anterior, pero se hace pasar por domingo: se abren las dos
+                              solapas de carga, la del Kundun y la del Castle Siege.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-chico"
+                            disabled={ocupado}
+                            onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
+                          >
+                            Ensayar
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>

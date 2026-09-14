@@ -986,6 +986,107 @@ select {
   white-space: pre;
 }
 
+/*
+ * La pantalla cuando no hay Kundun en curso.
+ *
+ * Eran tres botones en fila, sin jerarquía y sin decir qué hacía cada uno: abrir un evento de
+ * verdad y ensayar uno de mentira parecían lo mismo. Ahora es una lista, cada acción con lo que
+ * hace escrito al lado, y los ensayos aparte.
+ */
+.sin-evento {
+  padding: 22px;
+}
+
+.sin-evento > .cabezal > h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sin-evento > .cabezal > p {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.sin-evento > .cabezal > p > b {
+  color: var(--tx2);
+}
+
+.acciones-evento {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.titulo-grupo-accion {
+  margin: 8px 2px 1px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tx3);
+}
+
+.fila-accion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel2);
+  transition: border-color 0.15s ease;
+}
+
+.fila-accion:hover {
+  border-color: var(--line2);
+}
+
+.fila-accion > .marca {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--oroLn);
+  background: var(--oroBg);
+  color: var(--oro);
+}
+
+/* Los ensayos no son el evento de verdad: se distinguen sin gritar. */
+.fila-accion > .marca.ensayo {
+  border-color: var(--line2);
+  background: var(--panel);
+  color: var(--tx2);
+}
+
+.fila-accion > .que {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.fila-accion > .que > .titulo {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.fila-accion > .que > .detalle {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.fila-accion > .btn {
+  flex-shrink: 0;
+  min-width: 84px;
+  justify-content: center;
+}
+
 /* ── Avisos del gremio ─────────────────────────────────────────────────────── */
 
 .aviso-evento {
