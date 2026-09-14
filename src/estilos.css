@@ -1386,6 +1386,32 @@ select {
   color: var(--tx3);
 }
 
+/* La fila con un rol elegido y todavía sin guardar. */
+.fila-rol.tocada {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.fila-rol .marca-cambio {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--oroLn);
+  background: var(--panel);
+  color: var(--oro);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pie-roles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 /* El cuadro de qué puede cada rol. */
 .tabla-roles {
   padding: 18px;

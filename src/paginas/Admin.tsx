@@ -2405,13 +2405,18 @@ function QuienEsQue({
 }) {
   const [lista, setLista] = useState<Miembro[]>([]);
   const [ocupado, setOcupado] = useState(false);
+  /** Lo elegido y todavía sin guardar. Vacío = no hay nada pendiente. */
+  const [pendientes, setPendientes] = useState<Record<number, string>>({});
+  /** El problema se muestra acá adentro: arriba de todo, en esta página larga, no se ve. */
+  const [problema, setProblema] = useState('');
+  const [hecho, setHecho] = useState('');
 
   async function traer() {
     try {
       const r = await api<{ miembros: Miembro[] }>('/miembros');
       setLista(r.miembros.filter((m) => m.activo));
     } catch (e) {
-      alError(e instanceof Error ? e.message : 'No se pudo traer el gremio.');
+      setProblema(e instanceof Error ? e.message : 'No se pudo traer el gremio.');
     }
   }
 
@@ -2420,15 +2425,34 @@ function QuienEsQue({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function cambiar(m: Miembro, rol: string) {
+  const rolDe = (m: Miembro) => pendientes[m.id] ?? m.rol;
+  const cambios = lista.filter((m) => rolDe(m) !== m.rol);
+
+  /**
+   * Un rol que maneja la app necesita alguna forma de entrar: contraseña o Google. Se avisa acá
+   * antes de intentar, aunque el servidor lo rechace igual: enterarse al guardar es peor.
+   */
+  const sinPuerta = (m: Miembro) =>
+    rolDe(m) !== 'jugador' && !m.tienePassword && !m.tieneGoogle;
+
+  const trabados = cambios.filter(sinPuerta);
+
+  async function guardar() {
     setOcupado(true);
+    setProblema('');
+    setHecho('');
     alError('');
     try {
-      await api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { rol } });
+      for (const m of cambios) {
+        await api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { rol: pendientes[m.id] } });
+      }
+      setPendientes({});
       await traer();
+      setHecho(`Guardado: ${cambios.length} ${cambios.length === 1 ? 'cambio' : 'cambios'}.`);
     } catch (e) {
-      alError(e instanceof Error ? e.message : 'No se pudo cambiar el rol.');
+      setProblema(e instanceof Error ? e.message : 'No se pudo guardar.');
       await traer();
+      setPendientes({});
     } finally {
       setOcupado(false);
     }
@@ -2438,8 +2462,9 @@ function QuienEsQue({
     <section className="panel subir quien-es-que">
       <h2>Quién es qué</h2>
       <p>
-        El rol de cada uno. Abajo está lo que habilita cada uno. A vos mismo no te podés cambiar el
-        rol: si te sacaras el de admin, no habría forma de volver a ponértelo.
+        El rol de cada uno. Abajo está lo que habilita cada uno. Los cambios no se aplican hasta que
+        tocás Guardar, así que un clic de más no rompe nada. A vos mismo no te podés cambiar el rol:
+        si te sacaras el de admin, no habría forma de volver a ponértelo.
       </p>
 
       {lista.length === 0 ? (
@@ -2447,36 +2472,94 @@ function QuienEsQue({
           <div className="cargando" />
         </div>
       ) : (
-        <div className="filas-rol">
-          {lista.map((m) => (
-            <div key={m.id} className="fila-rol">
-              <RetratoClase clase={m.clase} tam={32} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="recorte nombre">{m.personaje}</div>
-                <div className="recorte usuario">
-                  {m.usuario}
-                  {!m.tienePassword && !m.tieneGoogle && m.rol !== 'jugador' && (
-                    <span style={{ color: 'var(--av)' }}> · sin forma de entrar</span>
-                  )}
+        <>
+          <div className="filas-rol">
+            {lista.map((m) => {
+              const cambiado = rolDe(m) !== m.rol;
+              return (
+                <div key={m.id} className={`fila-rol${cambiado ? ' tocada' : ''}`}>
+                  <RetratoClase clase={m.clase} tam={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="recorte nombre">
+                      {m.personaje}
+                      {cambiado && <span className="marca-cambio">sin guardar</span>}
+                    </div>
+                    <div className="recorte usuario">
+                      {m.usuario}
+                      {cambiado && ` · era ${ROLES.find(([v]) => v === m.rol)?.[1] ?? m.rol}`}
+                    </div>
+                  </div>
+                  <select
+                    className="campo campo-chico"
+                    style={{ width: 'auto', minWidth: 140, cursor: 'pointer' }}
+                    value={rolDe(m)}
+                    disabled={ocupado || m.id === yoId}
+                    title={m.id === yoId ? 'No podés cambiarte el rol a vos mismo' : 'Rol'}
+                    onChange={(e) => {
+                      setHecho('');
+                      setProblema('');
+                      setPendientes((previos) => {
+                        const copia = { ...previos };
+                        if (e.target.value === m.rol) delete copia[m.id];
+                        else copia[m.id] = e.target.value;
+                        return copia;
+                      });
+                    }}
+                  >
+                    {ROLES.map(([v, t]) => (
+                      <option key={v} value={v}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-              <select
-                className="campo campo-chico"
-                style={{ width: 'auto', minWidth: 140, cursor: 'pointer' }}
-                value={m.rol}
-                disabled={ocupado || m.id === yoId}
-                title={m.id === yoId ? 'No podés cambiarte el rol a vos mismo' : 'Rol'}
-                onChange={(e) => void cambiar(m, e.target.value)}
-              >
-                {ROLES.map(([v, t]) => (
-                  <option key={v} value={v}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              );
+            })}
+          </div>
+
+          {trabados.length > 0 && (
+            <div className="aviso mal" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5 }}>
+              <Alerta tam={16} />
+              <span>
+                {trabados.map((m) => m.personaje).join(', ')}{' '}
+                {trabados.length === 1 ? 'no tiene' : 'no tienen'} forma de entrar. El admin y el Grand
+                Master entran con contraseña, así que ponésela primero en <b>Miembros</b>.
+              </span>
             </div>
-          ))}
-        </div>
+          )}
+
+          {problema && (
+            <div className="aviso mal" style={{ marginTop: 12, fontSize: 12.5 }}>
+              <Alerta tam={16} />
+              <span>{problema}</span>
+            </div>
+          )}
+
+          {hecho && (
+            <div className="aviso aparecer" style={{ marginTop: 12, fontSize: 12.5 }}>
+              <Tilde tam={16} />
+              <span>{hecho}</span>
+            </div>
+          )}
+
+          <div className="pie-roles">
+            <button
+              type="button"
+              className="btn btn-oro btn-chico"
+              disabled={ocupado || cambios.length === 0 || trabados.length > 0}
+              onClick={() => void guardar()}
+            >
+              {cambios.length === 0
+                ? 'Sin cambios'
+                : `Guardar ${cambios.length} ${cambios.length === 1 ? 'cambio' : 'cambios'}`}
+            </button>
+            {cambios.length > 0 && (
+              <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => setPendientes({})}>
+                Deshacer
+              </button>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
