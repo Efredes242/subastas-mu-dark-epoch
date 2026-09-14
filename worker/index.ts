@@ -30,7 +30,7 @@ import {
   participantesDe,
   type Cola,
 } from './consultas';
-import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
+import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle, volvioEnVentana } from './google';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import { borrar, chatsVistos, mandar, quienEs } from './telegram';
@@ -172,15 +172,39 @@ app.get('/api/auth/google', (c) => {
 app.get('/api/auth/google/callback', async (c) => {
   if (!googleConfigurado(c.env)) return c.redirect('/?error=google-apagado', 302);
 
+  const enVentana = volvioEnVentana(c);
   const r = await terminarLoginGoogle(c);
-  if (!r.ok) {
-    const detalle = r.email ? `&mail=${encodeURIComponent(r.email)}` : '';
-    return c.redirect(`/?error=${r.motivo}${detalle}`, 302);
-  }
 
-  await crearSesion(c, r.usuario.id);
-  return c.redirect('/', 302);
+  if (r.ok) await crearSesion(c, r.usuario.id);
+
+  const aDonde = r.ok
+    ? '/'
+    : `/?error=${r.motivo}${r.email ? `&mail=${encodeURIComponent(r.email)}` : ''}`;
+
+  // Desde una ventana aparte no se puede redirigir: la que tiene que enterarse es la de atrás.
+  if (enVentana) return c.html(cierraLaVentana(aDonde, r.ok));
+
+  return c.redirect(aDonde, 302);
 });
+
+/**
+ * La página que ve la ventana de Google al volver: le avisa a la app y se cierra.
+ *
+ * Si la app no la escucha —quedó cerrada, o el navegador no deja hablar entre ventanas— queda
+ * un enlace a mano para seguir sin quedarse trabado mirando una ventana en blanco.
+ */
+function cierraLaVentana(aDonde: string, entro: boolean): string {
+  const json = JSON.stringify({ tipo: 'login-google', ok: entro, aDonde });
+  return `<!doctype html><meta charset="utf-8"><title>${entro ? 'Listo' : 'No se pudo entrar'}</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#080a11;color:#e9edf7;
+font-family:system-ui,sans-serif;text-align:center;padding:24px}a{color:#8f90f8}</style>
+<p>${entro ? 'Listo, ya entraste. Podés cerrar esta ventana.' : 'No se pudo entrar.'}<br>
+<a href="${aDonde}" target="_blank" rel="opener">Volver a la app</a></p>
+<script>
+  try { window.opener && window.opener.postMessage(${json}, window.location.origin); } catch (e) {}
+  setTimeout(function () { window.close(); }, ${entro ? 400 : 2500});
+</script>`;
+}
 
 app.get('/api/estado', async (c) => c.json(await construirEstado(c.env, c.get('usuario'))));
 

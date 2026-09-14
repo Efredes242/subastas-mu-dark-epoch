@@ -41,6 +41,7 @@ export function FormularioEntrar({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [esperandoGoogle, setEsperandoGoogle] = useState(false);
 
   // Si venimos rebotados de Google, el motivo llega por la URL.
   useEffect(() => {
@@ -52,6 +53,49 @@ export function FormularioEntrar({
     setError((MOTIVOS[motivo] ?? 'No se pudo entrar con Google.') + (mail ? ` (${mail})` : ''));
     window.history.replaceState({}, '', window.location.pathname);
   }, []);
+
+  /**
+   * Google, en una ventana aparte.
+   *
+   * Con la app instalada, mandar la ventana principal a otro dominio la saca de la app y la
+   * vuelta se pierde. Así la que va y viene es una ventana chica, y la app se entera por el
+   * mensaje que esa ventana le manda antes de cerrarse.
+   */
+  function conGoogle() {
+    setError('');
+    const alto = Math.min(700, window.screen.height - 80);
+    const ancho = 480;
+    const izq = window.screenX + Math.max(0, (window.outerWidth - ancho) / 2);
+    const arriba = window.screenY + Math.max(0, (window.outerHeight - alto) / 3);
+
+    const ventana = window.open(
+      '/api/auth/google?ventana=1',
+      'entrar-con-google',
+      `width=${ancho},height=${alto},left=${izq},top=${arriba}`,
+    );
+
+    // Si el navegador no la deja abrir, se hace como siempre: navegando.
+    if (!ventana) {
+      window.location.href = '/api/auth/google';
+      return;
+    }
+    setEsperandoGoogle(true);
+  }
+
+  // Lo que la ventana de Google avisa al volver.
+  useEffect(() => {
+    const escuchar = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const dato = e.data as { tipo?: string; ok?: boolean; aDonde?: string } | null;
+      if (dato?.tipo !== 'login-google') return;
+
+      setEsperandoGoogle(false);
+      if (dato.ok) void alEntrar();
+      else if (dato.aDonde) window.location.href = dato.aDonde;
+    };
+    window.addEventListener('message', escuchar);
+    return () => window.removeEventListener('message', escuchar);
+  }, [alEntrar]);
 
   async function entrar(e: FormEvent) {
     e.preventDefault();
@@ -89,14 +133,15 @@ export function FormularioEntrar({
 
           {googleActivo && (
             <>
-              <a
+              <button
+                type="button"
                 className="btn"
-                href="/api/auth/google"
-                style={{ width: '100%', minHeight: 52, fontSize: 15, textDecoration: 'none' }}
+                style={{ width: '100%', minHeight: 52, fontSize: 15 }}
+                onClick={conGoogle}
               >
                 <LogoGoogle />
-                Entrar con Google
-              </a>
+                {esperandoGoogle ? 'Esperando a Google…' : 'Entrar con Google'}
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--tx3)' }}>o con usuario</span>

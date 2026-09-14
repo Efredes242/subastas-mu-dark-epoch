@@ -6,6 +6,15 @@ import type { Variables } from './auth';
 type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
 
 const COOKIE_ESTADO = 'sk_oauth';
+/**
+ * Si el intento salió de una ventana aparte.
+ *
+ * La app se puede instalar (manifest `standalone`), y ahí una navegación a otro dominio no la
+ * hace la ventana de la app sino el navegador: Google contesta en otro lado y la app se queda
+ * como estaba, que es el "parpadeo y nada pasa". Con la ventana aparte, la que vuelve de Google
+ * es esa, y lo único que hace es avisarle a la de atrás y cerrarse.
+ */
+const COOKIE_VENTANA = 'sk_oauth_pop';
 const AUTORIZAR = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN = 'https://oauth2.googleapis.com/token';
 
@@ -17,6 +26,15 @@ const redireccion = (c: Ctx) => new URL('/api/auth/google/callback', c.req.url).
 /** Paso 1: mandamos al usuario a Google con un `state` que después tiene que volver igual. */
 export function empezarLoginGoogle(c: Ctx): Response {
   const estado = crypto.randomUUID();
+  const enVentana = c.req.query('ventana') === '1';
+
+  setCookie(c, COOKIE_VENTANA, enVentana ? '1' : '', {
+    httpOnly: true,
+    sameSite: 'Lax',
+    path: '/',
+    maxAge: 600,
+    secure: new URL(c.req.url).protocol === 'https:',
+  });
 
   setCookie(c, COOKIE_ESTADO, estado, {
     httpOnly: true,
@@ -78,9 +96,15 @@ export type ResultadoGoogle =
  * Paso 2: canjeamos el código por el perfil y buscamos a esa persona en el gremio.
  * No damos de alta a nadie automáticamente: la cuenta la tiene que crear el admin.
  */
+/** Si la vuelta de Google la está recibiendo una ventana aparte. */
+export function volvioEnVentana(c: Ctx): boolean {
+  return getCookie(c, COOKIE_VENTANA) === '1';
+}
+
 export async function terminarLoginGoogle(c: Ctx): Promise<ResultadoGoogle> {
   const esperado = getCookie(c, COOKIE_ESTADO);
   deleteCookie(c, COOKIE_ESTADO, { path: '/' });
+  deleteCookie(c, COOKIE_VENTANA, { path: '/' });
 
   const recibido = c.req.query('state');
   if (!esperado || !recibido || esperado !== recibido) return { ok: false, motivo: 'state' };
