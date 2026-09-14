@@ -1767,8 +1767,8 @@ function Miembros({
       <section className="panel subir" style={{ padding: 18 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800 }}>Dar de alta un miembro</h2>
         <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
-          Los invitados entran tocando su Main, sin contraseña. La clave solo hace falta para el admin y
-          la Grand Master, y se pone abajo en la lista.
+          Los jugadores entran tocando su Main, sin contraseña. La clave solo hace falta para el admin y
+          el Grand Master, y se pone abajo en la lista.
         </p>
         <div className="form-item">
           <div className="crece" style={{ display: 'grid', gap: 6 }}>
@@ -1830,115 +1830,99 @@ function Miembros({
         ) : (
           <div className="escalonado">
             {lista.map((m) => (
-              <div key={m.id} className="fila" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', flexWrap: 'wrap' }}>
-                <RetratoClase clase={m.clase} tam={40} />
-
-                <div style={{ flex: '1 1 130px', minWidth: 0 }}>
-                  <div className="recorte" style={{ fontSize: 14.5, fontWeight: 700 }}>
-                    {m.personaje}
+              <div key={m.id} className="ficha-miembro">
+                <div className="quien">
+                  <RetratoClase clase={m.clase} tam={40} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="recorte nombre">{m.personaje}</div>
+                    <div className="recorte usuario">
+                      {m.usuario}
+                      {m.tieneGoogle && ' · Google vinculado'}
+                    </div>
                   </div>
-                  <div className="recorte" style={{ fontSize: 12, color: 'var(--tx3)', marginTop: 2 }}>
-                    {m.usuario}
-                    {m.tieneGoogle && ' · Google vinculado'}
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-chico baja"
+                    title="Dar de baja"
+                    disabled={ocupado || m.id === yoId}
+                    onClick={() => void correr(() => api(`/miembros/${m.id}`, { metodo: 'DELETE' }))}
+                  >
+                    <Tacho tam={15} />
+                  </button>
                 </div>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-                  <span className="etiqueta">Clase</span>
-                  <select
-                    className="campo campo-chico"
-                    style={{ width: 'auto', minWidth: 130, cursor: 'pointer' }}
-                    value={m.clase}
-                    disabled={ocupado}
-                    title="La clase del personaje. El retrato sale de acá."
-                    onChange={(e) => void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { clase: e.target.value } }))}
-                  >
-                    <option value="">sin clase</option>
-                    {clases.map((cl) => (
-                      <option key={cl.codigo} value={cl.codigo}>
-                        {cl.nombre} ({cl.codigo})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 1 220px', minWidth: 0 }}>
-                  <span className="etiqueta">Gmail</span>
-                  <input
-                    className="campo campo-chico"
-                    style={{ minWidth: 0 }}
-                    defaultValue={m.email ?? ''}
-                    placeholder="opcional"
-                    inputMode="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    title="Vincular un Gmail para que pueda entrar con el botón de Google"
-                    onBlur={(e) => {
-                      const valor = e.target.value.trim().toLowerCase();
-                      if (valor !== (m.email ?? '')) {
-                        void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { email: valor || null } }));
+                <div className="campos">
+                  <label>
+                    <span className="etiqueta">Clase</span>
+                    <select
+                      className="campo campo-chico"
+                      style={{ cursor: 'pointer' }}
+                      value={m.clase}
+                      disabled={ocupado}
+                      title="La clase del personaje. El retrato sale de acá."
+                      onChange={(e) =>
+                        void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { clase: e.target.value } }))
                       }
-                    }}
-                  />
-                </label>
+                    >
+                      <option value="">sin clase</option>
+                      {clases.map((cl) => (
+                        <option key={cl.codigo} value={cl.codigo}>
+                          {cl.nombre} ({cl.codigo})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-                  <span className="etiqueta">PC</span>
-                  <input
-                    key={`pc-${m.id}-${m.pc}`}
-                    className="campo campo-chico num"
-                    style={{ width: 96 }}
-                    defaultValue={m.pc > 0 ? formatoPC(m.pc) : ''}
-                    placeholder="30.07M"
-                    title="Como aparece en el juego: 30.07M"
-                    onBlur={(e) => {
-                      const valor = leerPC(e.target.value);
-                      if (valor !== m.pc) void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { pc: valor } }));
-                    }}
-                  />
-                </label>
+                  <label>
+                    <span className="etiqueta">PC de equipo</span>
+                    <input
+                      key={`pc-${m.id}-${m.pc}`}
+                      className="campo campo-chico num"
+                      defaultValue={m.pc > 0 ? formatoPC(m.pc) : ''}
+                      placeholder="30.07M"
+                      title="Como aparece en el juego: 30.07M"
+                      onBlur={(e) => {
+                        const valor = leerPC(e.target.value);
+                        if (valor !== m.pc) void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { pc: valor } }));
+                      }}
+                    />
+                  </label>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-                  <span className="etiqueta">Clave</span>
-                  <input
-                    className="campo campo-chico"
-                    style={{ width: 130 }}
-                    placeholder={m.tienePassword ? '••••••' : 'sin clave'}
-                    title="Solo hace falta para el admin y la Grand Master. Se guarda al salir del campo."
-                    onBlur={(e) => {
-                      const clave = e.target.value;
-                      if (clave.length === 0) return;
-                      e.target.value = '';
-                      void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { password: clave } }));
-                    }}
-                  />
-                </label>
+                  <label>
+                    <span className="etiqueta">Gmail</span>
+                    <input
+                      className="campo campo-chico"
+                      defaultValue={m.email ?? ''}
+                      placeholder="opcional"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      title="Vincular un Gmail para que pueda entrar con el botón de Google"
+                      onBlur={(e) => {
+                        const valor = e.target.value.trim().toLowerCase();
+                        if (valor !== (m.email ?? '')) {
+                          void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { email: valor || null } }));
+                        }
+                      }}
+                    />
+                  </label>
 
-                <select
-                  className="campo campo-chico"
-                  style={{ width: 'auto', minWidth: 140, cursor: 'pointer', flexShrink: 0 }}
-                  value={m.rol}
-                  disabled={ocupado || m.id === yoId}
-                  title={m.id === yoId ? 'No podés cambiarte el rol a vos mismo' : 'Rol'}
-                  onChange={(e) => void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { rol: e.target.value } }))}
-                >
-                  {ROLES.map(([v, t]) => (
-                    <option key={v} value={v}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  className="btn btn-chico"
-                  style={{ width: 36, padding: 0, flexShrink: 0 }}
-                  title="Dar de baja"
-                  disabled={ocupado || m.id === yoId}
-                  onClick={() => void correr(() => api(`/miembros/${m.id}`, { metodo: 'DELETE' }))}
-                >
-                  <Tacho tam={15} />
-                </button>
+                  <label>
+                    <span className="etiqueta">Contraseña</span>
+                    <input
+                      className="campo campo-chico"
+                      type="password"
+                      placeholder={m.tienePassword ? '••••••' : 'sin clave'}
+                      title="Solo hace falta para el admin y el Grand Master. Se guarda al salir del campo."
+                      onBlur={(e) => {
+                        const clave = e.target.value;
+                        if (clave.length === 0) return;
+                        e.target.value = '';
+                        void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { password: clave } }));
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
             ))}
           </div>
@@ -2405,6 +2389,99 @@ const QUE_PUEDE: Array<[string, string, string | null, boolean]> = [
   ['Menú Desarrollador y borrar el historial', 'sí', 'no', false],
 ];
 
+/**
+ * Quién tiene cada rol.
+ *
+ * Vive acá, pegado al cuadro que explica qué puede cada uno: cambiarle el rol a alguien sin ver
+ * al lado lo que eso habilita es a ciegas. En Miembros quedan el alta, la baja y los datos del
+ * personaje, que es otra cosa.
+ */
+function QuienEsQue({
+  yoId,
+  alError,
+}: {
+  yoId: number;
+  alError: (m: string) => void;
+}) {
+  const [lista, setLista] = useState<Miembro[]>([]);
+  const [ocupado, setOcupado] = useState(false);
+
+  async function traer() {
+    try {
+      const r = await api<{ miembros: Miembro[] }>('/miembros');
+      setLista(r.miembros.filter((m) => m.activo));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo traer el gremio.');
+    }
+  }
+
+  useEffect(() => {
+    void traer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function cambiar(m: Miembro, rol: string) {
+    setOcupado(true);
+    alError('');
+    try {
+      await api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { rol } });
+      await traer();
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo cambiar el rol.');
+      await traer();
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <section className="panel subir quien-es-que">
+      <h2>Quién es qué</h2>
+      <p>
+        El rol de cada uno. Abajo está lo que habilita cada uno. A vos mismo no te podés cambiar el
+        rol: si te sacaras el de admin, no habría forma de volver a ponértelo.
+      </p>
+
+      {lista.length === 0 ? (
+        <div style={{ display: 'grid', placeItems: 'center', padding: 20 }}>
+          <div className="cargando" />
+        </div>
+      ) : (
+        <div className="filas-rol">
+          {lista.map((m) => (
+            <div key={m.id} className="fila-rol">
+              <RetratoClase clase={m.clase} tam={32} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="recorte nombre">{m.personaje}</div>
+                <div className="recorte usuario">
+                  {m.usuario}
+                  {!m.tienePassword && !m.tieneGoogle && m.rol !== 'jugador' && (
+                    <span style={{ color: 'var(--av)' }}> · sin forma de entrar</span>
+                  )}
+                </div>
+              </div>
+              <select
+                className="campo campo-chico"
+                style={{ width: 'auto', minWidth: 140, cursor: 'pointer' }}
+                value={m.rol}
+                disabled={ocupado || m.id === yoId}
+                title={m.id === yoId ? 'No podés cambiarte el rol a vos mismo' : 'Rol'}
+                onChange={(e) => void cambiar(m, e.target.value)}
+              >
+                {ROLES.map(([v, t]) => (
+                  <option key={v} value={v}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Roles() {
   return (
     <section className="panel subir tabla-roles">
@@ -2745,6 +2822,7 @@ function Desarrollador({
         </div>
       </section>
 
+      <QuienEsQue yoId={estado.yo?.id ?? 0} alError={alError} />
       <Roles />
 
       <EmpezarDeCero alError={alError} setEstado={setEstado} />

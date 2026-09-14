@@ -136,7 +136,7 @@ export default function Login({
           </div>
 
           <div style={{ marginTop: 18, fontSize: 12.5, fontWeight: 500, color: 'var(--tx3)', lineHeight: 1.5 }}>
-            Esta pantalla es solo para el admin y la Grand Master. El tablero del gremio no necesita
+            Esta pantalla es para el admin, el Grand Master y los jugadores del gremio. El tablero no necesita
             contraseña: <a href="/">está acá</a>.
           </div>
         </form>
