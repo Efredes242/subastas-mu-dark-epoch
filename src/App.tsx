@@ -78,16 +78,24 @@ export default function App() {
     <ProveedorClases clases={estado.clases}>{pantalla}</ProveedorClases>
   );
 
-  // Solo hay dos pantallas: el tablero público y el panel, que es el único con contraseña.
+  /*
+   * Sin sesión no se ve nada, ni siquiera el tablero.
+   *
+   * Va antes que cualquier ruta a propósito: así el login también atiende los rebotes de Google,
+   * que vuelven a "/" con el motivo en la URL. Con el tablero abierto de par en par, ese mensaje
+   * no lo leía nadie y el intento fallido parecía un parpadeo.
+   */
+  if (!estado.yo) {
+    return <Login tema={tema} alternarTema={alternarTema} alEntrar={recargar} googleActivo={estado.googleActivo} />;
+  }
+
+  // Con la contraseña que le puso el admin todavía sin cambiar, lo único que se puede hacer es
+  // elegir la propia. El servidor rechaza el resto igual.
+  if (estado.yo.debeCambiarClave) {
+    return <CambiarClave estado={estado} tema={tema} alternarTema={alternarTema} alListo={recargar} />;
+  }
+
   if (ruta === '/admin') {
-    if (!estado.yo) {
-      return <Login tema={tema} alternarTema={alternarTema} alEntrar={recargar} googleActivo={estado.googleActivo} />;
-    }
-    // Con la contraseña que le puso el admin todavía sin cambiar, lo único que se puede hacer
-    // es elegir la propia. El servidor rechaza el resto igual.
-    if (estado.yo.debeCambiarClave) {
-      return <CambiarClave estado={estado} tema={tema} alternarTema={alternarTema} alListo={recargar} />;
-    }
     // El jugador entra a su propia pantalla: ve lo mismo que el que reparte, pero no puede tocar
     // nada. No es el panel con los botones escondidos, es otra pantalla que no sabe escribir.
     if (estado.yo.rol === 'jugador') return conClases(<Jugador {...props} />);

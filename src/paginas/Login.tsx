@@ -132,8 +132,8 @@ export function FormularioEntrar({
           </div>
 
       <div style={{ marginTop: 18, fontSize: 12.5, fontWeight: 500, color: 'var(--tx3)', lineHeight: 1.5 }}>
-        Entran el admin, el Grand Master y los jugadores del gremio. El tablero no necesita
-        contraseña.
+        Entran el admin, el Grand Master y los jugadores del gremio. Si no tenés usuario, pedíselo
+        al admin.
       </div>
     </form>
   );

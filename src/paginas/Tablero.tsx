@@ -6,7 +6,6 @@ import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
 import { Escudo, IconoItem, Lineas, Orden, Reloj } from '../iconos';
-import { FormularioEntrar } from './Login';
 
 type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'entrar';
 type Turno = PropsPagina['estado']['turnos'][number];
@@ -539,8 +538,8 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             role="dialog"
             aria-label="Entrar"
           >
-            {estado.yo ? (
-              // Con la sesión abierta no hay nada que pedir: se muestra quién sos y las salidas.
+            {estado.yo && (
+              // Sin sesión no se llega hasta acá: el login está antes que el tablero.
               <div style={{ display: 'grid', gap: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
                   <div className="icono-item r-divino" style={{ width: 46, height: 46, borderRadius: 15 }}>
@@ -573,15 +572,6 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                   Salir
                 </button>
               </div>
-            ) : (
-              <FormularioEntrar
-                googleActivo={estado.googleActivo}
-                alEntrar={async () => {
-                  // Recargar entera: el estado cambia de raíz al entrar, y así vale para
-                  // cualquier rol sin pensar a qué pantalla mandarlo.
-                  window.location.href = '/admin';
-                }}
-              />
             )}
           </div>
         </div>
