@@ -25,15 +25,18 @@ import {
   guardarTurno,
   leerAjustes,
   leerHorario,
+  enLaRueda,
   ordenDePrioridad,
+  participantesDe,
   type Cola,
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle } from './google';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
-import { chatsVistos, mandar, quienEs } from './telegram';
+import { borrar, chatsVistos, mandar, quienEs } from './telegram';
 import {
   ANTES_MAXIMO,
+  armarMensaje,
   armarResumen,
   comoAviso,
   disparosEntre,
@@ -912,6 +915,68 @@ app.patch('/api/telegram', requiereAdmin, async (c) => {
   return c.json({ chat, nombre, activo, conToken: !!c.env.TELEGRAM_TOKEN });
 });
 
+/**
+ * Mandar un aviso de ensayo al grupo.
+ *
+ * Va marcado como prueba y con fecha de vencimiento: se anota para que el cron lo borre a los
+ * dos minutos, porque un ensayo no tiene por qué quedar en el chat del gremio. La espera vive
+ * en la base y no en este pedido: un Worker no dura dos minutos.
+ */
+app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
+  const token = c.env.TELEGRAM_TOKEN;
+  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+
+  const ajustes = await leerAjustes(c.env.DB);
+  if (!ajustes.telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const cual = texto(cuerpo.cual, 20);
+  const antes = Math.min(Math.max(entero(cuerpo.antes) || 15, 1), ANTES_MAXIMO);
+
+  let cuerpoTexto = '';
+  let queEs = '';
+
+  if (cual === 'resumen') {
+    const { results } = await c.env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
+    cuerpoTexto = armarResumen(results.map(comoAviso), new Date(), ajustes.horario.offsetServidor, ajustes.resumen.texto);
+    queEs = 'el resumen de la mañana';
+  } else {
+    const fila = await c.env.DB.prepare('SELECT * FROM avisos WHERE id = ?')
+      .bind(entero(cuerpo.avisoId))
+      .first<FilaAviso>();
+    if (!fila) return c.json({ error: 'Ese evento ya no está.' }, 404);
+    const aviso = comoAviso(fila);
+    cuerpoTexto = armarMensaje(aviso.mensaje, {
+      evento: aviso.nombre,
+      hora: aviso.horas[0] ?? 780,
+      antes: aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15),
+    });
+    queEs = aviso.nombre;
+  }
+
+  const MINUTOS = 2;
+  const conAviso = [
+    '🧪 *ENSAYO* — no es un aviso de verdad.',
+    `_Este mensaje se borra solo en ${MINUTOS} minutos._`,
+    '',
+    cuerpoTexto,
+  ].join('\n');
+
+  try {
+    const id = await mandar(token, ajustes.telegram.chat, conAviso);
+    if (id > 0) {
+      await c.env.DB.prepare('INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)')
+        .bind(ajustes.telegram.chat, id, new Date(Date.now() + MINUTOS * 60_000).toISOString())
+        .run();
+    }
+    return c.json({
+      aviso: `Mandé ${queEs} a ${ajustes.telegram.nombre || ajustes.telegram.chat}. Se borra en ${MINUTOS} minutos.`,
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
+  }
+});
+
 /** Mandar un mensaje de prueba, para ver que llega antes de dejarlo solo. */
 app.post('/api/telegram/probar', requiereAdmin, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
@@ -1524,6 +1589,77 @@ app.post('/api/participantes/:cola/todos', requiereAdmin, async (c) => {
  * Mover a mano el turno de un item: deja como "último que cobró" al que se le pase,
  * así el próximo le toca al que sigue. Sirve para corregir un reparto.
  */
+/**
+ * Repartir los turnos de arranque entre todos.
+ *
+ * Sin nada guardado, todas las ruedas arrancan por el primero del orden de prioridad: el primer
+ * Kundun con varios drops se lo lleva entero una sola persona. Esto agarra las ruedas, las
+ * mezcla y las va dejando paradas en gente distinta, dando toda la vuelta antes de repetir.
+ *
+ * No cambia el orden de prioridad ni quién participa en qué lista: solo dónde está parada cada
+ * rueda ahora mismo. De ahí en más siguen girando como siempre.
+ */
+app.post('/api/turnos/sortear', requiereAdmin, async (c) => {
+  const orden = await ordenDePrioridad(c.env.DB);
+  const quienes = await participantesDe(c.env.DB);
+  const colasDe = await colasDeCatalogo(c.env.DB);
+
+  const { results: catalogo } = await c.env.DB.prepare('SELECT id, nombre FROM catalogo ORDER BY id').all<{
+    id: number;
+    nombre: string;
+  }>();
+
+  const escrituras: D1PreparedStatement[] = [];
+  const reparto: Array<{ item: string; cola: string; leToca: string }> = [];
+
+  for (const cola of COLAS) {
+    const enRueda = enLaRueda(orden, cola, quienes);
+    if (enRueda.length === 0) continue;
+
+    // Las ruedas de esta lista, mezcladas: si no, el primer item del catálogo siempre le
+    // tocaría a la misma persona y el sorteo sería sorteo solo de nombre.
+    const ruedas = catalogo.filter((e) => (colasDe.get(e.id) ?? []).includes(cola));
+    for (let i = ruedas.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ruedas[i], ruedas[j]] = [ruedas[j], ruedas[i]];
+    }
+
+    // Se arranca en un punto al azar de la vuelta y se va corriendo de a uno: así cada persona
+    // recibe la misma cantidad de ruedas, sin que el azar amontone tres en la misma.
+    const salto = Math.floor(Math.random() * enRueda.length);
+
+    ruedas.forEach((entrada, i) => {
+      const leToca = enRueda[(salto + i) % enRueda.length];
+      // El turno guarda al ÚLTIMO que cobró, así que para que le toque a alguien hay que dejar
+      // el puntero en el que va justo antes.
+      const anterior = enRueda[(enRueda.indexOf(leToca) - 1 + enRueda.length) % enRueda.length];
+      escrituras.push(
+        c.env.DB.prepare(
+          `INSERT INTO turnos (catalogo_id, cola, usuario_id, actualizado_en)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(catalogo_id, cola) DO UPDATE SET usuario_id = excluded.usuario_id, actualizado_en = excluded.actualizado_en`,
+        ).bind(entrada.id, cola, anterior.id, new Date().toISOString()),
+      );
+      reparto.push({ item: entrada.nombre, cola, leToca: leToca.personaje });
+    });
+  }
+
+  if (escrituras.length === 0) {
+    return c.json({ error: 'No hay ninguna rueda con gente adentro para sortear.' }, 400);
+  }
+  await c.env.DB.batch(escrituras);
+
+  // Cuántas ruedas le quedaron a cada uno, que es lo que interesa mirar después del sorteo.
+  const cuenta = new Map<string, number>();
+  for (const r of reparto) cuenta.set(r.leToca, (cuenta.get(r.leToca) ?? 0) + 1);
+  const resumen = [...cuenta.entries()].map(([quien, n]) => `${quien}: ${n}`).join(' · ');
+
+  return c.json({
+    ...(await construirEstado(c.env, c.get('usuario'))),
+    aviso: `Sorteé ${escrituras.length} ruedas. Le toca a — ${resumen}.`,
+  });
+});
+
 app.post('/api/turnos/:catalogoId', requiereGrandMaster, async (c) => {
   if (!(await dejaHacer(c, 'turnos'))) return c.json({ error: 'El turno de las ruedas lo mueve solo el admin.' }, 403);
   const catalogoId = entero(c.req.param('catalogoId'));
@@ -1570,6 +1706,7 @@ const programado = async (env: Env) => {
   const evento = await asegurarEvento(env.DB, ahora, await leerHorario(env.DB));
   const mandados = await mandarAvisos(env, ahora);
   const conResumen = await mandarResumen(env, ahora);
+  const borrados = await borrarVencidos(env, ahora);
   console.log(
     'cron:',
     cerrados,
@@ -1579,8 +1716,29 @@ const programado = async (env: Env) => {
     mandados,
     'avisos',
     conResumen ? '| resumen' : '',
+    borrados > 0 ? `| ${borrados} borrados` : '',
   );
 };
+
+/** Los ensayos que ya cumplieron sus dos minutos en el grupo. */
+async function borrarVencidos(env: Env, ahora: Date): Promise<number> {
+  const token = env.TELEGRAM_TOKEN;
+  if (!token) return 0;
+
+  const { results } = await env.DB.prepare(
+    'SELECT chat, mensaje_id FROM mensajes_temporales WHERE borrar_en <= ? LIMIT 20',
+  )
+    .bind(ahora.toISOString())
+    .all<{ chat: string; mensaje_id: number }>();
+
+  for (const m of results) {
+    await borrar(token, m.chat, m.mensaje_id);
+    await env.DB.prepare('DELETE FROM mensajes_temporales WHERE chat = ? AND mensaje_id = ?')
+      .bind(m.chat, m.mensaje_id)
+      .run();
+  }
+  return results.length;
+}
 
 /**
  * El resumen de la mañana, una vez por día.

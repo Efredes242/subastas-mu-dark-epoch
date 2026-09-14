@@ -733,6 +733,9 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
    */
   const [marcados, setMarcados] = useState<Set<number>>(new Set());
 
+  /** Si está abierta la ventana para mandar un aviso de ensayo al grupo. */
+  const [ejecutando, setEjecutando] = useState(false);
+
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 1000);
     return () => clearInterval(t);
@@ -938,6 +941,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
       {solapa === 'catalogo' && ve('panel_catalogo') && (
         <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />
       )}
+      {ejecutando && <EjecutarTelegram alError={setError} alCerrar={() => setEjecutando(false)} />}
       {solapa === 'avisos' && esAdmin && ve('panel_avisos') && <Avisos alError={setError} />}
       {solapa === 'desarrollador' && esAdmin && (
         <Desarrollador estado={estado} alError={setError} setEstado={setEstado} />
@@ -981,17 +985,17 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
                     {ve('panel_pruebas') && (
                       <>
-                        <div className="titulo-grupo-accion">Ensayos</div>
+                        <div className="titulo-grupo-accion">Ejecutar</div>
 
                         <div className="fila-accion">
                           <span className="marca ensayo">
                             <Cofre tam={15} />
                           </span>
                           <div className="que">
-                            <div className="titulo">Ensayar un día de semana</div>
+                            <div className="titulo">Ejecutar Kundun</div>
                             <div className="detalle">
-                              Un Kundun de mentira para recorrer el circuito entero. No cuenta para el
-                              historial y las ruedas vuelven a su lugar al terminarlo.
+                              Abre un Kundun de ensayo para recorrer el circuito entero. No cuenta para
+                              el historial y las ruedas vuelven a su lugar al terminarlo.
                             </div>
                           </div>
                           <button
@@ -1000,7 +1004,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                             disabled={ocupado}
                             onClick={() => accion(() => api('/eventos/prueba', { cuerpo: {} }))}
                           >
-                            Ensayar
+                            Ejecutar
                           </button>
                         </div>
 
@@ -1009,10 +1013,10 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                             <Escudo tam={15} />
                           </span>
                           <div className="que">
-                            <div className="titulo">Ensayar un domingo, con asedio</div>
+                            <div className="titulo">Ejecutar Castle Siege</div>
                             <div className="detalle">
-                              Igual que el anterior, pero se hace pasar por domingo: se abren las dos
-                              solapas de carga, la del Kundun y la del Castle Siege.
+                              Un domingo de ensayo: se abren las dos solapas de carga, la del Kundun y
+                              la del Castle Siege. Tampoco cuenta para el historial.
                             </div>
                           </div>
                           <button
@@ -1021,7 +1025,28 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                             disabled={ocupado}
                             onClick={() => accion(() => api('/eventos/prueba', { cuerpo: { domingo: true } }))}
                           >
-                            Ensayar
+                            Ejecutar
+                          </button>
+                        </div>
+
+                        <div className="fila-accion">
+                          <span className="marca ensayo">
+                            <Reloj tam={15} />
+                          </span>
+                          <div className="que">
+                            <div className="titulo">Ejecutar Telegram</div>
+                            <div className="detalle">
+                              Manda un aviso al grupo para ver cómo llega. Sale marcado como ensayo y se
+                              borra solo a los 2 minutos.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-chico"
+                            disabled={ocupado}
+                            onClick={() => setEjecutando(true)}
+                          >
+                            Abrir
                           </button>
                         </div>
                       </>
@@ -1394,6 +1419,26 @@ function Catalogo({
     }
   }
 
+  /** El sorteo pisa el turno de todas las ruedas, así que pregunta antes. */
+  const [porSortear, setPorSortear] = useState(false);
+
+  const sortear = async () => {
+    setOcupado(true);
+    alError('');
+    try {
+      const r = await api<EstadoConAviso>('/turnos/sortear', { cuerpo: {} });
+      setEstado(r);
+      await traer();
+      setAvisoSorteo(r.aviso ?? '');
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo sortear.');
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  const [avisoSorteo, setAvisoSorteo] = useState('');
+
   // Qué item tiene abierto el selector de imagen.
   const [eligiendo, setEligiendo] = useState<number | null>(null);
 
@@ -1401,6 +1446,51 @@ function Catalogo({
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
+      {seVe(estado, 'panel_turnos') && (
+        <section className="panel subir sortear-turnos">
+          <div className="que">
+            <h2>Repartir los turnos de arranque</h2>
+            <p>
+              Sin nada repartido, todas las ruedas arrancan por el primero del orden y el primer
+              Kundun con varios drops se lo lleva una sola persona. Esto las deja paradas en gente
+              distinta, dando toda la vuelta antes de repetir.
+            </p>
+            <p className="ojo">
+              No toca el orden de prioridad ni quién participa en qué lista: solo dónde está parada
+              cada rueda ahora. De ahí en más giran como siempre.
+            </p>
+          </div>
+          {porSortear ? (
+            <div className="confirmar">
+              <button
+                type="button"
+                className="btn btn-oro btn-chico"
+                disabled={ocupado}
+                onClick={() => {
+                  setPorSortear(false);
+                  void sortear();
+                }}
+              >
+                Sí, repartir
+              </button>
+              <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => setPorSortear(false)}>
+                Mejor no
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => setPorSortear(true)}>
+              <Orden tam={15} /> Repartir
+            </button>
+          )}
+          {avisoSorteo && (
+            <div className="aviso aparecer resultado">
+              <Tilde tam={16} />
+              <span>{avisoSorteo}</span>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="panel subir" style={{ padding: 18 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800 }}>Catálogo del gremio</h2>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
@@ -2427,6 +2517,171 @@ function Desarrollador({
           })}
         </div>
       </section>
+    </div>
+  );
+}
+
+interface AvisoDelBot {
+  id: number;
+  nombre: string;
+  antes: number[];
+  activo: boolean;
+}
+
+/**
+ * Ejecutar un aviso contra el grupo de Telegram.
+ *
+ * Se elige qué mandar y con qué anticipación, y el botón de play lo dispara. Va marcado como
+ * ensayo y se borra solo a los dos minutos: el chat del gremio no tiene por qué quedar con
+ * las pruebas adentro.
+ */
+function EjecutarTelegram({
+  alError,
+  alCerrar,
+}: {
+  alError: (m: string) => void;
+  alCerrar: () => void;
+}) {
+  const [avisos, setAvisos] = useState<AvisoDelBot[] | null>(null);
+  const [elegido, setElegido] = useState<string>('');
+  const [antes, setAntes] = useState(15);
+  const [ocupado, setOcupado] = useState(false);
+  const [hecho, setHecho] = useState('');
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await api<{ avisos: AvisoDelBot[] }>('/avisos');
+        setAvisos(r.avisos);
+        const primero = r.avisos[0];
+        if (primero) {
+          setElegido(String(primero.id));
+          setAntes(primero.antes[0] ?? 15);
+        }
+      } catch (e) {
+        alError(e instanceof Error ? e.message : 'No pude traer los eventos.');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const elAviso = avisos?.find((a) => String(a.id) === elegido) ?? null;
+
+  async function ejecutar() {
+    setOcupado(true);
+    alError('');
+    setHecho('');
+    try {
+      const r = await api<{ aviso: string }>('/telegram/ensayo', {
+        cuerpo: elegido === 'resumen' ? { cual: 'resumen' } : { avisoId: Number(elegido), antes },
+      });
+      setHecho(r.aviso);
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo mandar.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  // Igual que las demás ventanas: se cierra con Escape.
+  useEffect(() => {
+    const alTeclado = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') alCerrar();
+    };
+    window.addEventListener('keydown', alTeclado);
+    return () => window.removeEventListener('keydown', alTeclado);
+  }, [alCerrar]);
+
+  return (
+    <div className="hoja" onClick={alCerrar} role="presentation">
+      <div
+        className="hoja-cuerpo ejecutar-tg"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Ejecutar en Telegram"
+      >
+        <h2>Ejecutar en Telegram</h2>
+        <p className="bajada">
+          Elegí qué mandar al grupo. Sale marcado como ensayo y <b>se borra solo a los 2 minutos</b>.
+        </p>
+
+        {!avisos ? (
+          <div style={{ display: 'grid', placeItems: 'center', padding: 24 }}>
+            <div className="cargando" />
+          </div>
+        ) : (
+          <>
+            <div className="lista-ejecutar">
+              {avisos.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={`opcion-ejecutar${elegido === String(a.id) ? ' elegida' : ''}`}
+                  onClick={() => {
+                    setElegido(String(a.id));
+                    setAntes(a.antes[0] ?? 15);
+                    setHecho('');
+                  }}
+                >
+                  <span className="punto-radio" />
+                  <span className="nombre">{a.nombre}</span>
+                  {!a.activo && <span className="apagado">apagado</span>}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`opcion-ejecutar${elegido === 'resumen' ? ' elegida' : ''}`}
+                onClick={() => {
+                  setElegido('resumen');
+                  setHecho('');
+                }}
+              >
+                <span className="punto-radio" />
+                <span className="nombre">📅 Resumen de la mañana</span>
+              </button>
+            </div>
+
+            {elAviso && elAviso.antes.length > 1 && (
+              <div className="antes-ejecutar">
+                <span className="etiqueta">Con qué anticipación</span>
+                <div className="chips">
+                  {elAviso.antes.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`chip-lista${antes === n ? ' dentro' : ''}`}
+                      onClick={() => setAntes(n)}
+                    >
+                      {n === 60 ? '1 hora' : `${n} min`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className={`play${ocupado ? ' andando' : ''}`}
+              disabled={ocupado || !elegido}
+              onClick={() => void ejecutar()}
+            >
+              <span className="triangulo" />
+              {ocupado ? 'Mandando…' : 'Ejecutar'}
+            </button>
+
+            {hecho && (
+              <div className="aviso aparecer" style={{ marginTop: 14, fontSize: 12.5 }}>
+                <Tilde tam={16} />
+                <span>{hecho}</span>
+              </div>
+            )}
+          </>
+        )}
+
+        <button type="button" className="btn btn-chico" style={{ marginTop: 14 }} onClick={alCerrar}>
+          Cerrar
+        </button>
+      </div>
     </div>
   );
 }

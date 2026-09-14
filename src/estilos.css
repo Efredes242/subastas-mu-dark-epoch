@@ -1087,6 +1087,204 @@ select {
   justify-content: center;
 }
 
+/* La ventana para mandar un aviso de ensayo al grupo. */
+.ejecutar-tg > h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.ejecutar-tg > .bajada {
+  margin: 6px 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.ejecutar-tg > .bajada > b {
+  color: var(--tx2);
+}
+
+.lista-ejecutar {
+  display: grid;
+  gap: 6px;
+}
+
+.opcion-ejecutar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+  color: var(--tx);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.opcion-ejecutar:hover {
+  border-color: var(--line2);
+}
+
+.opcion-ejecutar.elegida {
+  border-color: var(--oroLn);
+  background: var(--oroBg);
+}
+
+.opcion-ejecutar > .punto-radio {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line2);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.opcion-ejecutar.elegida > .punto-radio {
+  border-color: var(--oro);
+  box-shadow: inset 0 0 0 3px var(--oro);
+}
+
+.opcion-ejecutar > .nombre {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.opcion-ejecutar > .apagado {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tx3);
+}
+
+.antes-ejecutar {
+  margin-top: 14px;
+}
+
+.antes-ejecutar > .chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+
+/*
+ * El botón de play.
+ *
+ * Es la acción de la ventana y manda algo al grupo de verdad, así que se despega del resto: aro
+ * propio, y un latido suave que se detiene solo mientras está mandando para no mentir que sigue
+ * esperando un clic.
+ */
+.play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px 18px;
+  border: 2px solid var(--oro);
+  border-radius: 14px;
+  background: var(--oroBg);
+  color: var(--oro);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  animation: latido-play 2.4s ease-in-out infinite;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.play:hover:not(:disabled) {
+  background: var(--oro);
+  color: var(--sobreOro);
+}
+
+.play:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.play:disabled {
+  cursor: default;
+}
+
+.play.andando {
+  animation: none;
+  opacity: 0.75;
+}
+
+.play > .triangulo {
+  width: 0;
+  height: 0;
+  border-left: 13px solid currentColor;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  margin-left: 2px;
+}
+
+@keyframes latido-play {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--oro) 45%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--oro) 0%, transparent);
+  }
+}
+
+/* Repartir los turnos de arranque, arriba del catálogo. */
+.sortear-turnos {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 17px 16px 16px;
+}
+
+.sortear-turnos > .que {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.sortear-turnos > .que > h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sortear-turnos > .que > p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.sortear-turnos > .que > p.ojo {
+  margin-top: 7px;
+  font-size: 11.5px;
+}
+
+.sortear-turnos > .confirmar {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.sortear-turnos > .resultado {
+  flex-basis: 100%;
+  margin-top: 4px;
+  font-size: 12.5px;
+}
+
 /* ── Avisos del gremio ─────────────────────────────────────────────────────── */
 
 .aviso-evento {

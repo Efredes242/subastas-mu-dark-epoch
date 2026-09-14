@@ -66,12 +66,29 @@ export async function chatsVistos(token: string): Promise<ChatVisto[]> {
  * _cursiva_ y `código`. Si el texto tiene un asterisco suelto Telegram rechaza el mensaje entero,
  * así que en ese caso se reintenta sin formato: mejor que llegue en crudo a que no llegue.
  */
-export async function mandar(token: string, chat: string, texto: string): Promise<void> {
+export async function mandar(token: string, chat: string, texto: string): Promise<number> {
   const base = { chat_id: chat, text: texto, disable_web_page_preview: true };
+  let r: { message_id?: number };
   try {
-    await pedir(token, 'sendMessage', { ...base, parse_mode: 'Markdown' });
+    r = (await pedir(token, 'sendMessage', { ...base, parse_mode: 'Markdown' })) as { message_id?: number };
   } catch (e) {
     if (!/pars|entit|markdown/i.test(e instanceof Error ? e.message : '')) throw e;
-    await pedir(token, 'sendMessage', base);
+    r = (await pedir(token, 'sendMessage', base)) as { message_id?: number };
+  }
+  return r?.message_id ?? 0;
+}
+
+/**
+ * Borrar un mensaje que mandó el bot.
+ *
+ * Telegram solo deja borrar lo propio y dentro de las 48 horas. Si ya no está —alguien lo borró
+ * a mano, o pasó el plazo— devuelve un error que no vale la pena propagar: el mensaje no está,
+ * que es lo que se quería.
+ */
+export async function borrar(token: string, chat: string, mensajeId: number): Promise<void> {
+  try {
+    await pedir(token, 'deleteMessage', { chat_id: chat, message_id: mensajeId });
+  } catch {
+    /* ya no está, y está bien */
   }
 }
