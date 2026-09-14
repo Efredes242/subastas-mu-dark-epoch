@@ -7,7 +7,8 @@
   --line2: #443729;
   --tx: #f1e9db;
   --tx2: #a99d89;
-  --tx3: #7c7163;
+  /* Contra el panel daba 3.7:1 y el texto chico se perdía en el fondo. Ahora 5.1:1. */
+  --tx3: #948876;
   --oro: #e0b871;
   --oroBg: #2a2015;
   --oroLn: #5b4826;
@@ -45,7 +46,8 @@
   --line2: #d6c9b3;
   --tx: #2b251c;
   --tx2: #6d6355;
-  --tx3: #9a9080;
+  /* Lo mismo en el tema claro: venía de 3.2:1. */
+  --tx3: #7b7263;
   --oro: #a8752a;
   --oroBg: #fbf2e0;
   --oroLn: #e8d5ab;
@@ -988,13 +990,71 @@ select {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  padding-bottom: 14px;
   margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
 
+/* El texto del aviso es lo que se va a leer en el grupo: se muestra como tal. */
+.aviso-evento textarea.campo {
+  background: var(--panel2);
+  color: var(--tx);
+  font-size: 14px;
+}
+
+.aviso-evento > .texto-aviso {
+  margin-top: 12px;
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+
+.aviso-evento > .texto-aviso textarea.campo {
+  background: var(--panel);
+}
+
+.aviso-evento > .texto-aviso > .arriba {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.aviso-evento > .texto-aviso .etiqueta {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx2);
+}
+
+/*
+ * Los tres grupos de la tarjeta —días, horas y recordatorios— en cajas propias.
+ *
+ * Todo junto sobre el mismo fondo se leía como una sola mancha y no se veía dónde terminaba
+ * uno y empezaba el otro.
+ */
 .campos-aviso {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.campos-aviso > div {
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+
+/* El rótulo de cada grupo, que antes se perdía. */
+.campos-aviso > div > .etiqueta {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx2);
 }
 
 .campos-aviso .chips {
@@ -1002,7 +1062,22 @@ select {
   gap: 5px;
   flex-wrap: wrap;
   align-items: center;
-  margin-top: 6px;
+  margin-top: 9px;
+}
+
+/* Sobre el fondo levantado del grupo, los chips necesitan su propio contorno. */
+.campos-aviso .chip-lista {
+  background: var(--panel);
+  color: var(--tx2);
+}
+
+.campos-aviso .chip-lista.dentro {
+  background: var(--oroBg);
+  color: var(--oro);
+}
+
+.campos-aviso .campo-chico {
+  background: var(--panel);
 }
 
 .marcas-aviso {

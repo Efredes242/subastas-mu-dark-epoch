@@ -666,8 +666,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               </div>
             </div>
 
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div className="texto-aviso">
+              <div className="arriba">
                 <span className="etiqueta">El texto del aviso</span>
                 <div className="marcas-aviso">
                   {MARCAS.map(([marca, que]) => (
