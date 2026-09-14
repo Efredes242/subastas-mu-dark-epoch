@@ -2325,6 +2325,7 @@ const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
       ['boton_puja', 'Puja anterior', 'Abajo a la izquierda'],
       ['boton_drops', 'Lista Drops', 'Abajo al medio: las ruedas de cada item'],
       ['boton_historial', 'Historial', 'Abajo a la derecha: los Kundun viejos'],
+      ['boton_entrar', 'Entrar', 'Abajo: la puerta para que el gremio entre con su usuario'],
       ['boton_horarios', 'Reloj de horarios', 'Arriba a la izquierda'],
       ['boton_tema', 'Cambiar el tema', 'Arriba a la derecha: claro y oscuro'],
       ['boton_zona', 'Elegir la zona horaria', 'Dentro de la ventana de horarios'],

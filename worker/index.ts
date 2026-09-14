@@ -122,6 +122,43 @@ app.post('/api/auth/login', async (c) => {
   return c.json({ ok: true });
 });
 
+/**
+ * Elegir la propia contraseña.
+ *
+ * Si todavía tiene la que le puso el admin no se pide la anterior: la acaba de usar para entrar
+ * y pedírsela de nuevo es puro trámite. En cualquier otro caso sí, porque una sesión olvidada
+ * abierta en una máquina ajena no debería poder cambiarla.
+ */
+app.post('/api/auth/clave', requiereSesion, async (c) => {
+  const yo = c.get('usuario')!;
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const nueva = typeof cuerpo.nueva === 'string' ? cuerpo.nueva : '';
+  const actual = typeof cuerpo.actual === 'string' ? cuerpo.actual : '';
+
+  if (nueva.length < 6) return c.json({ error: 'La contraseña necesita al menos 6 caracteres.' }, 400);
+
+  const fila = await c.env.DB.prepare('SELECT password_hash, debe_cambiar_clave FROM usuarios WHERE id = ?')
+    .bind(yo.id)
+    .first<{ password_hash: string; debe_cambiar_clave: number }>();
+  if (!fila) return c.json({ error: 'No encontré tu cuenta.' }, 404);
+
+  if (fila.debe_cambiar_clave !== 1 && fila.password_hash.length > 0) {
+    if (!(await verificarPassword(actual, fila.password_hash))) {
+      return c.json({ error: 'La contraseña actual no es esa.' }, 400);
+    }
+    if (actual === nueva) return c.json({ error: 'Esa ya es tu contraseña.' }, 400);
+  }
+
+  await c.env.DB.prepare('UPDATE usuarios SET password_hash = ?, debe_cambiar_clave = 0 WHERE id = ?')
+    .bind(await hashearPassword(nueva), yo.id)
+    .run();
+
+  return c.json({
+    ...(await construirEstado(c.env, { ...yo, debe_cambiar_clave: 0 })),
+    aviso: 'Listo, esa es tu contraseña.',
+  });
+});
+
 app.post('/api/auth/logout', (c) => {
   cerrarSesion(c);
   return c.json({ ok: true });
@@ -1438,7 +1475,8 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
     pedida && (await c.env.DB.prepare('SELECT 1 FROM clases WHERE codigo = ?').bind(pedida).first()) ? pedida : '';
 
   await c.env.DB.prepare(
-    'INSERT INTO usuarios (usuario, personaje, email, password_hash, rol, pc, orden, clase) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    `INSERT INTO usuarios (usuario, personaje, email, password_hash, rol, pc, orden, clase, debe_cambiar_clave)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       usuario,
@@ -1449,6 +1487,8 @@ app.post('/api/miembros', requiereAdmin, async (c) => {
       Math.max(0, entero(cuerpo.pc)),
       (ultimo?.n ?? 0) + 1,
       claseDelAlta,
+      // Con contraseña puesta por el admin, la va a tener que cambiar la primera vez que entre.
+      password.length >= 6 ? 1 : 0,
     )
     .run();
 
@@ -1506,8 +1546,10 @@ app.patch('/api/miembros/:id', requiereAdmin, async (c) => {
       .run();
   }
   if (typeof cuerpo.password === 'string' && cuerpo.password.length >= 6) {
-    await c.env.DB.prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?')
-      .bind(await hashearPassword(cuerpo.password), id)
+    // Una clave que el admin le pone a otro es prestada: la tiene que cambiar al entrar. Si se
+    // la cambia a sí mismo no hace falta, porque la eligió él.
+    await c.env.DB.prepare('UPDATE usuarios SET password_hash = ?, debe_cambiar_clave = ? WHERE id = ?')
+      .bind(await hashearPassword(cuerpo.password), id === c.get('usuario')!.id ? 0 : 1, id)
       .run();
   }
 

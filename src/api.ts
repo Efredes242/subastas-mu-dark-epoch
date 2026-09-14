@@ -200,7 +200,10 @@ export function leerPC(entrada: string): number {
 export function marcaDeListas(listas: string[]): string | null {
   const normal = listas.length === 2 && listas.includes('items') && listas.includes('almas');
   if (normal) return null;
-  return listas.length === 0 ? 'sin listas' : listas.join(' · ');
+  if (listas.length === 0) return 'sin listas';
+  // Con las tres, el nombre de cada una no agrega nada y sí ocupa toda la fila.
+  if (listas.length === 3) return 'las 3 listas';
+  return listas.join(' · ');
 }
 
 /** -3 → "GMT−3". */

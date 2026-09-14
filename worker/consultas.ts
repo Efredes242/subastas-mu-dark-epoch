@@ -631,6 +631,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
           usuario: usuario.usuario,
           personaje: usuario.personaje,
           rol: usuario.rol,
+          debeCambiarClave: usuario.debe_cambiar_clave === 1,
           pc: usuario.pc,
           email: usuario.email,
           avatar: usuario.avatar,

@@ -125,9 +125,19 @@ export const requiereSesion: MiddlewareHandler<{ Bindings: Env; Variables: Varia
 };
 
 /** El admin y el segundo al mando: los dos pueden cargar items y repartir. */
+/**
+ * Con la contraseña puesta por el admin todavía sin cambiar, la cuenta no hace nada.
+ *
+ * Es una clave que sabe otro; hasta que quien entró elija la suya, lo único que puede hacer es
+ * justamente eso. Se controla acá y no solo en la pantalla, que se puede saltear.
+ */
+const conClaveVieja = (usuario: FilaUsuario) => usuario.debe_cambiar_clave === 1;
+const CAMBIALA = { error: 'Elegí tu contraseña antes de seguir.' } as const;
+
 export const requiereGrandMaster: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> = async (c, next) => {
   const usuario = c.get('usuario');
   if (!usuario) return c.json({ error: 'Necesitás iniciar sesión.' }, 401);
+  if (conClaveVieja(usuario)) return c.json(CAMBIALA, 403);
   if (!puedeCargar(usuario.rol)) return c.json({ error: 'Esto lo hacen el admin o el Grand Master.' }, 403);
   await next();
 };
@@ -135,6 +145,7 @@ export const requiereGrandMaster: MiddlewareHandler<{ Bindings: Env; Variables: 
 export const requiereAdmin: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> = async (c, next) => {
   const usuario = c.get('usuario');
   if (!usuario) return c.json({ error: 'Necesitás iniciar sesión.' }, 401);
+  if (conClaveVieja(usuario)) return c.json(CAMBIALA, 403);
   if (usuario.rol !== 'admin') return c.json({ error: 'Esto lo hace solo el admin.' }, 403);
   await next();
 };

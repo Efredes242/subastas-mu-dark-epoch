@@ -5,7 +5,7 @@ import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { ir, type PropsPagina } from '../App';
-import { IconoItem, Lineas, Orden, Reloj } from '../iconos';
+import { Escudo, IconoItem, Lineas, Orden, Reloj } from '../iconos';
 
 type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas';
 type Turno = PropsPagina['estado']['turnos'][number];
@@ -516,6 +516,14 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             <button type="button" className="btn-esquina" onClick={() => setHoja('historial')}>
               <Lineas tam={18} />
               <span>Historial</span>
+            </button>
+          )}
+
+          {/* La puerta de entrada. Sin esto el login solo se encontraba escribiendo /admin. */}
+          {ve('boton_entrar') && (
+            <button type="button" className="btn-esquina" onClick={() => ir('/admin')}>
+              <Escudo tam={18} />
+              <span>{estado.yo ? 'Mi panel' : 'Entrar'}</span>
             </button>
           )}
         </div>

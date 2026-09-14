@@ -2056,7 +2056,11 @@ select {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
-  flex-shrink: 0;
+  /* Se achica antes que el nombre: la marca es un detalle, el nombre es la fila. */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Vista de drops apilados: una fila por drop, a lo ancho. */

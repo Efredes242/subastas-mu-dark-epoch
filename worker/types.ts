@@ -38,6 +38,8 @@ export const puedeCargar = (rol: Rol) => rol === 'admin' || rol === 'grandmaster
 export const manejaLaApp = (rol: Rol) => rol !== 'jugador';
 
 export interface FilaUsuario {
+  /** 1 mientras la contraseña siga siendo la que le puso el admin. */
+  debe_cambiar_clave?: number;
   id: number;
   usuario: string;
   personaje: string;
@@ -139,6 +141,8 @@ export interface Estado {
     usuario: string;
     personaje: string;
     rol: Rol;
+    /** Entró con la contraseña que le puso el admin y todavía no eligió la suya. */
+    debeCambiarClave: boolean;
     pc: number;
     email: string | null;
     avatar: string | null;

@@ -6,6 +6,7 @@ import Login from './paginas/Login';
 import Tablero from './paginas/Tablero';
 import Admin from './paginas/Admin';
 import Jugador from './paginas/Jugador';
+import { CambiarClave } from './paginas/CambiarClave';
 
 export function ir(ruta: string) {
   if (window.location.pathname === ruta) return;
@@ -81,6 +82,11 @@ export default function App() {
   if (ruta === '/admin') {
     if (!estado.yo) {
       return <Login tema={tema} alternarTema={alternarTema} alEntrar={recargar} googleActivo={estado.googleActivo} />;
+    }
+    // Con la contraseña que le puso el admin todavía sin cambiar, lo único que se puede hacer
+    // es elegir la propia. El servidor rechaza el resto igual.
+    if (estado.yo.debeCambiarClave) {
+      return <CambiarClave estado={estado} tema={tema} alternarTema={alternarTema} alListo={recargar} />;
     }
     // El jugador entra a su propia pantalla: ve lo mismo que el que reparte, pero no puede tocar
     // nada. No es el panel con los botones escondidos, es otra pantalla que no sabe escribir.
