@@ -982,9 +982,11 @@ app.patch('/api/telegram', requiereAdmin, async (c) => {
 /**
  * Mandar un aviso de ensayo al grupo.
  *
- * Va marcado como prueba y con fecha de vencimiento: se anota para que el cron lo borre a los
- * dos minutos, porque un ensayo no tiene por qué quedar en el chat del gremio. La espera vive
- * en la base y no en este pedido: un Worker no dura dos minutos.
+ * Va marcado como prueba y con fecha de vencimiento: se anota para que el cron lo borre solo,
+ * porque un ensayo no tiene por qué quedar en el chat del gremio. La espera vive en la base y no
+ * en este pedido: un Worker no dura ni un minuto esperando.
+ *
+ * Anda aunque los avisos estén apagados, que es justamente cuando uno quiere probar.
  */
 app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
   const token = c.env.TELEGRAM_TOKEN;
@@ -1020,10 +1022,12 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
     queEs = aviso.nombre;
   }
 
-  const MINUTOS = 2;
+  // Cuánto se queda en el grupo. Lo elige quien lo manda; si no dice nada, dos minutos.
+  const MINUTOS = Math.min(Math.max(entero(cuerpo.minutos) || 2, 1), 10);
+  const cuanto = MINUTOS === 1 ? 'un minuto' : `${MINUTOS} minutos`;
   const conAviso = [
     '🧪 *ENSAYO* — no es un aviso de verdad.',
-    `_Este mensaje se borra solo en ${MINUTOS} minutos._`,
+    `_Este mensaje se borra solo en ${cuanto}._`,
     '',
     cuerpoTexto,
   ].join('\n');
@@ -1036,7 +1040,7 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
         .run();
     }
     return c.json({
-      aviso: `Mandé ${queEs} a ${ajustes.telegram.nombre || ajustes.telegram.chat}. Se borra en ${MINUTOS} minutos.`,
+      aviso: `Mandé ${queEs} a ${ajustes.telegram.nombre || ajustes.telegram.chat}. Se borra en ${cuanto}.`,
     });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
@@ -1849,7 +1853,7 @@ const programado = async (env: Env) => {
   );
 };
 
-/** Los ensayos que ya cumplieron sus dos minutos en el grupo. */
+/** Los ensayos que ya cumplieron su tiempo en el grupo. */
 async function borrarVencidos(env: Env, ahora: Date): Promise<number> {
   const token = env.TELEGRAM_TOKEN;
   if (!token) return 0;

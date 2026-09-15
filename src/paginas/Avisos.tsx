@@ -200,7 +200,16 @@ interface ChatVisto {
  * único que se elige desde la pantalla es a qué chat mandar, que se descubre mirando dónde le
  * hablaron al bot —Telegram no tiene forma de listar los grupos de un bot—.
  */
-function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (prendidos: boolean) => void }) {
+/** Lo que el resto de la pantalla necesita saber del bot. */
+interface ComoEstaElBot {
+  /** Si los avisos salen solos. */
+  manda: boolean;
+  /** Si se puede mandar un ensayo. Alcanza con el token y el chat: probar con los avisos apagados
+   *  es justamente para lo que sirve. */
+  prueba: boolean;
+}
+
+function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: ComoEstaElBot) => void }) {
   const [estado, setEstado] = useState<EstadoBot | null>(null);
   const [chats, setChats] = useState<ChatVisto[] | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -221,7 +230,9 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (pre
 
   // Que los eventos de abajo sepan si lo que configuran sale de verdad o queda guardado nomás.
   useEffect(() => {
-    if (estado) alSaber(estado.activo && estado.conToken && !!estado.chat && !estado.problema);
+    if (!estado) return;
+    const listo = estado.conToken && !!estado.chat && !estado.problema;
+    alSaber({ manda: listo && estado.activo, prueba: listo });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado?.activo, estado?.conToken, estado?.chat, estado?.problema]);
 
@@ -399,8 +410,12 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [lista, setLista] = useState<Aviso[]>([]);
   /** Cada evento tal como está guardado, para saber qué se tocó y todavía no se mandó. */
   const [guardado, setGuardado] = useState<Record<number, Aviso>>({});
-  /** Si el bot manda de verdad. null mientras no se sabe. */
-  const [prendidos, setPrendidos] = useState<boolean | null>(null);
+  /** Cómo está el bot. null mientras no se sabe. */
+  const [bot, setBot] = useState<ComoEstaElBot | null>(null);
+  /** Qué evento se está ensayando ahora mismo. */
+  const [ensayando, setEnsayando] = useState<number | null>(null);
+  /** Lo que contestó el último ensayo, junto al evento que se probó. */
+  const [ensayo, setEnsayo] = useState<{ id: number; texto: string } | null>(null);
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -503,6 +518,31 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
       a.id,
     );
 
+  /**
+   * Mandar este evento al grupo para verlo de verdad.
+   *
+   * Sale del que está guardado, no del que está en pantalla: lo que se prueba tiene que ser lo
+   * mismo que va a salir solo después, si no la prueba no prueba nada. Por eso el botón espera a
+   * que no queden cambios sueltos.
+   *
+   * Se borra solo al minuto. De eso se encarga el cron, no este pedido.
+   */
+  async function ensayar(a: Aviso) {
+    setEnsayando(a.id);
+    alError('');
+    setEnsayo(null);
+    try {
+      const r = await api<{ aviso: string }>('/telegram/ensayo', {
+        cuerpo: { cual: 'evento', avisoId: a.id, antes: a.antes[0] ?? 15, minutos: 1 },
+      });
+      setEnsayo({ id: a.id, texto: r.aviso });
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo mandar el ensayo.');
+    } finally {
+      setEnsayando(null);
+    }
+  }
+
   async function redactar(a: Aviso) {
     setRedactando(a.id);
     alError('');
@@ -523,9 +563,9 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 980 }}>
-      <Bot alError={alError} alSaber={setPrendidos} />
+      <Bot alError={alError} alSaber={setBot} />
 
-      {prendidos === false && (
+      {bot?.manda === false && (
         <div className="aviso mal" style={{ fontSize: 13, lineHeight: 1.5 }}>
           <Alerta tam={18} />
           <span>
@@ -841,6 +881,21 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               >
                 Ver en el simulador
               </button>
+              <button
+                type="button"
+                className="btn btn-chico"
+                disabled={ocupado || ensayando !== null || !bot?.prueba || sucio(a)}
+                title={
+                  !bot?.prueba
+                    ? 'Falta el token del bot o el chat a donde mandar'
+                    : sucio(a)
+                      ? 'Guardá los cambios: el ensayo manda lo que está guardado'
+                      : `Manda "${a.nombre}" al grupo como prueba. Se borra solo al minuto.`
+                }
+                onClick={() => void ensayar(a)}
+              >
+                {ensayando === a.id ? 'Mandando…' : '🧪 Probar en Telegram'}
+              </button>
               {sucio(a) && <span className="pastilla av">sin guardar</span>}
               <button
                 type="button"
@@ -852,6 +907,13 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 {sucio(a) ? 'Guardar cambios' : 'Guardado'}
               </button>
             </div>
+
+            {ensayo?.id === a.id && (
+              <div className="aviso aparecer" style={{ marginTop: 10, fontSize: 12.5 }}>
+                <Tilde tam={16} />
+                <span>{ensayo.texto}</span>
+              </div>
+            )}
 
             {a.horas.length === 0 && (
               <div className="aviso mal" style={{ marginTop: 10, fontSize: 12.5 }}>
