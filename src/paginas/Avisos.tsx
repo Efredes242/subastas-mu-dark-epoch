@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+// La misma función que arma el título cuando el aviso sale de verdad: si el simulador tuviera su
+// propia copia, tarde o temprano muestran cosas distintas.
+import { comoTitulo, type Titulo } from '../../worker/avisos';
 import { Alerta, Mas, Reloj, Tacho, Tilde } from '../iconos';
 
 /**
@@ -16,6 +19,8 @@ import { Alerta, Mas, Reloj, Tacho, Tilde } from '../iconos';
 interface Aviso {
   id: number;
   nombre: string;
+  emoji: string;
+  titulo: Titulo;
   dias: number[];
   horas: number[];
   antes: number[];
@@ -35,11 +40,23 @@ const DIAS = [
 
 const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
+/** Cómo se llama cada estilo en la pantalla, y qué hace. */
+const ESTILOS: Array<[Titulo, string, string]> = [
+  ['simple', 'Simple', 'El nombre en negrita, como estaba'],
+  ['ancho', 'Espaciado', 'En mayúsculas y con aire entre las letras'],
+  ['grueso', 'Grueso', 'Letras anchas, se ven más pesadas que la negrita'],
+  ['bandera', 'Bandera', 'Letras anchas con una regla arriba y abajo'],
+];
+
+/** Los de siempre, para no tener que salir a buscar uno. */
+const EMOJIS = ['⚔️', '🏰', '👑', '🔥', '💀', '🐉', '⭐', '🗡️', '🛡️', '📣'];
+
 /** Los recordatorios que se ofrecen con un toque. Más de una hora antes no sirve de nada. */
 const ANTES_SUGERIDOS = [60, 45, 30, 15, 10, 5];
 
 const MARCAS: Array<[string, string]> = [
-  ['{evento}', 'el nombre del evento'],
+  ['{titulo}', 'el nombre en grande'],
+  ['{evento}', 'el nombre, tal cual'],
   ['{hora}', 'la hora de arranque'],
   ['{falta}', 'cuánto falta'],
   ['{dia}', 'hoy, mañana, el domingo'],
@@ -68,9 +85,10 @@ const comoFalta = (minutos: number) => {
   return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
 };
 
-const armarMensaje = (plantilla: string, evento: string, hora: number, antes: number, dia: string) =>
+const armarMensaje = (plantilla: string, aviso: Aviso, hora: number, antes: number, dia: string) =>
   plantilla
-    .replace(/\{evento\}/g, evento || 'el evento')
+    .replace(/\{titulo\}/g, comoTitulo(aviso.nombre, aviso.titulo, aviso.emoji))
+    .replace(/\{evento\}/g, aviso.nombre || 'el evento')
     .replace(/\{hora\}/g, comoHora(hora))
     .replace(/\{falta\}/g, comoFalta(antes))
     .replace(/\{dia\}/g, dia);
@@ -142,11 +160,6 @@ function armarResumen(avisos: Aviso[], plantilla: string, diaSemana: number, fec
     .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
     .sort((a, b) => Math.min(...a.horas) - Math.min(...b.horas));
 
-  const emojiDe = (mensaje: string) => {
-    const m = mensaje.trim().match(/^(\p{Extended_Pictographic}\uFE0F?)/u);
-    return m ? m[1] : '•';
-  };
-
   const lista =
     delDia.length === 0
       ? 'Hoy no hay eventos cargados.'
@@ -154,7 +167,7 @@ function armarResumen(avisos: Aviso[], plantilla: string, diaSemana: number, fec
           .map((a) => {
             const horas = a.horas.map(comoHora);
             const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
-            return `${emojiDe(a.mensaje)} *${a.nombre}* — ${cuando}`;
+            return `${a.emoji || '•'} *${a.nombre}* — ${cuando}`;
           })
           .join('\n');
 
@@ -428,6 +441,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const igual = (a: Aviso, b?: Aviso) =>
     !!b &&
     a.nombre === b.nombre &&
+    a.emoji === b.emoji &&
+    a.titulo === b.titulo &&
     a.mensaje === b.mensaje &&
     a.activo === b.activo &&
     a.dias.join() === b.dias.join() &&
@@ -476,6 +491,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
         metodo: 'PATCH',
         cuerpo: {
           nombre: a.nombre,
+          emoji: a.emoji,
+          titulo: a.titulo,
           dias: a.dias,
           horas: a.horas,
           antes: a.antes,
@@ -660,6 +677,56 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                     }}
                   />
                 </div>
+              </div>
+
+              <div className="titulo-aviso">
+                <span className="etiqueta">Cómo se ve el nombre en Telegram</span>
+                <div className="chips" style={{ marginBottom: 10 }}>
+                  {ESTILOS.map(([id, como, que]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`chip-lista${a.titulo === id ? ' dentro' : ''}`}
+                      disabled={ocupado}
+                      title={que}
+                      onClick={() => tocar(a.id, { titulo: id })}
+                    >
+                      {como}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="chips" style={{ marginBottom: 10 }}>
+                  <input
+                    className="campo campo-chico"
+                    style={{ width: 62, textAlign: 'center', fontSize: 16 }}
+                    value={a.emoji}
+                    disabled={ocupado}
+                    maxLength={6}
+                    title="El emoji que acompaña al nombre. Vacío, no sale ninguno."
+                    onChange={(e) => tocar(a.id, { emoji: e.target.value })}
+                  />
+                  {EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      className={`chip-lista${a.emoji === e ? ' dentro' : ''}`}
+                      disabled={ocupado}
+                      onClick={() => tocar(a.id, { emoji: a.emoji === e ? '' : e })}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="muestra-titulo">{comoTelegram(comoTitulo(a.nombre, a.titulo, a.emoji))}</div>
+
+                {!a.mensaje.includes('{titulo}') && (
+                  <div className="aviso" style={{ marginTop: 10, fontSize: 12, display: 'block', lineHeight: 1.5 }}>
+                    Este texto no usa <code>{'{titulo}'}</code>, así que el nombre va a salir como esté
+                    escrito ahí abajo y esto no cambia nada. Poné la marca donde lo quieras.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -967,7 +1034,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                       ? armarResumen(lista, resumen.texto, new Date().getDay(), new Date())
                       : armarMensaje(
                           elSimulado.mensaje,
-                          elSimulado.nombre,
+                          elSimulado,
                           elSimulado.horas[0] ?? 780,
                           (elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15,
                           'hoy',

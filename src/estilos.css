@@ -1783,6 +1783,29 @@ select {
  * El borde lo dice antes que el botón: tildar recordatorios y no guardar se ve igual que tildarlos
  * y guardar, y así se pierden sin que nadie se entere.
  */
+/*
+ * Cómo va a quedar el nombre.
+ *
+ * Se arma con la misma función que usa el bot, así que lo que se ve acá es exactamente lo que
+ * llega al grupo. El fondo imita la burbuja de Telegram para no juzgarlo sobre un fondo que no
+ * es el que va a tener.
+ */
+/* El título se elige a lo ancho: apretado en una columna, los estilos y los emojis se apilan. */
+.campos-aviso > .titulo-aviso {
+  grid-column: 1 / -1;
+}
+
+.muestra-titulo {
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+  font-size: 14.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .aviso-evento.sin-guardar {
   border-color: var(--oroLn);
   box-shadow: 0 0 0 1px var(--oroLn), var(--sh);

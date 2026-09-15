@@ -834,10 +834,12 @@ app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
   if (!limpio) return c.json({ error: 'Al evento le falta el nombre.' }, 400);
 
   const r = await c.env.DB.prepare(
-    'UPDATE avisos SET nombre = ?, dias = ?, horas = ?, antes = ?, mensaje = ?, activo = ? WHERE id = ?',
+    'UPDATE avisos SET nombre = ?, emoji = ?, titulo = ?, dias = ?, horas = ?, antes = ?, mensaje = ?, activo = ? WHERE id = ?',
   )
     .bind(
       limpio.nombre,
+      limpio.emoji,
+      limpio.titulo,
       limpio.dias.join(','),
       limpio.horas.join(','),
       limpio.antes.join(','),
@@ -892,10 +894,11 @@ app.post('/api/avisos/:id/redactar', requiereAdmin, async (c) => {
     'Reglas:',
     '- Español rioplatense, voseo, tono de gremio, nada solemne.',
     '- Dos o tres renglones como mucho. Sin listas ni títulos.',
-    '- Usá exactamente estas marcas donde corresponda, sin inventar otras: {evento}, {hora}, {falta}, {dia}.',
+    '- Arrancá el mensaje con la marca {titulo} sola en el primer renglón: es el nombre del evento en grande.',
+    '- Usá exactamente estas marcas donde corresponda, sin inventar otras: {titulo}, {hora}, {falta}, {dia}.',
     '- {falta} es cuánto falta ("30 minutos"), {hora} la hora de arranque, {dia} el día ("hoy", "mañana").',
     '- Nunca pongas el valor literal al lado de la marca: va "{hora}", no "{hora} 13:00".',
-    '- Si usás {evento} no escribas además el nombre del evento: la marca ya lo pone.',
+    '- No escribas el nombre del evento en el cuerpo: {titulo} ya lo puso arriba.',
     '- Podés usar un emoji al principio y *negrita de Telegram* con asteriscos simples.',
     '- Devolvé SOLO el texto del mensaje, sin comillas ni explicaciones.',
     tono ? `- Tené en cuenta esto que pidió el admin: ${tono}` : '',
@@ -1011,6 +1014,8 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
       evento: aviso.nombre,
       hora: aviso.horas[0] ?? 780,
       antes: aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15),
+      emoji: aviso.emoji,
+      estilo: aviso.titulo,
     });
     queEs = aviso.nombre;
   }

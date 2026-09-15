@@ -20,6 +20,10 @@ export interface Aviso {
   id: number;
   /** Cómo se llama el evento en el aviso: "Kundun", "Asedio al castillo". */
   nombre: string;
+  /** El emoji que lo acompaña. Sale en el título y en el resumen de la mañana. */
+  emoji: string;
+  /** Con cuánto énfasis se muestra el nombre. */
+  titulo: Titulo;
   /** Días de la semana en que cae, 0 = domingo. Vacío = ninguno, o sea apagado de hecho. */
   dias: number[];
   /** Horas del servidor, en minutos desde medianoche. */
@@ -31,6 +35,65 @@ export interface Aviso {
   activo: boolean;
 }
 
+/**
+ * Cómo se muestra el nombre del evento.
+ *
+ * Telegram deja poco margen: negrita, cursiva y poco más. Lo que sí entiende, porque es texto y
+ * no formato, son las letras anchas de Unicode, que se ven gruesas en cualquier cliente sin
+ * depender de que el mensaje se mande con formato. Ahí está casi todo el efecto.
+ */
+export type Titulo = 'simple' | 'ancho' | 'grueso' | 'bandera';
+
+export const TITULOS: Titulo[] = ['simple', 'ancho', 'grueso', 'bandera'];
+
+const esTitulo = (x: unknown): x is Titulo => TITULOS.includes(x as Titulo);
+
+// Los alfabetos anchos de Unicode: sans-serif en negrita, mayúsculas, minúsculas y números.
+const ANCHA_MAY = 0x1d5d4;
+const ANCHA_MIN = 0x1d5ee;
+const ANCHA_NUM = 0x1d7ec;
+
+/**
+ * El mismo texto en letras gruesas.
+ *
+ * Lo que no tiene equivalente —las tildes, la eñe, los signos— queda como está: es preferible una
+ * letra fina en medio de la palabra antes que cambiarle la ortografía al nombre que eligió el
+ * gremio.
+ */
+function enGrueso(texto: string): string {
+  return [...texto]
+    .map((c) => {
+      const p = c.codePointAt(0) ?? 0;
+      if (c >= 'A' && c <= 'Z') return String.fromCodePoint(ANCHA_MAY + (p - 65));
+      if (c >= 'a' && c <= 'z') return String.fromCodePoint(ANCHA_MIN + (p - 97));
+      if (c >= '0' && c <= '9') return String.fromCodePoint(ANCHA_NUM + (p - 48));
+      return c;
+    })
+    .join('');
+}
+
+/** El nombre del evento, vestido para la ocasión. */
+export function comoTitulo(nombre: string, estilo: Titulo, emoji: string): string {
+  const limpio = (nombre || 'El evento').trim();
+  const e = emoji.trim();
+  const con = (x: string) => (e ? `${e} ${x}` : x);
+
+  switch (estilo) {
+    case 'ancho':
+      return con(`*${[...limpio.toUpperCase()].join(' ')}*`);
+    case 'grueso':
+      return con(enGrueso(limpio.toUpperCase()));
+    case 'bandera': {
+      const medio = e ? `${e} ${enGrueso(limpio.toUpperCase())} ${e}` : enGrueso(limpio.toUpperCase());
+      // La regla acompaña al largo del nombre para que el cartel no quede ni angosto ni infinito.
+      const regla = '━'.repeat(Math.min(24, Math.max(13, Math.round(limpio.length * 1.7))));
+      return `${regla}\n${medio}\n${regla}`;
+    }
+    default:
+      return con(`*${limpio}*`);
+  }
+}
+
 export const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 export const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -39,7 +102,8 @@ export const DIAS_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves'
  * así que agregar una acá la hace visible en los dos lados.
  */
 export const MARCAS: Array<[string, string]> = [
-  ['{evento}', 'El nombre del evento'],
+  ['{titulo}', 'El nombre en grande, como esté elegido acá abajo'],
+  ['{evento}', 'El nombre del evento, tal cual'],
   ['{hora}', 'A qué hora arranca, en hora del servidor'],
   ['{falta}', 'Cuánto falta: "1 hora", "30 minutos"'],
   ['{dia}', 'Qué día cae: "hoy", "mañana", "el domingo"'],
@@ -70,18 +134,31 @@ export function comoHora(minutos: number): string {
  */
 export function armarMensaje(
   plantilla: string,
-  datos: { evento: string; hora: number; antes: number; dia?: string },
+  datos: { evento: string; hora: number; antes: number; dia?: string; emoji?: string; estilo?: Titulo },
 ): string {
   return plantilla
+    .replace(/\{titulo\}/g, comoTitulo(datos.evento, datos.estilo ?? 'simple', datos.emoji ?? ''))
     .replace(/\{evento\}/g, datos.evento)
     .replace(/\{hora\}/g, comoHora(datos.hora))
     .replace(/\{falta\}/g, comoFalta(datos.antes))
     .replace(/\{dia\}/g, datos.dia ?? 'hoy');
 }
 
-/** El texto de fábrica, para un evento recién creado o para el que quiere empezar de nuevo. */
-export function mensajePorDefecto(nombre: string): string {
-  return `⚔️ *${nombre || 'El evento'}* en {falta}\n\nArranca {dia} a las {hora} hora del servidor. Prepárense.`;
+/**
+ * El texto de fábrica, para un evento recién creado o para el que quiere empezar de nuevo.
+ *
+ * El nombre no va escrito: va la marca, así sigue al del evento cuando se lo renombra en vez de
+ * quedar clavado el que tenía el día que se creó.
+ */
+export function mensajePorDefecto(_nombre?: string): string {
+  return [
+    '{titulo}',
+    '',
+    '⏳ Falta *{falta}*',
+    '🕐 Arranca {dia} a las *{hora}*, hora del servidor',
+    '',
+    '_Prepárense que después no hay excusas._',
+  ].join('\n');
 }
 
 // ── El resumen de la mañana ──────────────────────────────────────────────────
@@ -115,12 +192,6 @@ export const MARCAS_RESUMEN: Array<[string, string]> = [
   ['{cuantos}', 'Cuántos eventos hay'],
 ];
 
-/** El emoji con el que arranca el aviso del evento, para reusarlo en la lista. */
-function emojiDe(mensaje: string): string {
-  const m = mensaje.trim().match(/^(\p{Extended_Pictographic}\uFE0F?)/u);
-  return m ? m[1] : '•';
-}
-
 /**
  * El texto del resumen del día.
  *
@@ -148,7 +219,7 @@ export function armarResumen(
           .map((a) => {
             const horas = a.horas.map(comoHora);
             const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
-            return `${emojiDe(a.mensaje)} *${a.nombre}* — ${cuando}`;
+            return `${a.emoji || '•'} *${a.nombre}* — ${cuando}`;
           })
           .join('\n');
 
@@ -164,6 +235,8 @@ export function armarResumen(
 export interface FilaAviso {
   id: number;
   nombre: string;
+  emoji: string;
+  titulo: string;
   dias: string;
   horas: string;
   antes: string;
@@ -182,6 +255,8 @@ export function comoAviso(fila: FilaAviso): Aviso {
   return {
     id: fila.id,
     nombre: fila.nombre,
+    emoji: fila.emoji ?? '',
+    titulo: esTitulo(fila.titulo) ? fila.titulo : 'simple',
     dias: [...new Set(numeros(fila.dias).filter((d) => d >= 0 && d <= 6))].sort((a, b) => a - b),
     horas: [...new Set(numeros(fila.horas).filter((h) => h >= 0 && h < DIA_MIN))].sort((a, b) => a - b),
     antes: [...new Set(numeros(fila.antes).filter((a) => a >= 1 && a <= ANTES_MAXIMO))].sort((a, b) => b - a),
@@ -206,6 +281,9 @@ export function leerAviso(crudo: unknown): Omit<Aviso, 'id'> | null {
 
   return {
     nombre,
+    // Un emoji y nada más: si alguien pega media frase acá, el título deja de ser un título.
+    emoji: typeof x.emoji === 'string' ? [...x.emoji.trim()].slice(0, 3).join('') : '',
+    titulo: esTitulo(x.titulo) ? x.titulo : 'simple',
     dias: lista(x.dias, 0, 6).sort((a, b) => a - b),
     horas: lista(x.horas, 0, DIA_MIN - 1).sort((a, b) => a - b),
     // Sin ningún recordatorio el aviso no existe: por lo menos uno, quince minutos antes.
@@ -262,7 +340,13 @@ export function disparosEntre(
           cuando,
           empieza,
           antes,
-          texto: armarMensaje(aviso.mensaje, { evento: aviso.nombre, hora: h, antes }),
+          texto: armarMensaje(aviso.mensaje, {
+            evento: aviso.nombre,
+            hora: h,
+            antes,
+            emoji: aviso.emoji,
+            estilo: aviso.titulo,
+          }),
         });
       }
     }
