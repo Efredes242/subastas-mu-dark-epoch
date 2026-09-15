@@ -40,6 +40,7 @@ import {
   armarResumen,
   comoAviso,
   comoGuardadasHoras,
+  laVezQueAnuncia,
   disparosEntre,
   RESUMEN_POR_DEFECTO,
   comoHora as comoHoraAviso,
@@ -1862,6 +1863,33 @@ const programado = async (env: Env) => {
   );
 };
 
+/**
+ * Sacar del grupo los avisos anteriores de este mismo evento.
+ *
+ * Se llama después de mandar el nuevo, así que lo único que queda es el último. Si Telegram no
+ * deja borrar alguno —lo borraron a mano, o pasaron las 48 horas que da la API— la fila se saca
+ * igual: dejarla sería reintentar para siempre algo que ya no está.
+ */
+async function borrarLosAnteriores(
+  env: Env,
+  token: string,
+  ocurrencia: string,
+  elNuevo: number,
+): Promise<void> {
+  const { results } = await env.DB.prepare(
+    'SELECT chat, mensaje_id FROM mensajes_temporales WHERE ocurrencia = ? AND mensaje_id != ?',
+  )
+    .bind(ocurrencia, elNuevo)
+    .all<{ chat: string; mensaje_id: number }>();
+
+  for (const m of results) {
+    await borrar(token, m.chat, m.mensaje_id);
+    await env.DB.prepare('DELETE FROM mensajes_temporales WHERE chat = ? AND mensaje_id = ?')
+      .bind(m.chat, m.mensaje_id)
+      .run();
+  }
+}
+
 /** Los ensayos que ya cumplieron su tiempo en el grupo. */
 async function borrarVencidos(env: Env, ahora: Date): Promise<number> {
   const token = env.TELEGRAM_TOKEN;
@@ -1960,14 +1988,21 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
         const mensajeId = await mandar(token, ajustes.telegram.chat, d.texto);
         mandados++;
 
-        // El aviso vive lo que vive el evento. Después es basura en el chat, así que se anota
-        // para que el mismo cron que borra los ensayos lo levante cuando termine.
+        // El aviso vive lo que vive el evento: después es basura en el chat, así que se anota
+        // para que el mismo cron que borra los ensayos lo levante cuando termine. Y mientras
+        // tanto reemplaza al anterior del mismo evento, así en el grupo hay uno solo y no una
+        // pila de recordatorios diciendo lo mismo con distinto número.
+        //
+        // El orden importa: primero sale el nuevo —que suena, para eso está— y recién después se
+        // borra el viejo. Al revés quedaría un hueco sin ningún aviso a la vista.
         if (mensajeId > 0) {
+          const laVez = laVezQueAnuncia(aviso.id, d.empieza);
           await env.DB.prepare(
-            'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)',
+            'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
           )
-            .bind(ajustes.telegram.chat, mensajeId, d.termina.toISOString())
+            .bind(ajustes.telegram.chat, mensajeId, d.termina.toISOString(), laVez)
             .run();
+          await borrarLosAnteriores(env, token, laVez, mensajeId);
         }
       } catch (e) {
         // Si no salió, se borra la marca para que el próximo minuto lo reintente.

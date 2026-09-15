@@ -406,6 +406,16 @@ export interface Disparo {
 }
 
 /**
+ * Cómo se llama la vez concreta que este aviso anuncia.
+ *
+ * El Kundun del mediodía de hoy no es el de la noche ni el del mediodía de mañana, y los avisos
+ * solo se reemplazan entre sí dentro de la misma vez: cuando sale el de quince minutos se borra
+ * el de treinta del mismo Kundun, no el que está anunciando el de la noche.
+ */
+export const laVezQueAnuncia = (avisoId: number, empieza: Date): string =>
+  `${avisoId}:${empieza.toISOString()}`;
+
+/**
  * Los avisos que salen entre `desde` y `hasta`.
  *
  * Se miran los tres días alrededor porque un aviso de una hora antes de un evento de las 00:30
