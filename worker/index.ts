@@ -39,6 +39,7 @@ import {
   armarMensaje,
   armarResumen,
   comoAviso,
+  comoGuardadasHoras,
   disparosEntre,
   RESUMEN_POR_DEFECTO,
   comoHora as comoHoraAviso,
@@ -834,16 +835,18 @@ app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
   if (!limpio) return c.json({ error: 'Al evento le falta el nombre.' }, 400);
 
   const r = await c.env.DB.prepare(
-    'UPDATE avisos SET nombre = ?, emoji = ?, titulo = ?, dias = ?, horas = ?, antes = ?, mensaje = ?, activo = ? WHERE id = ?',
+    'UPDATE avisos SET nombre = ?, emoji = ?, titulo = ?, dias = ?, horas = ?, antes = ?, mensaje = ?, al_empezar = ?, mensaje_inicio = ?, activo = ? WHERE id = ?',
   )
     .bind(
       limpio.nombre,
       limpio.emoji,
       limpio.titulo,
       limpio.dias.join(','),
-      limpio.horas.join(','),
+      comoGuardadasHoras(limpio.horas),
       limpio.antes.join(','),
       limpio.mensaje,
+      limpio.alEmpezar ? 1 : 0,
+      limpio.mensajeInicio,
       limpio.activo ? 1 : 0,
       id,
     )
@@ -895,7 +898,7 @@ app.post('/api/avisos/:id/redactar', requiereAdmin, async (c) => {
     '- Español rioplatense, voseo, tono de gremio, nada solemne.',
     '- Dos o tres renglones como mucho. Sin listas ni títulos.',
     '- Arrancá el mensaje con la marca {titulo} sola en el primer renglón: es el nombre del evento en grande.',
-    '- Usá exactamente estas marcas donde corresponda, sin inventar otras: {titulo}, {hora}, {falta}, {dia}.',
+    '- Usá exactamente estas marcas donde corresponda, sin inventar otras: {titulo}, {hora}, {falta}, {dia}, {termina}, {dura}.',
     '- {falta} es cuánto falta ("30 minutos"), {hora} la hora de arranque, {dia} el día ("hoy", "mañana").',
     '- Nunca pongas el valor literal al lado de la marca: va "{hora}", no "{hora} 13:00".',
     '- No escribas el nombre del evento en el cuerpo: {titulo} ya lo puso arriba.',
@@ -997,7 +1000,9 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
 
   const cuerpo = await c.req.json().catch(() => ({}));
   const cual = texto(cuerpo.cual, 20);
-  const antes = Math.min(Math.max(entero(cuerpo.antes) || 15, 1), ANTES_MAXIMO);
+  // 0 vale: es el aviso de cuando arranca.
+  const pedido = entero(cuerpo.antes);
+  const antes = pedido === 0 ? 0 : Math.min(Math.max(pedido || 15, 1), ANTES_MAXIMO);
 
   let cuerpoTexto = '';
   let queEs = '';
@@ -1012,12 +1017,16 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
       .first<FilaAviso>();
     if (!fila) return c.json({ error: 'Ese evento ya no está.' }, 404);
     const aviso = comoAviso(fila);
-    cuerpoTexto = armarMensaje(aviso.mensaje, {
+    const cuandoCae = aviso.horas[0] ?? { minutos: 780, dura: 10 };
+    // antes = 0 es el aviso de "arrancó", que tiene su propio texto.
+    const conAntes = antes === 0 ? 0 : aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15);
+    cuerpoTexto = armarMensaje(conAntes === 0 ? aviso.mensajeInicio : aviso.mensaje, {
       evento: aviso.nombre,
-      hora: aviso.horas[0] ?? 780,
-      antes: aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15),
+      hora: cuandoCae.minutos,
+      antes: conAntes,
       emoji: aviso.emoji,
       estilo: aviso.titulo,
+      dura: cuandoCae.dura,
     });
     queEs = aviso.nombre;
   }
@@ -1948,8 +1957,18 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
       if ((puesto.meta.changes ?? 0) === 0) continue;
 
       try {
-        await mandar(token, ajustes.telegram.chat, d.texto);
+        const mensajeId = await mandar(token, ajustes.telegram.chat, d.texto);
         mandados++;
+
+        // El aviso vive lo que vive el evento. Después es basura en el chat, así que se anota
+        // para que el mismo cron que borra los ensayos lo levante cuando termine.
+        if (mensajeId > 0) {
+          await env.DB.prepare(
+            'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)',
+          )
+            .bind(ajustes.telegram.chat, mensajeId, d.termina.toISOString())
+            .run();
+        }
       } catch (e) {
         // Si no salió, se borra la marca para que el próximo minuto lo reintente.
         await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = ? AND clave = ?')

@@ -1791,6 +1791,55 @@ select {
  * es el que va a tener.
  */
 /* El título se elige a lo ancho: apretado en una columna, los estilos y los emojis se apilan. */
+/*
+ * Cada horario con su duración.
+ *
+ * La duración va por horario y no por evento: el Kundun del mediodía dura diez minutos y el de la
+ * noche quince. Se muestra de cuándo a cuándo para que el rango se lea sin tener que sumar.
+ */
+.horas-aviso > .hora-dura {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.horas-aviso .cuando {
+  padding: 5px 9px;
+  border: 1px solid var(--line2);
+  border-radius: 9px;
+  background: var(--panel);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.horas-aviso .cuando.termina {
+  color: var(--tx3);
+  font-weight: 700;
+}
+
+.horas-aviso .hasta,
+.horas-aviso .min {
+  font-size: 11.5px;
+  color: var(--tx3);
+}
+
+.horas-aviso .sacar {
+  margin-left: auto;
+}
+
+.horas-aviso > .chips {
+  margin-top: 11px;
+}
+
+.horas-aviso > .pie {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--tx3);
+  line-height: 1.45;
+}
+
 .campos-aviso > .titulo-aviso {
   grid-column: 1 / -1;
 }

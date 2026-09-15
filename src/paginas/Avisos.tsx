@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 // La misma función que arma el título cuando el aviso sale de verdad: si el simulador tuviera su
 // propia copia, tarde o temprano muestran cosas distintas.
-import { comoTitulo, type Titulo } from '../../worker/avisos';
+import { comoTitulo, type HoraAviso, type Titulo } from '../../worker/avisos';
 import { Alerta, Mas, Reloj, Tacho, Tilde } from '../iconos';
 
 /**
@@ -22,9 +22,11 @@ interface Aviso {
   emoji: string;
   titulo: Titulo;
   dias: number[];
-  horas: number[];
+  horas: HoraAviso[];
   antes: number[];
   mensaje: string;
+  alEmpezar: boolean;
+  mensajeInicio: string;
   activo: boolean;
 }
 
@@ -48,6 +50,9 @@ const ESTILOS: Array<[Titulo, string, string]> = [
   ['bandera', 'Bandera', 'Letras anchas con una regla arriba y abajo'],
 ];
 
+/** Lo que dura un evento nuevo hasta que le digan otra cosa. */
+const DURA_DE_FABRICA = 10;
+
 /** Los de siempre, para no tener que salir a buscar uno. */
 const EMOJIS = ['⚔️', '🏰', '👑', '🔥', '💀', '🐉', '⭐', '🗡️', '🛡️', '📣'];
 
@@ -59,6 +64,8 @@ const MARCAS: Array<[string, string]> = [
   ['{evento}', 'el nombre, tal cual'],
   ['{hora}', 'la hora de arranque'],
   ['{falta}', 'cuánto falta'],
+  ['{termina}', 'a qué hora termina'],
+  ['{dura}', 'cuánto dura'],
   ['{dia}', 'hoy, mañana, el domingo'],
 ];
 
@@ -85,11 +92,13 @@ const comoFalta = (minutos: number) => {
   return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
 };
 
-const armarMensaje = (plantilla: string, aviso: Aviso, hora: number, antes: number, dia: string) =>
+const armarMensaje = (plantilla: string, aviso: Aviso, cae: HoraAviso, antes: number, dia: string) =>
   plantilla
     .replace(/\{titulo\}/g, comoTitulo(aviso.nombre, aviso.titulo, aviso.emoji))
     .replace(/\{evento\}/g, aviso.nombre || 'el evento')
-    .replace(/\{hora\}/g, comoHora(hora))
+    .replace(/\{hora\}/g, comoHora(cae.minutos))
+    .replace(/\{termina\}/g, comoHora(cae.minutos + cae.dura))
+    .replace(/\{dura\}/g, comoFalta(cae.dura))
     .replace(/\{falta\}/g, comoFalta(antes))
     .replace(/\{dia\}/g, dia);
 
@@ -158,14 +167,14 @@ const MARCAS_RESUMEN: Array<[string, string]> = [
 function armarResumen(avisos: Aviso[], plantilla: string, diaSemana: number, fecha: Date): string {
   const delDia = avisos
     .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
-    .sort((a, b) => Math.min(...a.horas) - Math.min(...b.horas));
+    .sort((a, b) => Math.min(...a.horas.map((h) => h.minutos)) - Math.min(...b.horas.map((h) => h.minutos)));
 
   const lista =
     delDia.length === 0
       ? 'Hoy no hay eventos cargados.'
       : delDia
           .map((a) => {
-            const horas = a.horas.map(comoHora);
+            const horas = a.horas.map((h) => comoHora(h.minutos));
             const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
             return `${a.emoji || '•'} *${a.nombre}* — ${cuando}`;
           })
@@ -453,6 +462,16 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const tocar = (id: number, cambios: Partial<Aviso>) =>
     setLista((previos) => previos.map((a) => (a.id === id ? { ...a, ...cambios } : a)));
 
+  /** Agregar un horario escrito a mano. Devuelve si se entendió lo que se escribió. */
+  const sumarHora = (a: Aviso, crudo: string): boolean => {
+    const m = leerHora(crudo);
+    if (m === null || a.horas.some((h) => h.minutos === m)) return false;
+    tocar(a.id, {
+      horas: [...a.horas, { minutos: m, dura: DURA_DE_FABRICA }].sort((x, y) => x.minutos - y.minutos),
+    });
+    return true;
+  };
+
   const igual = (a: Aviso, b?: Aviso) =>
     !!b &&
     a.nombre === b.nombre &&
@@ -461,7 +480,10 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
     a.mensaje === b.mensaje &&
     a.activo === b.activo &&
     a.dias.join() === b.dias.join() &&
-    a.horas.join() === b.horas.join() &&
+    a.alEmpezar === b.alEmpezar &&
+    a.mensajeInicio === b.mensajeInicio &&
+    a.horas.map((h) => `${h.minutos}:${h.dura}`).join() ===
+      b.horas.map((h) => `${h.minutos}:${h.dura}`).join() &&
     a.antes.join() === b.antes.join();
 
   /** Si este evento tiene cambios que todavía no se mandaron. */
@@ -512,6 +534,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
           horas: a.horas,
           antes: a.antes,
           mensaje: a.mensaje,
+          alEmpezar: a.alEmpezar,
+          mensajeInicio: a.mensajeInicio,
           activo: a.activo,
         },
       }),
@@ -560,6 +584,13 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   }
 
   const elSimulado = lista.find((a) => a.id === mirando) ?? lista[0] ?? null;
+
+  // Los momentos en que este evento avisa: los recordatorios de antes, y el arranque si está puesto.
+  const momentos = elSimulado
+    ? [...(elSimulado.antes.length > 0 ? elSimulado.antes : [15]), ...(elSimulado.alEmpezar ? [0] : [])]
+    : [];
+  const elMomento = momentos.includes(conAntes) ? conAntes : (momentos[0] ?? 15);
+  const cae = elSimulado?.horas[0] ?? { minutos: 780, dura: 10 };
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 980 }}>
@@ -679,21 +710,42 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 </div>
               </div>
 
-              <div>
-                <span className="etiqueta">A qué hora (del servidor)</span>
-                <div className="chips">
-                  {a.horas.map((h) => (
+              <div className="horas-aviso">
+                <span className="etiqueta">A qué hora cae y cuánto dura</span>
+
+                {a.horas.map((h) => (
+                  <div key={h.minutos} className="hora-dura">
+                    <span className="num cuando">{comoHora(h.minutos)}</span>
+                    <span className="hasta">a</span>
+                    <span className="num cuando termina">{comoHora(h.minutos + h.dura)}</span>
+                    <input
+                      className="campo campo-chico"
+                      style={{ width: 58, textAlign: 'center' }}
+                      value={String(h.dura)}
+                      disabled={ocupado}
+                      inputMode="numeric"
+                      title="Cuánto dura, en minutos"
+                      onChange={(e) => {
+                        const d = Math.min(360, Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1));
+                        tocar(a.id, {
+                          horas: a.horas.map((x) => (x.minutos === h.minutos ? { ...x, dura: d } : x)),
+                        });
+                      }}
+                    />
+                    <span className="min">min</span>
                     <button
-                      key={h}
                       type="button"
-                      className="chip-lista dentro"
+                      className="chip-lista sacar"
                       disabled={ocupado}
                       title="Sacar este horario"
-                      onClick={() => tocar(a.id, { horas: a.horas.filter((x) => x !== h) })}
+                      onClick={() => tocar(a.id, { horas: a.horas.filter((x) => x.minutos !== h.minutos) })}
                     >
-                      {comoHora(h)} ✕
+                      ✕
                     </button>
-                  ))}
+                  </div>
+                ))}
+
+                <div className="chips">
                   <input
                     className="campo campo-chico"
                     style={{ width: 88 }}
@@ -701,22 +753,18 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                     disabled={ocupado}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return;
-                      const m = leerHora(e.currentTarget.value);
-                      if (m === null) return;
-                      tocar(a.id, { horas: [...new Set([...a.horas, m])].sort((x, y) => x - y) });
-                      e.currentTarget.value = '';
+                      if (sumarHora(a, e.currentTarget.value)) e.currentTarget.value = '';
                     }}
                     onBlur={(e) => {
-                      const m = leerHora(e.target.value);
-                      if (m === null) {
-                        e.target.value = '';
-                        return;
-                      }
-                      tocar(a.id, { horas: [...new Set([...a.horas, m])].sort((x, y) => x - y) });
+                      sumarHora(a, e.target.value);
                       e.target.value = '';
                     }}
                   />
                 </div>
+
+                <p className="pie">
+                  Los avisos de este evento se borran solos del grupo cuando termina.
+                </p>
               </div>
 
               <div className="titulo-aviso">
@@ -853,6 +901,37 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 placeholder="⚔️ *{evento}* en {falta}…"
                 style={{ padding: 12, minHeight: 96, lineHeight: 1.5, resize: 'vertical', marginTop: 6 }}
               />
+            </div>
+
+            {/* El aviso del momento en que arranca, que es el único que no habla del futuro. */}
+            <div className="texto-aviso">
+              <div className="arriba">
+                <span className="etiqueta">El texto de cuando arranca</span>
+                <button
+                  type="button"
+                  className={`btn btn-chico${a.alEmpezar ? ' btn-ok' : ''}`}
+                  disabled={ocupado}
+                  title={
+                    a.alEmpezar
+                      ? 'Se avisa en el momento en que arranca'
+                      : 'No se avisa cuando arranca, solo los recordatorios de antes'
+                  }
+                  onClick={() => tocar(a.id, { alEmpezar: !a.alEmpezar })}
+                >
+                  {a.alEmpezar ? 'Se avisa' : 'No se avisa'}
+                </button>
+              </div>
+              {a.alEmpezar && (
+                <textarea
+                  className="campo"
+                  rows={3}
+                  value={a.mensajeInicio}
+                  disabled={ocupado}
+                  onChange={(e) => tocar(a.id, { mensajeInicio: e.target.value })}
+                  placeholder="{titulo}&#10;&#10;🟢 *Arrancó.* Hasta las *{termina}*."
+                  style={{ padding: 12, minHeight: 78, lineHeight: 1.5, resize: 'vertical', marginTop: 6 }}
+                />
+              )}
             </div>
 
             <div className="pie-aviso">
@@ -1063,14 +1142,15 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
             {!verResumen &&
-              (elSimulado.antes.length > 0 ? elSimulado.antes : [15]).map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`chip-lista${conAntes === n ? ' dentro' : ''}`}
-                onClick={() => setConAntes(n)}
-              >
-                <Reloj tam={12} /> {n === 60 ? '1 hora antes' : `${n} min antes`}
+              momentos.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`chip-lista${elMomento === n ? ' dentro' : ''}`}
+                  onClick={() => setConAntes(n)}
+                >
+                  <Reloj tam={12} />{' '}
+                  {n === 0 ? 'cuando arranca' : n === 60 ? '1 hora antes' : `${n} min antes`}
                 </button>
               ))}
             {verResumen && resumen && (
@@ -1095,24 +1175,16 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                     verResumen && resumen
                       ? armarResumen(lista, resumen.texto, new Date().getDay(), new Date())
                       : armarMensaje(
-                          elSimulado.mensaje,
+                          elMomento === 0 ? elSimulado.mensajeInicio : elSimulado.mensaje,
                           elSimulado,
-                          elSimulado.horas[0] ?? 780,
-                          (elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15,
+                          cae,
+                          elMomento,
                           'hoy',
                         ),
                   )}
                 </div>
                 <div className="hora">
-                  {verResumen && resumen
-                    ? comoHora(resumen.hora)
-                    : comoHora(
-                        Math.max(
-                          0,
-                          (elSimulado.horas[0] ?? 780) -
-                            ((elSimulado.antes.includes(conAntes) ? conAntes : elSimulado.antes[0]) ?? 15),
-                        ),
-                      )}
+                  {verResumen && resumen ? comoHora(resumen.hora) : comoHora(Math.max(0, cae.minutos - elMomento))}
                 </div>
               </div>
             </div>
@@ -1134,11 +1206,14 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               <>
                 Con lo cargado salen{' '}
                 <b style={{ color: 'var(--oro)' }}>
-                  {elSimulado.dias.length * elSimulado.horas.length * elSimulado.antes.length} avisos por semana
+                  {elSimulado.dias.length * elSimulado.horas.length * momentos.length} avisos por semana
                 </b>
                 : {elSimulado.dias.length === 7 ? 'todos los días' : elSimulado.dias.map((d) => DIAS_LARGOS[d]).join(', ')}
-                , a las {elSimulado.horas.map(comoHora).join(' y ')}, con{' '}
-                {elSimulado.antes.map((n) => (n === 60 ? '1 hora' : `${n} min`)).join(' y ')} de anticipación.
+                ,{' '}
+                {elSimulado.horas
+                  .map((h) => `de ${comoHora(h.minutos)} a ${comoHora(h.minutos + h.dura)}`)
+                  .join(' y ')}
+                . Cada uno se borra del grupo cuando el evento termina.
               </>
             )}
           </div>

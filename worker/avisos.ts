@@ -16,6 +16,24 @@ const DIA_MIN = 1440;
 /** El recordatorio más temprano que tiene sentido. Más de una hora antes nadie lo registra. */
 export const ANTES_MAXIMO = 60;
 
+/** Lo que dura un evento si nadie dijo otra cosa. */
+export const DURA_POR_DEFECTO = 10;
+/** Seis horas. Más que eso no es un evento, es un día. */
+export const DURA_MAXIMA = 360;
+
+/**
+ * Una de las horas en las que cae el evento, con lo que dura esa vez.
+ *
+ * La duración va por horario y no por evento porque el mismo evento no siempre dura lo mismo: el
+ * Kundun del mediodía son diez minutos y el de la noche quince.
+ */
+export interface HoraAviso {
+  /** Hora del servidor, en minutos desde medianoche. */
+  minutos: number;
+  /** Cuánto dura, en minutos. */
+  dura: number;
+}
+
 export interface Aviso {
   id: number;
   /** Cómo se llama el evento en el aviso: "Kundun", "Asedio al castillo". */
@@ -26,8 +44,12 @@ export interface Aviso {
   titulo: Titulo;
   /** Días de la semana en que cae, 0 = domingo. Vacío = ninguno, o sea apagado de hecho. */
   dias: number[];
-  /** Horas del servidor, en minutos desde medianoche. */
-  horas: number[];
+  /** En qué horas del servidor cae, y cuánto dura cada vez. */
+  horas: HoraAviso[];
+  /** Si además se avisa en el momento en que arranca. */
+  alEmpezar: boolean;
+  /** El texto de ese aviso. Vacío = el de fábrica. */
+  mensajeInicio: string;
   /** Cuánto antes avisar, en minutos. 60 = una hora antes. Ordenados de mayor a menor. */
   antes: number[];
   /** El texto que se manda, con marcas entre llaves. */
@@ -106,6 +128,8 @@ export const MARCAS: Array<[string, string]> = [
   ['{evento}', 'El nombre del evento, tal cual'],
   ['{hora}', 'A qué hora arranca, en hora del servidor'],
   ['{falta}', 'Cuánto falta: "1 hora", "30 minutos"'],
+  ['{termina}', 'A qué hora termina'],
+  ['{dura}', 'Cuánto dura: "10 minutos"'],
   ['{dia}', 'Qué día cae: "hoy", "mañana", "el domingo"'],
 ];
 
@@ -134,10 +158,21 @@ export function comoHora(minutos: number): string {
  */
 export function armarMensaje(
   plantilla: string,
-  datos: { evento: string; hora: number; antes: number; dia?: string; emoji?: string; estilo?: Titulo },
+  datos: {
+    evento: string;
+    hora: number;
+    antes: number;
+    dia?: string;
+    emoji?: string;
+    estilo?: Titulo;
+    dura?: number;
+  },
 ): string {
+  const dura = datos.dura ?? DURA_POR_DEFECTO;
   return plantilla
     .replace(/\{titulo\}/g, comoTitulo(datos.evento, datos.estilo ?? 'simple', datos.emoji ?? ''))
+    .replace(/\{termina\}/g, comoHora(datos.hora + dura))
+    .replace(/\{dura\}/g, comoFalta(dura))
     .replace(/\{evento\}/g, datos.evento)
     .replace(/\{hora\}/g, comoHora(datos.hora))
     .replace(/\{falta\}/g, comoFalta(datos.antes))
@@ -159,6 +194,16 @@ export function mensajePorDefecto(_nombre?: string): string {
     '',
     '_Prepárense que después no hay excusas._',
   ].join('\n');
+}
+
+/**
+ * El texto de fábrica para el momento en que arranca.
+ *
+ * Es el único aviso que no habla del futuro, así que no lleva {falta}: lo que importa es hasta
+ * cuándo hay tiempo.
+ */
+export function mensajeInicioPorDefecto(): string {
+  return ['{titulo}', '', '🟢 *Arrancó.* Hay tiempo hasta las *{termina}*, hora del servidor.'].join('\n');
 }
 
 // ── El resumen de la mañana ──────────────────────────────────────────────────
@@ -209,7 +254,7 @@ export function armarResumen(
 
   const delDia = avisos
     .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
-    .map((a) => ({ ...a, primera: Math.min(...a.horas) }))
+    .map((a) => ({ ...a, primera: Math.min(...a.horas.map((h) => h.minutos)) }))
     .sort((a, b) => a.primera - b.primera);
 
   const lista =
@@ -217,7 +262,7 @@ export function armarResumen(
       ? 'Hoy no hay eventos cargados.'
       : delDia
           .map((a) => {
-            const horas = a.horas.map(comoHora);
+            const horas = a.horas.map((h) => comoHora(h.minutos));
             const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
             return `${a.emoji || '•'} *${a.nombre}* — ${cuando}`;
           })
@@ -237,6 +282,8 @@ export interface FilaAviso {
   nombre: string;
   emoji: string;
   titulo: string;
+  al_empezar: number;
+  mensaje_inicio: string;
   dias: string;
   horas: string;
   antes: string;
@@ -244,6 +291,29 @@ export interface FilaAviso {
   activo: number;
   orden: number;
 }
+
+/**
+ * Las horas guardadas: "780:10,1245:15" es 13:00 durando diez minutos y 20:45 durando quince.
+ *
+ * Un número pelado —como se guardaba antes de que la duración existiera— vale igual y toma la
+ * duración de fábrica, así no hay que reescribir lo que ya estaba.
+ */
+export function leerHoras(crudo: string): HoraAviso[] {
+  const vistas = new Map<number, number>();
+  for (const trozo of crudo.split(',')) {
+    const [h, d] = trozo.split(':');
+    const minutos = Number((h ?? '').trim());
+    if (!Number.isFinite(minutos) || minutos < 0 || minutos >= DIA_MIN) continue;
+    const dura = Number((d ?? '').trim());
+    vistas.set(minutos, Number.isFinite(dura) && dura >= 1 && dura <= DURA_MAXIMA ? dura : DURA_POR_DEFECTO);
+  }
+  return [...vistas.entries()]
+    .map(([minutos, dura]) => ({ minutos, dura }))
+    .sort((a, b) => a.minutos - b.minutos);
+}
+
+export const comoGuardadasHoras = (horas: HoraAviso[]): string =>
+  horas.map((h) => `${h.minutos}:${h.dura}`).join(',');
 
 const numeros = (crudo: string): number[] =>
   crudo
@@ -258,11 +328,28 @@ export function comoAviso(fila: FilaAviso): Aviso {
     emoji: fila.emoji ?? '',
     titulo: esTitulo(fila.titulo) ? fila.titulo : 'simple',
     dias: [...new Set(numeros(fila.dias).filter((d) => d >= 0 && d <= 6))].sort((a, b) => a - b),
-    horas: [...new Set(numeros(fila.horas).filter((h) => h >= 0 && h < DIA_MIN))].sort((a, b) => a - b),
+    horas: leerHoras(fila.horas),
+    alEmpezar: (fila.al_empezar ?? 1) === 1,
+    mensajeInicio: fila.mensaje_inicio || mensajeInicioPorDefecto(),
     antes: [...new Set(numeros(fila.antes).filter((a) => a >= 1 && a <= ANTES_MAXIMO))].sort((a, b) => b - a),
     mensaje: fila.mensaje,
     activo: fila.activo === 1,
   };
+}
+
+/** Las horas como las manda el panel: [{minutos, dura}], o números pelados de una versión vieja. */
+function leerHorasDelPanel(crudo: unknown): HoraAviso[] {
+  if (!Array.isArray(crudo)) return [];
+  const vistas = new Map<number, number>();
+  for (const x of crudo) {
+    const minutos = typeof x === 'number' ? x : Number((x as { minutos?: unknown })?.minutos);
+    if (!Number.isInteger(minutos) || minutos < 0 || minutos >= DIA_MIN) continue;
+    const dura = Number((x as { dura?: unknown })?.dura);
+    vistas.set(minutos, Number.isInteger(dura) && dura >= 1 && dura <= DURA_MAXIMA ? dura : DURA_POR_DEFECTO);
+  }
+  return [...vistas.entries()]
+    .map(([minutos, dura]) => ({ minutos, dura }))
+    .sort((a, b) => a.minutos - b.minutos);
 }
 
 /** Lo que llega del panel, limpio. Devuelve null si no se entiende algo que no se puede inventar. */
@@ -285,7 +372,12 @@ export function leerAviso(crudo: unknown): Omit<Aviso, 'id'> | null {
     emoji: typeof x.emoji === 'string' ? [...x.emoji.trim()].slice(0, 3).join('') : '',
     titulo: esTitulo(x.titulo) ? x.titulo : 'simple',
     dias: lista(x.dias, 0, 6).sort((a, b) => a - b),
-    horas: lista(x.horas, 0, DIA_MIN - 1).sort((a, b) => a - b),
+    horas: leerHorasDelPanel(x.horas),
+    alEmpezar: x.alEmpezar !== false,
+    mensajeInicio:
+      typeof x.mensajeInicio === 'string' && x.mensajeInicio.trim()
+        ? x.mensajeInicio.slice(0, 1000)
+        : mensajeInicioPorDefecto(),
     // Sin ningún recordatorio el aviso no existe: por lo menos uno, quince minutos antes.
     antes: antes.length > 0 ? antes : [15],
     mensaje: typeof x.mensaje === 'string' ? x.mensaje.slice(0, 1000) : mensajePorDefecto(nombre),
@@ -300,7 +392,14 @@ export interface Disparo {
   cuando: Date;
   /** A qué hora arranca el evento que se está anunciando. */
   empieza: Date;
-  /** Cuántos minutos antes es este aviso. */
+  /**
+   * Cuándo termina el evento, que es cuándo este mensaje se borra del grupo.
+   *
+   * Un recordatorio de algo que ya pasó es basura en el chat: el aviso vive lo que vive el evento
+   * y después se va solo, igual que los ensayos.
+   */
+  termina: Date;
+  /** Cuántos minutos antes es este aviso. 0 = es el de "arrancó". */
   antes: number;
   /** El texto ya armado. */
   texto: string;
@@ -332,22 +431,28 @@ export function disparosEntre(
     if (!aviso.dias.includes(diaSemana)) continue;
 
     for (const h of aviso.horas) {
-      const empieza = new Date(medianoche + h * MIN);
+      const empieza = new Date(medianoche + h.minutos * MIN);
+      const termina = new Date(empieza.getTime() + h.dura * MIN);
+
+      const armar = (plantilla: string, antes: number) =>
+        armarMensaje(plantilla, {
+          evento: aviso.nombre,
+          hora: h.minutos,
+          antes,
+          emoji: aviso.emoji,
+          estilo: aviso.titulo,
+          dura: h.dura,
+        });
+
       for (const antes of aviso.antes) {
         const cuando = new Date(empieza.getTime() - antes * MIN);
         if (cuando < desde || cuando > hasta) continue;
-        salida.push({
-          cuando,
-          empieza,
-          antes,
-          texto: armarMensaje(aviso.mensaje, {
-            evento: aviso.nombre,
-            hora: h,
-            antes,
-            emoji: aviso.emoji,
-            estilo: aviso.titulo,
-          }),
-        });
+        salida.push({ cuando, empieza, termina, antes, texto: armar(aviso.mensaje, antes) });
+      }
+
+      // Y el de "arrancó", que va justo cuando empieza.
+      if (aviso.alEmpezar && empieza >= desde && empieza <= hasta) {
+        salida.push({ cuando: empieza, empieza, termina, antes: 0, texto: armar(aviso.mensajeInicio, 0) });
       }
     }
   }
