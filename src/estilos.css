@@ -1777,6 +1777,17 @@ select {
   padding: 16px 15px 15px;
 }
 
+/*
+ * Un evento con cambios que todavía no se mandaron.
+ *
+ * El borde lo dice antes que el botón: tildar recordatorios y no guardar se ve igual que tildarlos
+ * y guardar, y así se pierden sin que nadie se entere.
+ */
+.aviso-evento.sin-guardar {
+  border-color: var(--oroLn);
+  box-shadow: 0 0 0 1px var(--oroLn), var(--sh);
+}
+
 .aviso-evento.apagado {
   opacity: 0.6;
 }

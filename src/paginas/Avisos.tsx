@@ -187,7 +187,7 @@ interface ChatVisto {
  * único que se elige desde la pantalla es a qué chat mandar, que se descubre mirando dónde le
  * hablaron al bot —Telegram no tiene forma de listar los grupos de un bot—.
  */
-function Bot({ alError }: { alError: (m: string) => void }) {
+function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (prendidos: boolean) => void }) {
   const [estado, setEstado] = useState<EstadoBot | null>(null);
   const [chats, setChats] = useState<ChatVisto[] | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -205,6 +205,12 @@ function Bot({ alError }: { alError: (m: string) => void }) {
     void traer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Que los eventos de abajo sepan si lo que configuran sale de verdad o queda guardado nomás.
+  useEffect(() => {
+    if (estado) alSaber(estado.activo && estado.conToken && !!estado.chat && !estado.problema);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado?.activo, estado?.conToken, estado?.chat, estado?.problema]);
 
   async function correr(fn: () => Promise<void>) {
     setOcupado(true);
@@ -378,6 +384,10 @@ function Bot({ alError }: { alError: (m: string) => void }) {
 
 export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [lista, setLista] = useState<Aviso[]>([]);
+  /** Cada evento tal como está guardado, para saber qué se tocó y todavía no se mandó. */
+  const [guardado, setGuardado] = useState<Record<number, Aviso>>({});
+  /** Si el bot manda de verdad. null mientras no se sabe. */
+  const [prendidos, setPrendidos] = useState<boolean | null>(null);
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -396,7 +406,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   async function traer() {
     try {
       const r = await api<{ avisos: Aviso[]; resumen: Resumen }>('/avisos');
-      setLista(r.avisos);
+      asentar(r.avisos);
       setResumen(r.resumen);
       setMirando((previo) => previo ?? r.avisos[0]?.id ?? null);
     } catch (e) {
@@ -415,12 +425,42 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const tocar = (id: number, cambios: Partial<Aviso>) =>
     setLista((previos) => previos.map((a) => (a.id === id ? { ...a, ...cambios } : a)));
 
-  async function correr(fn: () => Promise<{ avisos: Aviso[]; resumen?: Resumen; aviso?: string }>) {
+  const igual = (a: Aviso, b?: Aviso) =>
+    !!b &&
+    a.nombre === b.nombre &&
+    a.mensaje === b.mensaje &&
+    a.activo === b.activo &&
+    a.dias.join() === b.dias.join() &&
+    a.horas.join() === b.horas.join() &&
+    a.antes.join() === b.antes.join();
+
+  /** Si este evento tiene cambios que todavía no se mandaron. */
+  const sucio = (a: Aviso) => !igual(a, guardado[a.id]);
+
+  /**
+   * La lista que vuelve del servidor, sin pisar lo que se está editando.
+   *
+   * Cualquier acción —guardar otro evento, borrar, crear— devuelve los avisos enteros. Volcar eso
+   * en pantalla se lleva puestos, sin decir nada, los cambios sin guardar del evento de al lado:
+   * se tildan tres recordatorios en uno, se guarda el otro, y los tildes desaparecen como si nunca
+   * hubieran estado. Los que tienen cambios a medio hacer se quedan como están; el que se acaba de
+   * guardar toma la versión del servidor, que es la que vale.
+   */
+  const asentar = (avisos: Aviso[], recien?: number) => {
+    const aMedias = new Map(lista.filter((a) => a.id !== recien && sucio(a)).map((a) => [a.id, a]));
+    setLista(avisos.map((a) => aMedias.get(a.id) ?? a));
+    setGuardado(Object.fromEntries(avisos.map((a) => [a.id, a])));
+  };
+
+  async function correr(
+    fn: () => Promise<{ avisos: Aviso[]; resumen?: Resumen; aviso?: string }>,
+    recien?: number,
+  ) {
     setOcupado(true);
     alError('');
     try {
       const r = await fn();
-      setLista(r.avisos);
+      asentar(r.avisos, recien);
       if (r.resumen) setResumen(r.resumen);
       setAviso(r.aviso ?? '');
     } catch (e) {
@@ -443,6 +483,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
           activo: a.activo,
         },
       }),
+      a.id,
     );
 
   async function redactar(a: Aviso) {
@@ -465,7 +506,17 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 980 }}>
-      <Bot alError={alError} />
+      <Bot alError={alError} alSaber={setPrendidos} />
+
+      {prendidos === false && (
+        <div className="aviso mal" style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <Alerta tam={18} />
+          <span>
+            <b>Los avisos no están saliendo.</b> Acá abajo se puede configurar todo igual, y se guarda
+            igual, pero al grupo no llega nada hasta que el bot esté prendido, ahí arriba.
+          </span>
+        </div>
+      )}
 
       <section className="panel subir" style={{ padding: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -504,7 +555,10 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
         <div className="vacio">Todavía no hay ningún evento. Agregá el primero.</div>
       ) : (
         lista.map((a) => (
-          <section key={a.id} className={`panel subir aviso-evento${a.activo ? '' : ' apagado'}`}>
+          <section
+            key={a.id}
+            className={`panel subir aviso-evento${a.activo ? '' : ' apagado'}${sucio(a) ? ' sin-guardar' : ''}`}
+          >
             <div className="encabezado">
               <input
                 className="campo"
@@ -720,8 +774,15 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               >
                 Ver en el simulador
               </button>
-              <button type="button" className="btn btn-oro btn-chico" disabled={ocupado} onClick={() => void guardar(a)}>
-                Guardar
+              {sucio(a) && <span className="pastilla av">sin guardar</span>}
+              <button
+                type="button"
+                className={`btn btn-chico${sucio(a) ? ' btn-oro' : ''}`}
+                disabled={ocupado || !sucio(a)}
+                title={sucio(a) ? 'Mandar los cambios' : 'No hay nada nuevo para guardar'}
+                onClick={() => void guardar(a)}
+              >
+                {sucio(a) ? 'Guardar cambios' : 'Guardado'}
               </button>
             </div>
 
