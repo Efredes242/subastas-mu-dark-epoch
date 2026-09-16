@@ -41,6 +41,8 @@ import {
   comoAviso,
   comoGuardadasHoras,
   laVezQueAnuncia,
+  type Aviso,
+  type Disparo,
   disparosEntre,
   RESUMEN_POR_DEFECTO,
   comoHora as comoHoraAviso,
@@ -1864,6 +1866,26 @@ const programado = async (env: Env) => {
 };
 
 /**
+ * Cuánto se mira hacia adelante, y cuánto se puede esperar despierto.
+ *
+ * Cloudflare no despierta al Worker en el segundo cero: medido sobre los avisos que ya salieron,
+ * llega entre 48 y 89 segundos tarde. Los de menos de un minuto caían en la hora justa de casualidad
+ * y los de más se publicaban un minuto después — un "arrancó" a las 13:01 de algo que empezó a las
+ * 13:00.
+ *
+ * Así que en vez de mandar lo que ya venció, se mira un minuto y medio hacia adelante y se espera
+ * despierto hasta el momento exacto. Esperar sale gratis: el límite de un cron es de CPU, y dormir
+ * no gasta CPU.
+ */
+const ESPERA_MAXIMA = 90_000;
+
+const esperarHasta = async (cuando: Date): Promise<void> => {
+  const faltan = cuando.getTime() - Date.now();
+  if (faltan <= 0) return;
+  await new Promise((listo) => setTimeout(listo, Math.min(faltan, ESPERA_MAXIMA)));
+};
+
+/**
  * Sacar del grupo los avisos anteriores de este mismo evento.
  *
  * Se llama después de mandar el nuevo, así que lo único que queda es el último. Si Telegram no
@@ -1926,8 +1948,17 @@ async function mandarResumen(env: Env, ahora: Date): Promise<boolean> {
   // En qué minuto del día del servidor estamos.
   const local = new Date(ahora.getTime() + ajustes.horario.offsetServidor * 3_600_000);
   const minutoDelDia = local.getUTCHours() * 60 + local.getUTCMinutes();
-  // Una ventana de dos minutos, por si el cron llegó tarde.
-  if (minutoDelDia < ajustes.resumen.hora || minutoDelDia > ajustes.resumen.hora + 2) return false;
+
+  // La ventana arranca un poco antes de la hora para poder esperar hasta el minuto exacto, y se
+  // estira un par de minutos para atrás por si el cron llegó tarde de verdad.
+  const faltanMin = ajustes.resumen.hora - minutoDelDia;
+  if (faltanMin > ESPERA_MAXIMA / 60_000 || faltanMin < -2) return false;
+
+  if (faltanMin > 0) {
+    const aLaHora = new Date(ahora.getTime() + faltanMin * 60_000);
+    aLaHora.setUTCSeconds(0, 0);
+    await esperarHasta(aLaHora);
+  }
 
   const clave = `resumen-${local.toISOString().slice(0, 10)}`;
   const puesto = await env.DB.prepare(
@@ -1971,46 +2002,62 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
   if (results.length === 0) return 0;
 
   const desde = new Date(ahora.getTime() - 2 * 60_000);
-  let mandados = 0;
+  const hasta = new Date(ahora.getTime() + ESPERA_MAXIMA);
 
+  // Todos juntos y en orden de salida: si dos caen casi a la vez, esperar por el primero no
+  // tiene que retrasar al segundo más de lo que ya se retrasó solo.
+  const salidas: Array<{ aviso: Aviso; d: Disparo }> = [];
   for (const fila of results) {
     const aviso = comoAviso(fila);
-    for (const d of disparosEntre(aviso, desde, ahora, ajustes.horario.offsetServidor)) {
-      const clave = d.cuando.toISOString().slice(0, 16);
-      const puesto = await env.DB.prepare(
-        'INSERT INTO avisos_enviados (aviso_id, clave) VALUES (?, ?) ON CONFLICT DO NOTHING',
-      )
+    for (const d of disparosEntre(aviso, desde, hasta, ajustes.horario.offsetServidor)) {
+      salidas.push({ aviso, d });
+    }
+  }
+  salidas.sort((a, b) => a.d.cuando.getTime() - b.d.cuando.getTime());
+
+  let mandados = 0;
+
+  for (const { aviso, d } of salidas) {
+    // La parte fina: esperar hasta el segundo exacto antes de mandar.
+    await esperarHasta(d.cuando);
+
+    // Recién ahora se marca. Antes sería peor: si el Worker se muere durante la espera,
+    // quedaría marcado un aviso que nunca salió. Y como el INSERT es atómico, si dos
+    // despertadas se solapan esperando lo mismo, manda una sola.
+    const clave = d.cuando.toISOString().slice(0, 16);
+    const puesto = await env.DB.prepare(
+      'INSERT INTO avisos_enviados (aviso_id, clave) VALUES (?, ?) ON CONFLICT DO NOTHING',
+    )
+      .bind(aviso.id, clave)
+      .run();
+    if ((puesto.meta.changes ?? 0) === 0) continue;
+
+    try {
+      const mensajeId = await mandar(token, ajustes.telegram.chat, d.texto);
+      mandados++;
+
+      // El aviso vive lo que vive el evento: después es basura en el chat, así que se anota
+      // para que el mismo cron que borra los ensayos lo levante cuando termine. Y mientras
+      // tanto reemplaza al anterior del mismo evento, así en el grupo hay uno solo y no una
+      // pila de recordatorios diciendo lo mismo con distinto número.
+      //
+      // El orden importa: primero sale el nuevo —que suena, para eso está— y recién después se
+      // borra el viejo. Al revés quedaría un hueco sin ningún aviso a la vista.
+      if (mensajeId > 0) {
+        const laVez = laVezQueAnuncia(aviso.id, d.empieza);
+        await env.DB.prepare(
+          'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
+        )
+          .bind(ajustes.telegram.chat, mensajeId, d.termina.toISOString(), laVez)
+          .run();
+        await borrarLosAnteriores(env, token, laVez, mensajeId);
+      }
+    } catch (e) {
+      // Si no salió, se borra la marca para que el próximo minuto lo reintente.
+      await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = ? AND clave = ?')
         .bind(aviso.id, clave)
         .run();
-      if ((puesto.meta.changes ?? 0) === 0) continue;
-
-      try {
-        const mensajeId = await mandar(token, ajustes.telegram.chat, d.texto);
-        mandados++;
-
-        // El aviso vive lo que vive el evento: después es basura en el chat, así que se anota
-        // para que el mismo cron que borra los ensayos lo levante cuando termine. Y mientras
-        // tanto reemplaza al anterior del mismo evento, así en el grupo hay uno solo y no una
-        // pila de recordatorios diciendo lo mismo con distinto número.
-        //
-        // El orden importa: primero sale el nuevo —que suena, para eso está— y recién después se
-        // borra el viejo. Al revés quedaría un hueco sin ningún aviso a la vista.
-        if (mensajeId > 0) {
-          const laVez = laVezQueAnuncia(aviso.id, d.empieza);
-          await env.DB.prepare(
-            'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
-          )
-            .bind(ajustes.telegram.chat, mensajeId, d.termina.toISOString(), laVez)
-            .run();
-          await borrarLosAnteriores(env, token, laVez, mensajeId);
-        }
-      } catch (e) {
-        // Si no salió, se borra la marca para que el próximo minuto lo reintente.
-        await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = ? AND clave = ?')
-          .bind(aviso.id, clave)
-          .run();
-        console.error('aviso sin mandar:', aviso.nombre, e);
-      }
+      console.error('aviso sin mandar:', aviso.nombre, e);
     }
   }
 

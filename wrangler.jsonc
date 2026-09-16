@@ -6,9 +6,19 @@
   "workers_dev": true,
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Los archivos de la app. `single-page-application` hace que cualquier ruta que no sea un
+  // archivo devuelva el index.html, que es lo que necesita un router del lado del cliente.
+  //
+  // Pero esa regla la aplica Cloudflare ANTES del Worker, y solo cuando el pedido es una
+  // navegación —cuando el navegador pide una página, no cuando busca datos—. Así que
+  // `/api/auth/google` contestaba con la pantalla de entrada en vez de mandar a Google: el
+  // Worker ni se enteraba. Era imposible de ver con curl, que no pide como una navegación.
+  //
+  // `run_worker_first` deja al Worker adelante para todo lo que sea de la API.
   "assets": {
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   },
   "d1_databases": [
     {
