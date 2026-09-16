@@ -11,3 +11,6 @@ dist/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Las credenciales que Google deja descargar. Nunca en el repo, que es público.
+client_secret*.json
