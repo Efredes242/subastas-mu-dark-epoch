@@ -124,11 +124,29 @@ export async function terminarLoginGoogle(c: Ctx): Promise<ResultadoGoogle> {
     }),
   });
 
-  if (!respuesta.ok) return { ok: false, motivo: 'token' };
+  // Google explica en el cuerpo qué fue lo que rechazó —invalid_client si el secreto no es el que
+  // corresponde, redirect_uri_mismatch si la vuelta no coincide, invalid_grant si el código ya se
+  // usó— y sin leerlo los tres casos se ven igual desde afuera: "no se pudo, probá de nuevo".
+  // Va al registro y no a la pantalla: al que entra no le sirve de nada y es hablar de más.
+  const cuerpo = await respuesta.text();
 
-  const datos = (await respuesta.json().catch(() => null)) as { id_token?: string } | null;
+  if (!respuesta.ok) {
+    console.error('google/token', respuesta.status, cuerpo.slice(0, 300));
+    return { ok: false, motivo: 'token' };
+  }
+
+  let datos: { id_token?: string } | null = null;
+  try {
+    datos = JSON.parse(cuerpo) as { id_token?: string };
+  } catch {
+    /* lo dice el console.error de abajo */
+  }
+
   const perfil = datos?.id_token ? leerIdToken(datos.id_token) : null;
-  if (!perfil) return { ok: false, motivo: 'token' };
+  if (!perfil) {
+    console.error('google/token: la respuesta no trae un id_token que se pueda leer');
+    return { ok: false, motivo: 'token' };
+  }
   if (!perfil.emailVerificado) return { ok: false, motivo: 'sin-verificar', email: perfil.email };
 
   // Primero por google_sub (ya entró antes), después por email (el admin lo dio de alta).
