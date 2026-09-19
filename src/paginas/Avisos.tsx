@@ -763,7 +763,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 </div>
 
                 <p className="pie">
-                  Los avisos de este evento se borran solos del grupo cuando termina.
+                  Los avisos de este evento se borran solos cuando termina, y en ningún caso se quedan
+                  más de una hora en el grupo.
                 </p>
               </div>
 
