@@ -1068,10 +1068,18 @@ app.post('/api/telegram/probar', requiereAdmin, async (c) => {
   const { telegram } = await leerAjustes(c.env.DB);
   if (!telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
 
-  const cuerpoTexto = texto(cuerpo.texto, 1000) || '🔔 Prueba desde el panel. Si leés esto, el bot quedó conectado.';
+  const cuerpoTexto =
+    texto(cuerpo.texto, 1000) ||
+    '🔔 Prueba desde el panel. Si leés esto, el bot quedó conectado.\n\n_Este mensaje se borra solo en un minuto._';
   try {
-    await mandar(token, telegram.chat, cuerpoTexto);
-    return c.json({ aviso: `Mandado a ${telegram.nombre || telegram.chat}.` });
+    // Una prueba no tiene por qué quedar en el chat del gremio, igual que los ensayos.
+    const mensajeId = await mandar(token, telegram.chat, cuerpoTexto);
+    if (mensajeId > 0) {
+      await c.env.DB.prepare('INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)')
+        .bind(telegram.chat, mensajeId, new Date(Date.now() + 60_000).toISOString())
+        .run();
+    }
+    return c.json({ aviso: `Mandado a ${telegram.nombre || telegram.chat}. Se borra en un minuto.` });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
   }
@@ -1879,6 +1887,14 @@ const programado = async (env: Env) => {
  */
 const ESPERA_MAXIMA = 90_000;
 
+/**
+ * Con qué nombre se agrupan los resúmenes de la mañana.
+ *
+ * Es uno solo para todos los días, a propósito: así el de hoy reemplaza al de ayer y en el grupo
+ * queda siempre el que sirve, en vez de una lista de agendas viejas.
+ */
+const OCURRENCIA_RESUMEN = 'resumen';
+
 const esperarHasta = async (cuando: Date): Promise<void> => {
   const faltan = cuando.getTime() - Date.now();
   if (faltan <= 0) return;
@@ -1970,11 +1986,28 @@ async function mandarResumen(env: Env, ahora: Date): Promise<boolean> {
 
   const { results } = await env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
   try {
-    await mandar(
+    const mensajeId = await mandar(
       token,
       ajustes.telegram.chat,
       armarResumen(results.map(comoAviso), ahora, ajustes.horario.offsetServidor, ajustes.resumen.texto),
     );
+
+    // El de hoy reemplaza al de ayer: en el grupo queda uno solo, el que sirve. Y se le pone
+    // vencimiento igual, un día y monedas, para que si alguien apaga el resumen el último no se
+    // quede ahí para siempre anunciando un día que ya pasó.
+    if (mensajeId > 0) {
+      await env.DB.prepare(
+        'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
+      )
+        .bind(
+          ajustes.telegram.chat,
+          mensajeId,
+          new Date(Date.now() + 25 * 3_600_000).toISOString(),
+          OCURRENCIA_RESUMEN,
+        )
+        .run();
+      await borrarLosAnteriores(env, token, OCURRENCIA_RESUMEN, mensajeId);
+    }
     return true;
   } catch (e) {
     await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = 0 AND clave = ?').bind(clave).run();
