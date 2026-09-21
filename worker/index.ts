@@ -31,6 +31,7 @@ import {
   type Cola,
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle, volvioEnVentana } from './google';
+import { comoPedido, usuarioLibre, type FilaPedido } from './ingresos';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import { borrar, chatsVistos, mandar, quienEs } from './telegram';
@@ -1843,6 +1844,99 @@ app.post('/api/orden/por-pc', requiereAdmin, async (c) => {
     results.map((u) => u.id),
   );
   return c.json(await construirEstado(c.env, c.get('usuario')));
+});
+
+// ── Los pedidos de ingreso ───────────────────────────────────────────────────
+//
+// Quien entra con Google y no está cargado en el gremio deja un pedido. Acá el admin lo resuelve.
+// Solo el admin: quién entra a la app no es una decisión que se delegue, ni al Grand Master.
+
+app.get('/api/ingresos', requiereAdmin, async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
+  ).all<FilaPedido>();
+  return c.json({ pedidos: results.map(comoPedido) });
+});
+
+/**
+ * Aceptar a alguien: se convierte en miembro y el pedido desaparece.
+ *
+ * El alta queda con el personaje y el rol que eligió el admin, y con el mail y el google_sub ya
+ * pegados, así la próxima vez que toque "Entrar con Google" pasa derecho. No lleva contraseña ni
+ * la marca de cambiarla: entra por Google, y una contraseña que nadie va a usar es solo una cosa
+ * más que se puede filtrar. Si después quiere una, el admin se la pone desde Miembros.
+ *
+ * Lo que no se pide acá es la clase, el PC ni las listas de drops: eso se edita en Miembros como
+ * con cualquier otro, y hacer que el admin lo complete de apuro en este momento solo consigue que
+ * lo complete mal.
+ */
+app.post('/api/ingresos/:id/aprobar', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const pedido = await c.env.DB.prepare('SELECT * FROM pedidos_ingreso WHERE id = ?')
+    .bind(id)
+    .first<FilaPedido>();
+  if (!pedido) return c.json({ error: 'Ese pedido ya no está.' }, 404);
+
+  const personaje = texto(cuerpo.personaje, 40) || pedido.nombre.trim() || pedido.email.split('@')[0];
+  if (personaje.length < 2) return c.json({ error: 'Ponele un nombre de personaje.' }, 400);
+
+  const yaEsta = await c.env.DB.prepare('SELECT 1 FROM usuarios WHERE lower(email) = ?')
+    .bind(pedido.email)
+    .first();
+  if (yaEsta) {
+    await c.env.DB.prepare('DELETE FROM pedidos_ingreso WHERE id = ?').bind(id).run();
+    return c.json({ error: 'Ese mail ya está cargado en un miembro. Borré el pedido.' }, 409);
+  }
+
+  const rol = ROLES.includes(cuerpo.rol) ? (cuerpo.rol as string) : 'jugador';
+  if (rol === 'admin') return c.json({ error: 'El rol de admin se da desde Miembros, no acá.' }, 400);
+
+  const usuario = await usuarioLibre(c.env.DB, texto(cuerpo.usuario, 40) || pedido.email);
+  const ultimo = await c.env.DB.prepare('SELECT max(orden) AS n FROM usuarios').first<{ n: number | null }>();
+
+  await c.env.DB.prepare(
+    `INSERT INTO usuarios (usuario, personaje, email, google_sub, avatar, password_hash, rol, orden)
+     VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
+  )
+    .bind(usuario, personaje, pedido.email, pedido.google_sub, pedido.avatar, rol, (ultimo?.n ?? 0) + 1)
+    .run();
+
+  await c.env.DB.prepare('DELETE FROM pedidos_ingreso WHERE id = ?').bind(id).run();
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
+  ).all<FilaPedido>();
+  return c.json({
+    pedidos: results.map(comoPedido),
+    aviso: `${personaje} ya puede entrar. Cargale la clase y el PC en Miembros.`,
+  });
+});
+
+/** Decir que no. Queda anotado para que el próximo intento no vuelva a avisar. */
+app.post('/api/ingresos/:id/rechazar', requiereAdmin, async (c) => {
+  await c.env.DB.prepare("UPDATE pedidos_ingreso SET estado = 'rechazado' WHERE id = ?")
+    .bind(entero(c.req.param('id')))
+    .run();
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
+  ).all<FilaPedido>();
+  return c.json({ pedidos: results.map(comoPedido), aviso: 'Rechazado.' });
+});
+
+/**
+ * Borrar el pedido del todo.
+ *
+ * Es la forma de darle otra oportunidad a alguien rechazado: sin la fila, el próximo intento vuelve
+ * a pedir de cero.
+ */
+app.delete('/api/ingresos/:id', requiereAdmin, async (c) => {
+  await c.env.DB.prepare('DELETE FROM pedidos_ingreso WHERE id = ?').bind(entero(c.req.param('id'))).run();
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
+  ).all<FilaPedido>();
+  return c.json({ pedidos: results.map(comoPedido), aviso: 'Borrado. Si vuelve a intentar, pide de nuevo.' });
 });
 
 app.all('/api/*', (c) => c.json({ error: 'No existe esa ruta.' }, 404));

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { BotonTema, type Tema } from '../componentes/BotonTema';
-import { Alerta, Escudo } from '../iconos';
+import { Alerta, Escudo, Tilde } from '../iconos';
 
 /** Los motivos con los que vuelve /api/auth/google/callback cuando algo no salió. */
 const MOTIVOS: Record<string, string> = {
@@ -11,7 +11,14 @@ const MOTIVOS: Record<string, string> = {
   token: 'No se pudo confirmar la cuenta con Google. Probá de nuevo.',
   'sin-verificar': 'Ese mail de Google no está verificado.',
   'sin-cuenta': 'Ese mail no está en el gremio todavía. Pedile al admin que te dé de alta.',
+  'pedido-nuevo':
+    'Le avisamos al admin que querés entrar. Cuando te acepte, entrás con este mismo botón.',
+  'pedido-pendiente': 'Tu pedido ya está esperando que el admin lo acepte. Probá más tarde.',
+  'pedido-rechazado': 'El admin no aprobó el ingreso con este mail. Habláselo si es un error.',
 };
+
+/** Los que no son una falla: el pedido salió bien y lo único que falta es que alguien lo mire. */
+const TRAMITES = new Set(['pedido-nuevo', 'pedido-pendiente']);
 
 function LogoGoogle() {
   return (
@@ -40,6 +47,8 @@ export function FormularioEntrar({
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  /** Si lo que hay que mostrar es un trámite en curso y no una falla. Cambia el color y el ícono. */
+  const [tramite, setTramite] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [esperandoGoogle, setEsperandoGoogle] = useState(false);
 
@@ -50,6 +59,7 @@ export function FormularioEntrar({
     if (!motivo) return;
 
     const mail = params.get('mail');
+    setTramite(TRAMITES.has(motivo));
     setError((MOTIVOS[motivo] ?? 'No se pudo entrar con Google.') + (mail ? ` (${mail})` : ''));
     window.history.replaceState({}, '', window.location.pathname);
   }, []);
@@ -63,6 +73,7 @@ export function FormularioEntrar({
    */
   function conGoogle() {
     setError('');
+    setTramite(false);
     const alto = Math.min(700, window.screen.height - 80);
     const ancho = 480;
     const izq = window.screenX + Math.max(0, (window.outerWidth - ancho) / 2);
@@ -101,6 +112,7 @@ export function FormularioEntrar({
     e.preventDefault();
     setEnviando(true);
     setError('');
+    setTramite(false);
     try {
       await api('/auth/login', { cuerpo: { usuario, password } });
       await alEntrar();
@@ -125,8 +137,8 @@ export function FormularioEntrar({
       </div>
 
           {error && (
-            <div className="aviso mal aparecer" style={{ marginBottom: 14 }}>
-              <Alerta tam={17} />
+            <div className={`aviso${tramite ? '' : ' mal'} aparecer`} style={{ marginBottom: 14 }}>
+              {tramite ? <Tilde tam={17} /> : <Alerta tam={17} />}
               <span>{error}</span>
             </div>
           )}

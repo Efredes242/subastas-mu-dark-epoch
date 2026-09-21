@@ -151,6 +151,11 @@ export interface Estado {
   /** El botón de Google solo se muestra si el Worker tiene las credenciales cargadas. */
   googleActivo: boolean;
   /**
+   * Cuántos pedidos de ingreso esperan respuesta. Siempre 0 para quien no es admin: el número
+   * mismo ya dice algo de quién anda queriendo entrar.
+   */
+  pedidosDeIngreso: number;
+  /**
    * Qué pedazos de la app están escondidos y para quién. Lo que no figura lo ve todo el mundo.
    * Lo maneja el admin desde el menú Desarrollador.
    */

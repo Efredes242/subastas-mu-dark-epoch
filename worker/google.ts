@@ -90,7 +90,21 @@ function leerIdToken(idToken: string): PerfilGoogle | null {
 
 export type ResultadoGoogle =
   | { ok: true; usuario: FilaUsuario }
-  | { ok: false; motivo: 'state' | 'codigo' | 'token' | 'sin-verificar' | 'sin-cuenta'; email?: string };
+  | {
+      ok: false;
+      motivo:
+        | 'state'
+        | 'codigo'
+        | 'token'
+        | 'sin-verificar'
+        /** No estaba cargado y quedó anotado el pedido para que lo vea el admin. */
+        | 'pedido-nuevo'
+        /** Ya había pedido antes y todavía nadie lo resolvió. */
+        | 'pedido-pendiente'
+        /** El admin ya dijo que no. */
+        | 'pedido-rechazado';
+      email?: string;
+    };
 
 /**
  * Paso 2: canjeamos el código por el perfil y buscamos a esa persona en el gremio.
@@ -99,6 +113,44 @@ export type ResultadoGoogle =
 /** Si la vuelta de Google la está recibiendo una ventana aparte. */
 export function volvioEnVentana(c: Ctx): boolean {
   return getCookie(c, COOKIE_VENTANA) === '1';
+}
+
+/**
+ * Dejar constancia de que alguien quiso entrar, para que el admin decida.
+ *
+ * Google ya confirmó quién es, así que del pedido sabemos el mail, el nombre y la foto — lo
+ * suficiente para que el admin reconozca a la persona sin tener que preguntarle nada por fuera.
+ *
+ * Un pedido por dirección: si vuelve a intentar se le suma un intento en vez de apilar otro. Y si
+ * el admin ya dijo que no, no se vuelve a anotar nada; queda el rechazo hasta que el admin lo
+ * borre, así un "no" no se convierte en un timbre que suena todos los días.
+ */
+async function anotarPedido(c: Ctx, perfil: PerfilGoogle): Promise<ResultadoGoogle> {
+  const previo = await c.env.DB.prepare('SELECT estado FROM pedidos_ingreso WHERE email = ?')
+    .bind(perfil.email)
+    .first<{ estado: string }>();
+
+  if (previo?.estado === 'rechazado') {
+    return { ok: false, motivo: 'pedido-rechazado', email: perfil.email };
+  }
+
+  if (previo) {
+    await c.env.DB.prepare(
+      `UPDATE pedidos_ingreso
+          SET intentos = intentos + 1, nombre = ?, avatar = ?, google_sub = ?
+        WHERE email = ?`,
+    )
+      .bind(perfil.nombre, perfil.avatar, perfil.sub, perfil.email)
+      .run();
+    return { ok: false, motivo: 'pedido-pendiente', email: perfil.email };
+  }
+
+  await c.env.DB.prepare(
+    'INSERT INTO pedidos_ingreso (email, google_sub, nombre, avatar) VALUES (?, ?, ?, ?)',
+  )
+    .bind(perfil.email, perfil.sub, perfil.nombre, perfil.avatar)
+    .run();
+  return { ok: false, motivo: 'pedido-nuevo', email: perfil.email };
 }
 
 export async function terminarLoginGoogle(c: Ctx): Promise<ResultadoGoogle> {
@@ -158,7 +210,7 @@ export async function terminarLoginGoogle(c: Ctx): Promise<ResultadoGoogle> {
     usuario = await c.env.DB.prepare('SELECT * FROM usuarios WHERE lower(email) = ? AND activo = 1')
       .bind(perfil.email)
       .first<FilaUsuario>();
-    if (!usuario) return { ok: false, motivo: 'sin-cuenta', email: perfil.email };
+    if (!usuario) return await anotarPedido(c, perfil);
 
     await c.env.DB.prepare('UPDATE usuarios SET google_sub = ? WHERE id = ?').bind(perfil.sub, usuario.id).run();
   }

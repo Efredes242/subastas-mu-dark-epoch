@@ -429,6 +429,19 @@ function aPublico(
 }
 
 /** Todo lo que la UI necesita para pintar una pantalla, en una sola llamada. */
+/**
+ * Cuántos pedidos de ingreso esperan respuesta.
+ *
+ * Va en el estado para que el panel pueda avisar sin tener que pedir la lista: el admin abre la
+ * app y se entera, en vez de acordarse de ir a mirar.
+ */
+export async function cuantosPedidos(db: D1Database): Promise<number> {
+  const fila = await db
+    .prepare("SELECT count(*) AS n FROM pedidos_ingreso WHERE estado = 'pendiente'")
+    .first<{ n: number }>();
+  return fila?.n ?? 0;
+}
+
 export async function construirEstado(env: Env, usuario: FilaUsuario | null, ahora = new Date()): Promise<Estado> {
   const db = env.DB;
   const ajustes = await leerAjustes(db);
@@ -639,6 +652,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         }
       : null,
     googleActivo: googleConfigurado(env),
+    pedidosDeIngreso: usuario?.rol === 'admin' ? await cuantosPedidos(db) : 0,
     interfaz: ajustes.interfaz,
     permisos: ajustes.permisos,
     agenda: {

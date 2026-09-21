@@ -4,6 +4,7 @@ import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorIcono } from '../componentes/SelectorIcono';
 import { Avisos } from './Avisos';
 import { SelectorZona, useZona } from '../componentes/Zona';
+import { PedidosDeIngreso } from '../componentes/PedidosDeIngreso';
 import { ir, type PropsPagina } from '../App';
 import {
   Abajo,
@@ -734,6 +735,8 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
   /** Si está abierta la ventana para mandar un aviso de ensayo al grupo. */
   const [ejecutando, setEjecutando] = useState(false);
+  /** La ventana de los pedidos de ingreso. Arranca abierta si hay alguno esperando. */
+  const [verPedidos, setVerPedidos] = useState(estado.pedidosDeIngreso > 0);
 
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 1000);
@@ -931,6 +934,11 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
       )}
       {solapa === 'miembros' && esAdmin && ve('panel_miembros') && (
         <div style={{ marginBottom: 16 }}>
+          <PedidosDeIngreso alError={setError} alResolver={recargar} />
+        </div>
+      )}
+      {solapa === 'miembros' && esAdmin && ve('panel_miembros') && (
+        <div style={{ marginBottom: 16 }}>
           <Clases estado={estado} alError={setError} setEstado={setEstado} />
         </div>
       )}
@@ -941,6 +949,29 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
         <Catalogo estado={estado} alError={setError} alListo={recargar} setEstado={setEstado} />
       )}
       {ejecutando && <EjecutarTelegram alError={setError} alCerrar={() => setEjecutando(false)} />}
+
+      {/*
+        La ventana de los pedidos.
+        Se abre sola cuando hay alguno esperando, porque un pedido que nadie mira es una persona
+        esperando afuera sin saber por qué. Se cierra con "Después" y no vuelve a molestar hasta
+        la próxima vez que se abra el panel.
+      */}
+      {verPedidos && esAdmin && (
+        <div className="hoja" onClick={() => setVerPedidos(false)} role="presentation">
+          <div
+            className="hoja-cuerpo"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Piden entrar"
+          >
+            <PedidosDeIngreso
+              alError={setError}
+              alResolver={recargar}
+              cerrable={() => setVerPedidos(false)}
+            />
+          </div>
+        </div>
+      )}
       {solapa === 'avisos' && esAdmin && ve('panel_avisos') && <Avisos alError={setError} />}
       {solapa === 'desarrollador' && esAdmin && (
         <Desarrollador estado={estado} alError={setError} setEstado={setEstado} />
