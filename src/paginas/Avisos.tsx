@@ -3,6 +3,7 @@ import { api } from '../api';
 // La misma función que arma el título cuando el aviso sale de verdad: si el simulador tuviera su
 // propia copia, tarde o temprano muestran cosas distintas.
 import { comoTitulo, type HoraAviso, type Titulo } from '../../worker/avisos';
+import { ImagenesDelAviso, type ImagenDeAviso } from '../componentes/ImagenesDelAviso';
 import { Alerta, Mas, Reloj, Tacho, Tilde } from '../iconos';
 
 /**
@@ -28,6 +29,8 @@ interface Aviso {
   alEmpezar: boolean;
   mensajeInicio: string;
   activo: boolean;
+  /** Las capturas que lo acompañan: el mapa de dónde salen los jefes, por ejemplo. */
+  imagenes: ImagenDeAviso[];
 }
 
 const DIAS = [
@@ -486,7 +489,12 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
       b.horas.map((h) => `${h.minutos}:${h.dura}`).join() &&
     a.antes.join() === b.antes.join();
 
-  /** Si este evento tiene cambios que todavía no se mandaron. */
+  /**
+   * Si este evento tiene cambios que todavía no se mandaron.
+   *
+   * Las imágenes no entran: se suben y se borran en el momento, contra el servidor, así que nunca
+   * están a medio guardar.
+   */
   const sucio = (a: Aviso) => !igual(a, guardado[a.id]);
 
   /**
@@ -903,6 +911,21 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 style={{ padding: 12, minHeight: 96, lineHeight: 1.5, resize: 'vertical', marginTop: 6 }}
               />
             </div>
+
+            <ImagenesDelAviso
+              avisoId={a.id}
+              imagenes={a.imagenes}
+              ocupado={ocupado}
+              alError={alError}
+              alCambiar={(imagenes) => {
+                tocar(a.id, { imagenes });
+                // También en la copia del servidor: si no, subir una foto marcaría el evento como
+                // que tiene cambios sin guardar, y no los tiene.
+                setGuardado((previo) =>
+                  previo[a.id] ? { ...previo, [a.id]: { ...previo[a.id], imagenes } } : previo,
+                );
+              }}
+            />
 
             {/* El aviso del momento en que arranca, que es el único que no habla del futuro. */}
             <div className="texto-aviso">

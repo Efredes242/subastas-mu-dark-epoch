@@ -34,7 +34,7 @@ import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle, volvioEnVen
 import { comoPedido, usuarioLibre, type FilaPedido } from './ingresos';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
-import { borrar, chatsVistos, mandar, quienEs } from './telegram';
+import { FOTOS_MAXIMAS, borrar, chatsVistos, mandar, mandarConFotos, quienEs, type Foto } from './telegram';
 import {
   ANTES_MAXIMO,
   armarMensaje,
@@ -762,10 +762,31 @@ app.post('/api/eventos/:id/repartir', requiereGrandMaster, async (c) => {
 // Un evento con sus días, sus horas, cuánto antes recordarlo y el texto que se manda. Por ahora
 // no sale a ningún lado: se configura y se mira en el simulador del panel.
 
+/**
+ * Los avisos con la lista de sus imágenes —sin los bytes, que pesan— para que el panel las muestre.
+ *
+ * Una sola consulta para todos: con un SELECT por aviso, abrir el panel con cinco eventos serían
+ * cinco viajes más a la base para traer, casi siempre, nada.
+ */
+async function conImagenes(db: D1Database, filas: FilaAviso[]) {
+  const { results } = await db
+    .prepare('SELECT id, aviso_id, etiqueta FROM imagenes_aviso ORDER BY orden, id')
+    .all<{ id: number; aviso_id: number; etiqueta: string }>();
+
+  const porAviso = new Map<number, Array<{ id: number; etiqueta: string }>>();
+  for (const r of results) {
+    const suyas = porAviso.get(r.aviso_id) ?? [];
+    suyas.push({ id: r.id, etiqueta: r.etiqueta });
+    porAviso.set(r.aviso_id, suyas);
+  }
+
+  return filas.map((f) => ({ ...comoAviso(f), imagenes: porAviso.get(f.id) ?? [] }));
+}
+
 app.get('/api/avisos', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
   const { resumen } = await leerAjustes(c.env.DB);
-  return c.json({ avisos: results.map(comoAviso), antesMaximo: ANTES_MAXIMO, resumen });
+  return c.json({ avisos: await conImagenes(c.env.DB, results), antesMaximo: ANTES_MAXIMO, resumen });
 });
 
 /** El resumen de la mañana: a qué hora sale, si sale, y con qué texto. */
@@ -787,7 +808,7 @@ app.patch('/api/avisos/resumen', requiereAdmin, async (c) => {
 
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
   return c.json({
-    avisos: results.map(comoAviso),
+    avisos: await conImagenes(c.env.DB, results),
     resumen: { hora, activo, texto: plantilla },
     aviso: activo ? `El resumen sale todos los días a las ${comoHoraAviso(hora)}.` : 'El resumen quedó apagado.',
   });
@@ -830,7 +851,7 @@ app.post('/api/avisos', requiereAdmin, async (c) => {
     .run();
 
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: results.map(comoAviso), aviso: `Agregué "${nombre}". Cargale los horarios.` });
+  return c.json({ avisos: await conImagenes(c.env.DB, results), aviso: `Agregué "${nombre}". Cargale los horarios.` });
 });
 
 app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
@@ -858,13 +879,16 @@ app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
   if ((r.meta.changes ?? 0) === 0) return c.json({ error: 'Ese evento ya no está.' }, 404);
 
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: results.map(comoAviso) });
+  return c.json({ avisos: await conImagenes(c.env.DB, results) });
 });
 
 app.delete('/api/avisos/:id', requiereAdmin, async (c) => {
-  await c.env.DB.prepare('DELETE FROM avisos WHERE id = ?').bind(entero(c.req.param('id'))).run();
+  const id = entero(c.req.param('id'));
+  // Primero las imágenes: si se va el aviso y ellas quedan, nadie las vuelve a encontrar.
+  await c.env.DB.prepare('DELETE FROM imagenes_aviso WHERE aviso_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM avisos WHERE id = ?').bind(id).run();
   const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: results.map(comoAviso), aviso: 'Borrado.' });
+  return c.json({ avisos: await conImagenes(c.env.DB, results), aviso: 'Borrado.' });
 });
 
 /**
@@ -1010,6 +1034,8 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
 
   let cuerpoTexto = '';
   let queEs = '';
+  // Las fotos del evento que se está ensayando. El resumen no lleva.
+  let fotosDelEnsayo: Foto[] = [];
 
   if (cual === 'resumen') {
     const { results } = await c.env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
@@ -1032,6 +1058,7 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
       estilo: aviso.titulo,
       dura: cuandoCae.dura,
     });
+    fotosDelEnsayo = await fotosDe(c.env.DB, aviso.id);
     queEs = aviso.nombre;
   }
 
@@ -1046,8 +1073,9 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
   ].join('\n');
 
   try {
-    const id = await mandar(token, ajustes.telegram.chat, conAviso);
-    if (id > 0) {
+    // Con las mismas fotos que llevaría de verdad: un ensayo que no muestra lo mismo no sirve.
+    const ids = await mandarConFotos(token, ajustes.telegram.chat, conAviso, fotosDelEnsayo);
+    for (const id of ids) {
       await c.env.DB.prepare('INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)')
         .bind(ajustes.telegram.chat, id, cuandoSeBorra(new Date(Date.now() + MINUTOS * 60_000)).toISOString())
         .run();
@@ -1939,6 +1967,102 @@ app.delete('/api/ingresos/:id', requiereAdmin, async (c) => {
   return c.json({ pedidos: results.map(comoPedido), aviso: 'Borrado. Si vuelve a intentar, pide de nuevo.' });
 });
 
+// ── Las imágenes de un aviso ─────────────────────────────────────────────────
+//
+// Van aparte de la configuración del aviso porque pesan: se leen cuando hay que mostrarlas o
+// mandarlas, y nunca en el camino del cron.
+
+/** Lo máximo que puede pesar una imagen ya en base64. El panel la achica antes de subirla. */
+const IMAGEN_AVISO_MAXIMA = 900_000;
+
+/** Las imágenes de un aviso, sin los bytes: lo que el panel necesita para listarlas. */
+async function imagenesDe(db: D1Database, avisoId: number) {
+  const { results } = await db
+    .prepare('SELECT id, etiqueta, length(datos) AS peso FROM imagenes_aviso WHERE aviso_id = ? ORDER BY orden, id')
+    .bind(avisoId)
+    .all<{ id: number; etiqueta: string; peso: number }>();
+  return results;
+}
+
+/**
+ * Los bytes de una imagen, para que el panel la muestre con un <img>.
+ *
+ * Pide sesión de admin como todo lo demás. El navegador manda la cookie solo con que la etiqueta
+ * apunte acá, así que no hace falta nada raro del lado del cliente.
+ */
+app.get('/api/avisos/imagen/:id', requiereAdmin, async (c) => {
+  const fila = await c.env.DB.prepare('SELECT datos FROM imagenes_aviso WHERE id = ?')
+    .bind(entero(c.req.param('id')))
+    .first<{ datos: string }>();
+  if (!fila) return c.json({ error: 'Esa imagen ya no está.' }, 404);
+
+  const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(fila.datos);
+  if (!m) return c.json({ error: 'Esa imagen quedó ilegible.' }, 500);
+
+  const crudo = atob(m[2]);
+  const bytes = new Uint8Array(crudo.length);
+  for (let i = 0; i < crudo.length; i++) bytes[i] = crudo.charCodeAt(i);
+
+  return new Response(bytes, {
+    headers: { 'content-type': m[1], 'cache-control': 'private, max-age=300' },
+  });
+});
+
+app.post('/api/avisos/:id/imagenes', requiereAdmin, async (c) => {
+  const avisoId = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const datos = typeof cuerpo.datos === 'string' ? cuerpo.datos.trim() : '';
+  if (!/^data:image\/[a-z0-9+.-]+;base64,/i.test(datos)) {
+    return c.json({ error: 'Eso no es una imagen.' }, 400);
+  }
+  if (datos.length > IMAGEN_AVISO_MAXIMA) {
+    return c.json({ error: 'La imagen pesa demasiado, incluso después de achicarla.' }, 413);
+  }
+
+  const cuantas = await c.env.DB.prepare('SELECT count(*) AS n FROM imagenes_aviso WHERE aviso_id = ?')
+    .bind(avisoId)
+    .first<{ n: number }>();
+  if ((cuantas?.n ?? 0) >= FOTOS_MAXIMAS) {
+    return c.json({ error: `Telegram no manda más de ${FOTOS_MAXIMAS} fotos juntas.` }, 409);
+  }
+
+  const ultimo = await c.env.DB.prepare('SELECT max(orden) AS n FROM imagenes_aviso WHERE aviso_id = ?')
+    .bind(avisoId)
+    .first<{ n: number | null }>();
+
+  await c.env.DB.prepare('INSERT INTO imagenes_aviso (aviso_id, orden, etiqueta, datos) VALUES (?, ?, ?, ?)')
+    .bind(avisoId, (ultimo?.n ?? 0) + 1, texto(cuerpo.etiqueta, 80), datos)
+    .run();
+
+  return c.json({ imagenes: await imagenesDe(c.env.DB, avisoId) });
+});
+
+app.patch('/api/avisos/imagenes/:id', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const fila = await c.env.DB.prepare('SELECT aviso_id FROM imagenes_aviso WHERE id = ?')
+    .bind(id)
+    .first<{ aviso_id: number }>();
+  if (!fila) return c.json({ error: 'Esa imagen ya no está.' }, 404);
+
+  await c.env.DB.prepare('UPDATE imagenes_aviso SET etiqueta = ? WHERE id = ?')
+    .bind(texto(cuerpo.etiqueta, 80), id)
+    .run();
+  return c.json({ imagenes: await imagenesDe(c.env.DB, fila.aviso_id) });
+});
+
+app.delete('/api/avisos/imagenes/:id', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const fila = await c.env.DB.prepare('SELECT aviso_id FROM imagenes_aviso WHERE id = ?')
+    .bind(id)
+    .first<{ aviso_id: number }>();
+  if (!fila) return c.json({ imagenes: [] });
+
+  await c.env.DB.prepare('DELETE FROM imagenes_aviso WHERE id = ?').bind(id).run();
+  return c.json({ imagenes: await imagenesDe(c.env.DB, fila.aviso_id) });
+});
+
 app.all('/api/*', (c) => c.json({ error: 'No existe esa ruta.' }, 404));
 
 /**
@@ -2028,18 +2152,53 @@ async function borrarLosAnteriores(
   env: Env,
   token: string,
   ocurrencia: string,
-  elNuevo: number,
+  losNuevos: number[],
 ): Promise<void> {
+  // Un aviso con varias fotos es un álbum, y un álbum son varios mensajes. Por eso lo que se
+  // preserva es una lista y no un id: si se excluyera solo el primero, el mismo álbum que se
+  // acaba de mandar se borraría a sí mismo salvo por esa foto.
   const { results } = await env.DB.prepare(
-    'SELECT chat, mensaje_id FROM mensajes_temporales WHERE ocurrencia = ? AND mensaje_id != ?',
+    'SELECT chat, mensaje_id FROM mensajes_temporales WHERE ocurrencia = ?',
   )
-    .bind(ocurrencia, elNuevo)
+    .bind(ocurrencia)
     .all<{ chat: string; mensaje_id: number }>();
 
   for (const m of results) {
+    if (losNuevos.includes(m.mensaje_id)) continue;
     await borrar(token, m.chat, m.mensaje_id);
     await env.DB.prepare('DELETE FROM mensajes_temporales WHERE chat = ? AND mensaje_id = ?')
       .bind(m.chat, m.mensaje_id)
+      .run();
+  }
+}
+
+/** Las imágenes de un aviso, listas para mandar. */
+async function fotosDe(db: D1Database, avisoId: number): Promise<Foto[]> {
+  const { results } = await db
+    .prepare('SELECT datos, etiqueta FROM imagenes_aviso WHERE aviso_id = ? ORDER BY orden, id')
+    .bind(avisoId)
+    .all<{ datos: string; etiqueta: string }>();
+  return results.map((r) => ({ datos: r.datos, etiqueta: r.etiqueta }));
+}
+
+/**
+ * Anotar los mensajes que acaba de mandar un aviso, para que se borren a su hora.
+ *
+ * Son varios cuando el aviso lleva álbum. Todos comparten la misma ocurrencia, así que el próximo
+ * aviso del mismo evento se los lleva puestos juntos.
+ */
+async function anotarParaBorrar(
+  env: Env,
+  chat: string,
+  ids: number[],
+  borrarEn: Date,
+  ocurrencia: string,
+): Promise<void> {
+  for (const id of ids) {
+    await env.DB.prepare(
+      'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
+    )
+      .bind(chat, id, borrarEn.toISOString(), ocurrencia)
       .run();
   }
 }
@@ -2111,17 +2270,14 @@ async function mandarResumen(env: Env, ahora: Date): Promise<boolean> {
     // El de hoy reemplaza al de ayer, pero sin esperar a mañana: como todo lo demás, se va a la
     // hora. Para eso está — se lee a la mañana y después estorba.
     if (mensajeId > 0) {
-      await env.DB.prepare(
-        'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
-      )
-        .bind(
-          ajustes.telegram.chat,
-          mensajeId,
-          cuandoSeBorra(new Date(Date.now() + 25 * 3_600_000)).toISOString(),
-          OCURRENCIA_RESUMEN,
-        )
-        .run();
-      await borrarLosAnteriores(env, token, OCURRENCIA_RESUMEN, mensajeId);
+      await anotarParaBorrar(
+        env,
+        ajustes.telegram.chat,
+        [mensajeId],
+        cuandoSeBorra(new Date(Date.now() + 25 * 3_600_000)),
+        OCURRENCIA_RESUMEN,
+      );
+      await borrarLosAnteriores(env, token, OCURRENCIA_RESUMEN, [mensajeId]);
     }
     return true;
   } catch (e) {
@@ -2181,7 +2337,12 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
     if ((puesto.meta.changes ?? 0) === 0) continue;
 
     try {
-      const mensajeId = await mandar(token, ajustes.telegram.chat, d.texto);
+      const ids = await mandarConFotos(
+        token,
+        ajustes.telegram.chat,
+        d.texto,
+        await fotosDe(env.DB, aviso.id),
+      );
       mandados++;
 
       // El aviso vive lo que vive el evento: después es basura en el chat, así que se anota
@@ -2191,14 +2352,10 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
       //
       // El orden importa: primero sale el nuevo —que suena, para eso está— y recién después se
       // borra el viejo. Al revés quedaría un hueco sin ningún aviso a la vista.
-      if (mensajeId > 0) {
+      if (ids.length > 0) {
         const laVez = laVezQueAnuncia(aviso.id, d.empieza);
-        await env.DB.prepare(
-          'INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en, ocurrencia) VALUES (?, ?, ?, ?)',
-        )
-          .bind(ajustes.telegram.chat, mensajeId, cuandoSeBorra(d.termina).toISOString(), laVez)
-          .run();
-        await borrarLosAnteriores(env, token, laVez, mensajeId);
+        await anotarParaBorrar(env, ajustes.telegram.chat, ids, cuandoSeBorra(d.termina), laVez);
+        await borrarLosAnteriores(env, token, laVez, ids);
       }
     } catch (e) {
       // Si no salió, se borra la marca para que el próximo minuto lo reintente.

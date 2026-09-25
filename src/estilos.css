@@ -1599,6 +1599,104 @@ select {
 }
 
 /*
+ * Las capturas que acompañan a un aviso.
+ *
+ * Se ven en tira y no en lista: lo que importa de un mapa es la imagen, no su nombre, y una tira
+ * deja comparar de un vistazo si están todas las que tienen que estar.
+ */
+.imagenes-aviso {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+
+.imagenes-aviso > .tira {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+
+.imagenes-aviso .captura {
+  position: relative;
+  width: 152px;
+  margin: 0;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.imagenes-aviso .captura > img {
+  display: block;
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  background: var(--panel2);
+}
+
+.imagenes-aviso .captura > .sacar {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--malLn);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--mal);
+  cursor: pointer;
+}
+
+.imagenes-aviso .captura > .sacar:hover {
+  background: var(--mal);
+  color: var(--panel);
+}
+
+.imagenes-aviso .captura > figcaption {
+  padding: 6px;
+}
+
+.imagenes-aviso .captura input {
+  width: 100%;
+  font-size: 11.5px;
+}
+
+.sumar-captura {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  align-content: center;
+  width: 152px;
+  height: 134px;
+  border: 1px dashed var(--line2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--tx3);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.sumar-captura:hover:not(:disabled) {
+  border-color: var(--oro);
+  color: var(--oro);
+}
+
+.imagenes-aviso > .pie {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--tx3);
+  line-height: 1.45;
+}
+
+/*
  * Los pedidos de ingreso.
  *
  * Cada uno es una persona esperando del otro lado, así que se muestra la cara y el mail antes que

@@ -78,6 +78,130 @@ export async function mandar(token: string, chat: string, texto: string): Promis
   return r?.message_id ?? 0;
 }
 
+/** El epígrafe de una foto no puede pasar de esto. Un mensaje suelto llega a 4096. */
+export const EPIGRAFE_MAXIMO = 1024;
+
+/** Cuántas fotos entran en un álbum de Telegram. */
+export const FOTOS_MAXIMAS = 10;
+
+/** Una imagen lista para mandar. */
+export interface Foto {
+  /** La imagen tal como la guardó el panel: `data:image/jpeg;base64,...`. */
+  datos: string;
+  /** Qué se ve, por ejemplo "Lorencia 132,124". Aparece al abrir la foto. */
+  etiqueta: string;
+}
+
+/**
+ * Pasar una data URL a bytes.
+ *
+ * Se manda el archivo y no la URL a propósito. Telegram, cuando le pasás una dirección, se la
+ * descarga él y es exigente con el formato —el webp de la biblioteca de íconos lo rechaza seguido—;
+ * mandando los bytes, lo que ve es exactamente lo que subió el admin.
+ */
+function comoArchivo(dataUrl: string): { blob: Blob; nombre: string } | null {
+  const m = /^data:(image\/[a-z0-9+.-]+);base64,(.+)$/i.exec(dataUrl.trim());
+  if (!m) return null;
+  try {
+    const crudo = atob(m[2]);
+    const bytes = new Uint8Array(crudo.length);
+    for (let i = 0; i < crudo.length; i++) bytes[i] = crudo.charCodeAt(i);
+    const extension = (m[1].split('/')[1] ?? 'jpg').replace('jpeg', 'jpg');
+    return { blob: new Blob([bytes], { type: m[1] }), nombre: `foto.${extension}` };
+  } catch {
+    return null;
+  }
+}
+
+/** Lo mismo que `pedir`, pero subiendo archivos. */
+const pedirConArchivos = async (token: string, metodo: string, form: FormData) => {
+  const r = await fetch(`${API}${token}/${metodo}`, { method: 'POST', body: form });
+  const j = (await r.json().catch(() => ({}))) as { ok?: boolean; result?: unknown; description?: string };
+  if (!j.ok) throw new Error(j.description ?? `Telegram devolvió ${r.status}`);
+  return j.result;
+};
+
+const esDeFormato = (e: unknown) => /pars|entit|markdown/i.test(e instanceof Error ? e.message : '');
+
+/**
+ * Manda el aviso, con las fotos que tenga.
+ *
+ * Sin fotos es un mensaje de texto como siempre. Con una, la foto lleva el texto de epígrafe. Con
+ * varias va un álbum, que en Telegram se ve como una grilla y cuenta como varios mensajes — por eso
+ * devuelve una lista de ids y no uno solo: para borrarlo después hay que borrarlos todos.
+ *
+ * Si una imagen no se puede leer se saltea en vez de tumbar el aviso entero. Y si Telegram rechaza
+ * las fotos por lo que sea, el aviso sale igual como texto: que llegue sin foto es mucho mejor que
+ * que no llegue.
+ */
+export async function mandarConFotos(
+  token: string,
+  chat: string,
+  texto: string,
+  fotos: Foto[],
+): Promise<number[]> {
+  const listas = fotos
+    .slice(0, FOTOS_MAXIMAS)
+    .map((f) => ({ archivo: comoArchivo(f.datos), etiqueta: f.etiqueta }))
+    .filter((f): f is { archivo: { blob: Blob; nombre: string }; etiqueta: string } => !!f.archivo);
+
+  if (listas.length === 0) return [await mandar(token, chat, texto)];
+
+  const epigrafe = texto.slice(0, EPIGRAFE_MAXIMO);
+
+  try {
+    if (listas.length === 1) {
+      const uno = listas[0];
+      const armar = (conFormato: boolean) => {
+        const form = new FormData();
+        form.append('chat_id', chat);
+        form.append('caption', epigrafe);
+        if (conFormato) form.append('parse_mode', 'Markdown');
+        form.append('photo', uno.archivo.blob, uno.archivo.nombre);
+        return form;
+      };
+      let r: { message_id?: number };
+      try {
+        r = (await pedirConArchivos(token, 'sendPhoto', armar(true))) as { message_id?: number };
+      } catch (e) {
+        if (!esDeFormato(e)) throw e;
+        r = (await pedirConArchivos(token, 'sendPhoto', armar(false))) as { message_id?: number };
+      }
+      return r?.message_id ? [r.message_id] : [];
+    }
+
+    // El álbum: el texto va en la primera, y la etiqueta de cada una se ve al abrirla.
+    const armar = (conFormato: boolean) => {
+      const form = new FormData();
+      form.append('chat_id', chat);
+      const media = listas.map((f, i) => {
+        const propio = [i === 0 ? epigrafe : '', f.etiqueta].filter(Boolean).join('\n\n');
+        return {
+          type: 'photo',
+          media: `attach://f${i}`,
+          ...(propio ? { caption: propio.slice(0, EPIGRAFE_MAXIMO) } : {}),
+          ...(propio && conFormato ? { parse_mode: 'Markdown' } : {}),
+        };
+      });
+      form.append('media', JSON.stringify(media));
+      listas.forEach((f, i) => form.append(`f${i}`, f.archivo.blob, f.archivo.nombre));
+      return form;
+    };
+
+    let r: Array<{ message_id?: number }>;
+    try {
+      r = (await pedirConArchivos(token, 'sendMediaGroup', armar(true))) as Array<{ message_id?: number }>;
+    } catch (e) {
+      if (!esDeFormato(e)) throw e;
+      r = (await pedirConArchivos(token, 'sendMediaGroup', armar(false))) as Array<{ message_id?: number }>;
+    }
+    return (r ?? []).map((m) => m?.message_id ?? 0).filter((id) => id > 0);
+  } catch (e) {
+    console.error('telegram/fotos, va sin ellas:', e instanceof Error ? e.message : e);
+    return [await mandar(token, chat, texto)];
+  }
+}
+
 /**
  * Borrar un mensaje que mandó el bot.
  *
