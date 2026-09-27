@@ -3046,6 +3046,38 @@ select {
 }
 
 /* Lista Drops: el Kundun de todos los días y el asedio del domingo, separados. */
+/*
+ * La explicación de las listas, con el botón de copiar al costado.
+ *
+ * El botón va acá arriba y no abajo de todo: la lista puede ser larga y con scroll, y lo que se
+ * copia es lo mismo se lo mire desde donde se lo mire.
+ */
+.explica-listas {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.explica-listas > p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--tx3);
+  line-height: 1.5;
+}
+
+.copiar-listas {
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .explica-listas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .solapas-drops {
   display: flex;
   gap: 6px;

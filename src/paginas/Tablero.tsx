@@ -95,6 +95,75 @@ function CajaRueda({
  * Un item en la ventana "Lista Drops": arriba a quién le tocó hoy y quién sigue,
  * abajo la lista entera de ese item.
  */
+/**
+ * Copiar la lista que se está mirando, para pegarla en otro lado.
+ *
+ * Lo que sale es texto pelado a propósito: el destino es el WhatsApp del gremio, donde el formato
+ * de Telegram no significa nada y los asteriscos sueltos se ven como asteriscos. Una línea por
+ * item, corta, que se entienda sin tener la app abierta.
+ */
+function CopiarListas({ ruedas, cual, hayEvento, drops }: {
+  ruedas: Turno[];
+  cual: 'kundun' | 'asedio';
+  hayEvento: boolean;
+  drops: Drop[];
+}) {
+  const [estado, setEstado] = useState<'' | 'listo' | 'falló'>('');
+
+  const armar = () => {
+    const lineas = ruedas.map((t) => {
+      const { leToca, proximo } = turnoActual(t, hayEvento);
+      const hoy = drops.filter((d) => d.catalogoId === t.catalogoId && d.cola === t.cola && d.dueno);
+
+      const partes = [
+        leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
+        proximo ? `después ${proximo.personaje}` : '',
+      ].filter(Boolean);
+
+      const yaSalio = hoy.length > 0 ? `  (hoy: ${hoy.map((d) => d.dueno).join(', ')})` : '';
+      return `• ${t.nombre} → ${partes.join(' · ')}${yaSalio}`;
+    });
+
+    return [`Lista de cada drop — ${cual === 'kundun' ? 'Kundun' : 'Castle Siege'}`, '', ...lineas].join('\n');
+  };
+
+  async function copiar() {
+    const texto = armar();
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      // Sin permiso al portapapeles queda el truco viejo: un textarea fuera de pantalla.
+      const caja = document.createElement('textarea');
+      caja.value = texto;
+      caja.style.position = 'fixed';
+      caja.style.opacity = '0';
+      document.body.appendChild(caja);
+      caja.select();
+      const anduvo = document.execCommand('copy');
+      caja.remove();
+      if (!anduvo) {
+        setEstado('falló');
+        return;
+      }
+    }
+    setEstado('listo');
+    window.setTimeout(() => setEstado(''), 2200);
+  }
+
+  if (ruedas.length === 0) return null;
+
+  return (
+    <button
+      type="button"
+      className={`btn btn-chico copiar-listas${estado === 'listo' ? ' btn-ok' : ''}`}
+      onClick={() => void copiar()}
+      title="Copiar esta lista como texto, para pegarla en WhatsApp"
+    >
+      {estado === 'listo' ? '✓ Copiado' : estado === 'falló' ? 'No dejó copiar' : 'Copiar'}
+    </button>
+  );
+}
+
 function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[]; hayEvento: boolean }) {
   const { hayAusentes, leToca, proximo } = turnoActual(turno, hayEvento);
   const hoy = drops.filter((d) => d.dueno).map((d) => d.dueno!);
@@ -605,13 +674,21 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                 </button>
               </div>
 
-              <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
-                {solapaDrops === 'kundun'
-                  ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue, amarillo el próximo, dorado el que ya cobró hoy.'
-                  : estado.agenda.esDomingo
-                    ? 'Hoy es domingo: estas listas son las que se reparten con los drops del asedio.'
-                    : 'Las recompensas del asedio se reparten los domingos. Estas listas son aparte de las del Kundun y no se mueven durante la semana.'}
-              </p>
+              <div className="explica-listas">
+                <p>
+                  {solapaDrops === 'kundun'
+                    ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue, amarillo el próximo, dorado el que ya cobró hoy.'
+                    : estado.agenda.esDomingo
+                      ? 'Hoy es domingo: estas listas son las que se reparten con los drops del asedio.'
+                      : 'Las recompensas del asedio se reparten los domingos. Estas listas son aparte de las del Kundun y no se mueven durante la semana.'}
+                </p>
+                <CopiarListas
+                  ruedas={solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio}
+                  cual={solapaDrops}
+                  hayEvento={!!evento}
+                  drops={estado.items}
+                />
+              </div>
 
               {(solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio).length === 0 ? (
                 <div className="vacio">
