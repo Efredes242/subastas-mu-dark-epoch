@@ -2123,7 +2123,7 @@ select {
   line-height: 1.45;
 }
 
-.campos-aviso > .titulo-aviso {
+.cuerpo-aviso > .titulo-aviso {
   grid-column: 1 / -1;
 }
 
@@ -2145,6 +2145,57 @@ select {
 
 .aviso-evento.apagado {
   opacity: 0.6;
+}
+
+/* El bot cuando ya está andando: una línea en vez del instructivo de tres pasos. */
+.bot-plegado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 15px;
+  font-size: 13px;
+}
+
+.bot-plegado > .que {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--tx2);
+}
+
+.bot-plegado > .punto {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.bot-plegado > .punto.ok {
+  background: var(--ok);
+}
+
+.bot-plegado > .punto.mal {
+  background: var(--mal);
+}
+
+/*
+ * Los eventos, en rejilla.
+ *
+ * Uno debajo del otro, ocho eventos son una columna larguísima de scroll para algo que se mira de
+ * un vistazo. En cuadros entran tres o cuatro por pantalla y se ven todos juntos.
+ *
+ * El que se abre ocupa el ancho entero: adentro tiene días, horarios, imágenes y dos textos, y
+ * nada de eso se puede configurar en una columna de trescientos píxeles.
+ */
+.rejilla-avisos {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  align-items: start;
+}
+
+.rejilla-avisos > .abierto {
+  grid-column: 1 / -1;
 }
 
 /*
@@ -2262,13 +2313,37 @@ select {
  * Todo junto sobre el mismo fondo se leía como una sola mancha y no se veía dónde terminaba
  * uno y empezaba el otro.
  */
-.campos-aviso {
+/*
+ * Lo de adentro de un evento abierto.
+ *
+ * Son ocho bloques —días, horarios, recordatorios, cómo se ve el nombre, las imágenes, dos textos
+ * y los botones—, y apilados no entran en una pantalla ni de casualidad: hay que hacer scroll
+ * dentro del evento para ver lo que se está configurando. Acomodados de a dos o tres por fila
+ * entra todo junto, que es lo que hace falta para decidir si está bien.
+ *
+ * Los que no se pueden angostar ocupan la fila entera: el título necesita lugar para los estilos
+ * y la muestra, las imágenes para la tira, y los botones van al final donde se los busca.
+ */
+.cuerpo-aviso {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
 }
 
-.campos-aviso > div {
+.cuerpo-aviso > .titulo-aviso,
+.cuerpo-aviso > .imagenes-aviso,
+.cuerpo-aviso > .pie-aviso {
+  grid-column: 1 / -1;
+}
+
+/* Ya vienen con su propio margen de cuando estaban apilados. */
+.cuerpo-aviso > .imagenes-aviso,
+.cuerpo-aviso > .texto-aviso {
+  margin-top: 0;
+}
+
+.cuerpo-aviso > div {
   padding: 11px 12px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2276,7 +2351,7 @@ select {
 }
 
 /* El rótulo de cada grupo, que antes se perdía. */
-.campos-aviso > div > .etiqueta {
+.cuerpo-aviso > div > .etiqueta {
   display: block;
   font-size: 10.5px;
   letter-spacing: 0.06em;

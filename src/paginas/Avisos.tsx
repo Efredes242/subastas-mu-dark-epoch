@@ -234,6 +234,8 @@ interface ComoEstaElBot {
 function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: ComoEstaElBot) => void }) {
   const [estado, setEstado] = useState<EstadoBot | null>(null);
   const [chats, setChats] = useState<ChatVisto[] | null>(null);
+  /** Si se está mostrando la configuración entera del bot o solo la línea de estado. */
+  const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
 
@@ -310,20 +312,57 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
     );
   }
 
+  /**
+   * Con el bot andando, todo esto es un instructivo de tres pasos que ya se siguieron.
+   *
+   * Ocupaba media pantalla arriba de los eventos, que es lo que uno viene a tocar. Plegado queda
+   * una línea que dice lo único que importa de un vistazo: a qué chat sale y si está prendido.
+   */
+  const todoListo = estado.conToken && !!estado.chat && !estado.problema;
+
+  if (todoListo && !abierto) {
+    return (
+      <section className="panel subir bot-plegado">
+        <span className={`punto ${estado.activo ? 'ok' : 'mal'}`} />
+        <span className="que">
+          <b>{estado.activo ? 'Los avisos salen' : 'Avisos apagados'}</b> · {estado.nombre || estado.chat}
+        </span>
+        <button
+          type="button"
+          className={`btn btn-chico ${estado.activo ? 'btn-ok' : 'btn-oro'}`}
+          disabled={ocupado}
+          onClick={() => void prender(!estado.activo)}
+        >
+          {estado.activo ? 'Prendido' : 'Prender'}
+        </button>
+        <button type="button" className="btn btn-chico" onClick={() => setAbierto(true)}>
+          El bot
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="panel subir" style={{ padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>El bot de Telegram</h2>
-        {estado.conToken && estado.chat && (
-          <button
-            type="button"
-            className={`btn btn-chico ${estado.activo ? 'btn-ok' : 'btn-oro'}`}
-            disabled={ocupado}
-            onClick={() => void prender(!estado.activo)}
-          >
-            {estado.activo ? 'Avisos prendidos' : 'Prender los avisos'}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {estado.conToken && estado.chat && (
+            <button
+              type="button"
+              className={`btn btn-chico ${estado.activo ? 'btn-ok' : 'btn-oro'}`}
+              disabled={ocupado}
+              onClick={() => void prender(!estado.activo)}
+            >
+              {estado.activo ? 'Avisos prendidos' : 'Prender los avisos'}
+            </button>
+          )}
+          {todoListo && (
+            <button type="button" className="btn btn-chico" onClick={() => setAbierto(false)}>
+              Plegar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Paso 1: el token, que no pasa por esta pantalla. */}
@@ -644,15 +683,10 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
             <Mas tam={15} /> Agregar un evento
           </button>
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
-          Cada evento tiene sus días, sus horas y cuánto antes se recuerda. El texto lleva marcas
-          entre llaves que se reemplazan al mandarlo, así el mismo sirve para el aviso de una hora
-          antes y el de cinco minutos.
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
+          Tocá uno para configurarle los días, los horarios y el texto. El simulador de abajo muestra
+          el mensaje tal cual va a llegar.
         </p>
-        <div className="aviso" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, display: 'block' }}>
-          Con el bot prendido, el Worker mira cada minuto qué aviso toca y lo manda una sola vez. El
-          simulador de abajo muestra el mensaje tal cual va a llegar.
-        </div>
         {aviso && (
           <div className="aviso aparecer" style={{ marginTop: 10 }}>
             <Tilde tam={16} />
@@ -668,10 +702,13 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
       ) : lista.length === 0 ? (
         <div className="vacio">Todavía no hay ningún evento. Agregá el primero.</div>
       ) : (
-        lista.map((a) => (
+        <div className="rejilla-avisos">
+          {lista.map((a) => (
           <section
             key={a.id}
-            className={`panel subir aviso-evento${a.activo ? '' : ' apagado'}${sucio(a) ? ' sin-guardar' : ''}`}
+            className={`panel subir aviso-evento${a.activo ? '' : ' apagado'}${sucio(a) ? ' sin-guardar' : ''}${
+              abierto === a.id ? ' abierto' : ''
+            }`}
           >
             <div className="encabezado">
               <button
@@ -725,7 +762,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
             {abierto === a.id && (
               <>
-            <div className="campos-aviso">
+            <div className="cuerpo-aviso">
               <div>
                 <span className="etiqueta">Qué días cae</span>
                 <div className="chips">
@@ -922,7 +959,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                   Hasta una hora antes: más temprano nadie lo registra.
                 </div>
               </div>
-            </div>
 
             <div className="texto-aviso">
               <div className="arriba">
@@ -1049,6 +1085,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 {sucio(a) ? 'Guardar cambios' : 'Guardado'}
               </button>
             </div>
+            </div>
 
             {ensayo?.id === a.id && (
               <div className="aviso aparecer" style={{ marginTop: 10, fontSize: 12.5 }}>
@@ -1066,7 +1103,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               </>
             )}
           </section>
-        ))
+          ))}
+        </div>
       )}
 
       {/* El resumen de la mañana: la agenda del día, una vez por día. */}
