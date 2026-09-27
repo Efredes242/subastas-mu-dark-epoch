@@ -126,13 +126,18 @@ const esDeFormato = (e: unknown) => /pars|entit|markdown/i.test(e instanceof Err
 /**
  * Manda el aviso, con las fotos que tenga.
  *
- * Sin fotos es un mensaje de texto como siempre. Con una, la foto lleva el texto de epígrafe. Con
- * varias va un álbum, que en Telegram se ve como una grilla y cuenta como varios mensajes — por eso
- * devuelve una lista de ids y no uno solo: para borrarlo después hay que borrarlos todos.
+ * El aviso va en su propio mensaje y las fotos después, una por mensaje. Las dos cosas se
+ * aprendieron mirándolo en el chat:
  *
- * Si una imagen no se puede leer se saltea en vez de tumbar el aviso entero. Y si Telegram rechaza
- * las fotos por lo que sea, el aviso sale igual como texto: que llegue sin foto es mucho mejor que
- * que no llegue.
+ * Todas las fotos juntas Telegram las apila en mosaico, y dos mapas quedan del tamaño de una
+ * estampilla, uno al lado del otro. Separadas, cada mapa ocupa el ancho del chat.
+ *
+ * Y el texto del aviso no puede ir de epígrafe de la primera: Telegram lo pega abajo de esa foto,
+ * y entonces el aviso parece hablar de ese mapa en vez de del evento. Yendo solo arriba, se lee
+ * como lo que es —el anuncio— y abajo van los lugares, cada uno con el suyo.
+ *
+ * Devuelve todos los ids porque para el resto de la app esto sigue siendo un aviso: se borran
+ * juntos y los reemplaza junto el aviso siguiente.
  */
 export async function mandarConFotos(
   token: string,
@@ -142,24 +147,24 @@ export async function mandarConFotos(
 ): Promise<number[]> {
   const listas = fotos
     .slice(0, FOTOS_MAXIMAS)
-    .map((f) => ({ archivo: comoArchivo(f.datos), etiqueta: f.etiqueta }))
+    .map((f) => ({ archivo: comoArchivo(f.datos), etiqueta: f.etiqueta.trim() }))
     .filter((f): f is { archivo: { blob: Blob; nombre: string }; etiqueta: string } => !!f.archivo);
 
-  if (listas.length === 0) return [await mandar(token, chat, texto)];
+  const ids = [await mandar(token, chat, texto)].filter((id) => id > 0);
 
-  const epigrafe = texto.slice(0, EPIGRAFE_MAXIMO);
+  for (const [i, { archivo, etiqueta }] of listas.entries()) {
+    const epigrafe = etiqueta ? `📍 *${etiqueta}*`.slice(0, EPIGRAFE_MAXIMO) : '';
 
-  try {
-    if (listas.length === 1) {
-      const uno = listas[0];
-      const armar = (conFormato: boolean) => {
-        const form = new FormData();
-        form.append('chat_id', chat);
-        form.append('caption', epigrafe);
-        if (conFormato) form.append('parse_mode', 'Markdown');
-        form.append('photo', uno.archivo.blob, uno.archivo.nombre);
-        return form;
-      };
+    const armar = (conFormato: boolean) => {
+      const form = new FormData();
+      form.append('chat_id', chat);
+      if (epigrafe) form.append('caption', epigrafe);
+      if (epigrafe && conFormato) form.append('parse_mode', 'Markdown');
+      form.append('photo', archivo.blob, archivo.nombre);
+      return form;
+    };
+
+    try {
       let r: { message_id?: number };
       try {
         r = (await pedirConArchivos(token, 'sendPhoto', armar(true))) as { message_id?: number };
@@ -167,39 +172,14 @@ export async function mandarConFotos(
         if (!esDeFormato(e)) throw e;
         r = (await pedirConArchivos(token, 'sendPhoto', armar(false))) as { message_id?: number };
       }
-      return r?.message_id ? [r.message_id] : [];
-    }
-
-    // El álbum: el texto va en la primera, y la etiqueta de cada una se ve al abrirla.
-    const armar = (conFormato: boolean) => {
-      const form = new FormData();
-      form.append('chat_id', chat);
-      const media = listas.map((f, i) => {
-        const propio = [i === 0 ? epigrafe : '', f.etiqueta].filter(Boolean).join('\n\n');
-        return {
-          type: 'photo',
-          media: `attach://f${i}`,
-          ...(propio ? { caption: propio.slice(0, EPIGRAFE_MAXIMO) } : {}),
-          ...(propio && conFormato ? { parse_mode: 'Markdown' } : {}),
-        };
-      });
-      form.append('media', JSON.stringify(media));
-      listas.forEach((f, i) => form.append(`f${i}`, f.archivo.blob, f.archivo.nombre));
-      return form;
-    };
-
-    let r: Array<{ message_id?: number }>;
-    try {
-      r = (await pedirConArchivos(token, 'sendMediaGroup', armar(true))) as Array<{ message_id?: number }>;
+      if (r?.message_id) ids.push(r.message_id);
     } catch (e) {
-      if (!esDeFormato(e)) throw e;
-      r = (await pedirConArchivos(token, 'sendMediaGroup', armar(false))) as Array<{ message_id?: number }>;
+      // El aviso ya llegó: perder un mapa es mejor que tumbar el resto por uno que falló.
+      console.error('telegram/foto', i, e instanceof Error ? e.message : e);
     }
-    return (r ?? []).map((m) => m?.message_id ?? 0).filter((id) => id > 0);
-  } catch (e) {
-    console.error('telegram/fotos, va sin ellas:', e instanceof Error ? e.message : e);
-    return [await mandar(token, chat, texto)];
   }
+
+  return ids;
 }
 
 /**

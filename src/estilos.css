@@ -1637,24 +1637,65 @@ select {
   background: var(--panel2);
 }
 
-.imagenes-aviso .captura > .sacar {
+/* Los mandos de cada captura: en qué orden sale y sacarla. */
+.imagenes-aviso .captura > .mandos {
   position: absolute;
   top: 5px;
   right: 5px;
+  display: flex;
+  gap: 4px;
+}
+
+.imagenes-aviso .captura > .mandos > button {
   display: grid;
   place-items: center;
   width: 26px;
   height: 26px;
-  border: 1px solid var(--malLn);
+  border: 1px solid var(--line2);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  color: var(--mal);
+  background: rgba(0, 0, 0, 0.62);
+  color: var(--tx);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
 }
 
-.imagenes-aviso .captura > .sacar:hover {
+.imagenes-aviso .captura > .mandos > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.imagenes-aviso .captura > .mandos > button:not(:disabled):hover {
+  border-color: var(--oro);
+  color: var(--oro);
+}
+
+.imagenes-aviso .captura > .mandos > .sacar {
+  border-color: var(--malLn);
+  color: var(--mal);
+}
+
+.imagenes-aviso .captura > .mandos > .sacar:not(:disabled):hover {
+  border-color: var(--mal);
   background: var(--mal);
   color: var(--panel);
+}
+
+/* En qué lugar de la fila sale esta imagen en Telegram. */
+.imagenes-aviso .captura > .puesto {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.62);
+  color: var(--oro);
+  font-size: 11.5px;
+  font-weight: 800;
 }
 
 .imagenes-aviso .captura > figcaption {

@@ -2038,6 +2038,31 @@ app.post('/api/avisos/:id/imagenes', requiereAdmin, async (c) => {
   return c.json({ imagenes: await imagenesDe(c.env.DB, avisoId) });
 });
 
+/**
+ * El orden en que salen las imágenes.
+ *
+ * Llega la lista entera de ids y se reescribe el orden de una, en vez de mover de a una posición:
+ * así no importa cuántos saltos haya dado el admin en la pantalla, lo que queda guardado es
+ * exactamente lo que está viendo.
+ */
+app.post('/api/avisos/:id/imagenes/orden', requiereAdmin, async (c) => {
+  const avisoId = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const ids: number[] = Array.isArray(cuerpo.ids) ? cuerpo.ids.map(entero).filter(Boolean) : [];
+
+  await c.env.DB.batch(
+    ids.map((id, i) =>
+      c.env.DB.prepare('UPDATE imagenes_aviso SET orden = ? WHERE id = ? AND aviso_id = ?').bind(
+        i + 1,
+        id,
+        avisoId,
+      ),
+    ),
+  );
+
+  return c.json({ imagenes: await imagenesDe(c.env.DB, avisoId) });
+});
+
 app.patch('/api/avisos/imagenes/:id', requiereAdmin, async (c) => {
   const id = entero(c.req.param('id'));
   const cuerpo = await c.req.json().catch(() => ({}));

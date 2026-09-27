@@ -100,6 +100,21 @@ export function ImagenesDelAviso({
     }
   }
 
+  /**
+   * Cambiar de lugar una imagen.
+   *
+   * Se manda la lista entera y no el salto: lo que queda guardado es exactamente el orden que el
+   * admin está viendo, sin importar cuántas veces haya tocado las flechas.
+   */
+  async function mover(desde: number, salto: number) {
+    const orden = [...imagenes];
+    const [suelta] = orden.splice(desde, 1);
+    orden.splice(desde + salto, 0, suelta);
+    await correr(() =>
+      api(`/avisos/${avisoId}/imagenes/orden`, { cuerpo: { ids: orden.map((x) => x.id) } }),
+    );
+  }
+
   async function correr(fn: () => Promise<{ imagenes: ImagenDeAviso[] }>) {
     alError('');
     try {
@@ -116,18 +131,37 @@ export function ImagenesDelAviso({
       <span className="etiqueta">Imágenes que acompañan al aviso</span>
 
       <div className="tira">
-        {imagenes.map((im) => (
+        {imagenes.map((im, i) => (
           <figure key={im.id} className="captura">
+            <span className="puesto">{i + 1}</span>
             <img src={`/api/avisos/imagen/${im.id}`} alt={im.etiqueta || 'captura del aviso'} />
-            <button
-              type="button"
-              className="sacar"
-              disabled={ocupado || subiendo}
-              title="Sacar esta imagen"
-              onClick={() => void correr(() => api(`/avisos/imagenes/${im.id}`, { metodo: 'DELETE' }))}
-            >
-              <Tacho tam={13} />
-            </button>
+            <div className="mandos">
+              <button
+                type="button"
+                disabled={ocupado || subiendo || i === 0}
+                title="Que salga antes"
+                onClick={() => void mover(i, -1)}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={ocupado || subiendo || i === imagenes.length - 1}
+                title="Que salga después"
+                onClick={() => void mover(i, 1)}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="sacar"
+                disabled={ocupado || subiendo}
+                title="Sacar esta imagen"
+                onClick={() => void correr(() => api(`/avisos/imagenes/${im.id}`, { metodo: 'DELETE' }))}
+              >
+                <Tacho tam={13} />
+              </button>
+            </div>
             <figcaption>
               <input
                 className="campo campo-chico"
@@ -175,7 +209,7 @@ export function ImagenesDelAviso({
       <p className="pie">
         {imagenes.length === 0
           ? 'Sin imágenes el aviso sale como siempre, de texto. Con una o más, sale como foto o como álbum.'
-          : `${imagenes.length} de ${MAXIMAS}. Se achican solas y salen como JPEG, que es lo que Telegram no rechaza.`}
+          : `${imagenes.length} de ${MAXIMAS}. Salen en este orden, cada una en su mensaje y con su lugar debajo.`}
       </p>
 
       {lleno && (
