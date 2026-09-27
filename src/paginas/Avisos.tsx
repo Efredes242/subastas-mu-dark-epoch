@@ -95,6 +95,16 @@ const comoFalta = (minutos: number) => {
   return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
 };
 
+/** "lun mié vie · 21:30" — lo que alcanza para reconocer un evento sin abrirlo. */
+const cuandoCae = (a: Aviso): string => {
+  if (a.dias.length === 0 || a.horas.length === 0) return 'sin días ni horarios';
+  const dias =
+    a.dias.length === 7
+      ? 'todos los días'
+      : a.dias.map((d) => (DIAS.find(([n]) => n === d)?.[1] ?? '').toLowerCase()).join(' ');
+  return `${dias} · ${a.horas.map((h) => comoHora(h.minutos)).join(' y ')}`;
+};
+
 const armarMensaje = (plantilla: string, aviso: Aviso, cae: HoraAviso, antes: number, dia: string) =>
   plantilla
     .replace(/\{titulo\}/g, comoTitulo(aviso.nombre, aviso.titulo, aviso.emoji))
@@ -424,6 +434,14 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [guardado, setGuardado] = useState<Record<number, Aviso>>({});
   /** Cómo está el bot. null mientras no se sabe. */
   const [bot, setBot] = useState<ComoEstaElBot | null>(null);
+  /**
+   * Qué evento está desplegado. Uno solo a la vez, y de arranque ninguno.
+   *
+   * Cada evento configurado es una pantalla entera —días, horarios, título, imágenes, dos textos—
+   * y con ocho cargados la página se vuelve un muro por el que hay que hacer scroll para encontrar
+   * el que se quiere tocar. Plegados se ven los ocho de un vistazo y se abre el que importa.
+   */
+  const [abierto, setAbierto] = useState<number | null>(null);
   /** Qué evento se está ensayando ahora mismo. */
   const [ensayando, setEnsayando] = useState<number | null>(null);
   /** Lo que contestó el último ensayo, junto al evento que se probó. */
@@ -656,14 +674,34 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
             className={`panel subir aviso-evento${a.activo ? '' : ' apagado'}${sucio(a) ? ' sin-guardar' : ''}`}
           >
             <div className="encabezado">
-              <input
-                className="campo"
-                style={{ fontWeight: 800, fontSize: 15, flex: '1 1 200px', minWidth: 0 }}
-                value={a.nombre}
-                disabled={ocupado}
-                onChange={(e) => tocar(a.id, { nombre: e.target.value })}
-                placeholder="Cómo se llama el evento"
-              />
+              <button
+                type="button"
+                className="desplegar"
+                title={abierto === a.id ? 'Plegar' : 'Abrir para configurarlo'}
+                onClick={() => setAbierto(abierto === a.id ? null : a.id)}
+              >
+                {abierto === a.id ? '▾' : '▸'}
+              </button>
+
+              {abierto === a.id ? (
+                <input
+                  className="campo"
+                  style={{ fontWeight: 800, fontSize: 15, flex: '1 1 200px', minWidth: 0 }}
+                  value={a.nombre}
+                  disabled={ocupado}
+                  onChange={(e) => tocar(a.id, { nombre: e.target.value })}
+                  placeholder="Cómo se llama el evento"
+                />
+              ) : (
+                <button type="button" className="resumen" onClick={() => setAbierto(a.id)}>
+                  <span className="recorte titulo">
+                    {a.emoji} {a.nombre}
+                  </span>
+                  <span className="recorte cuando">{cuandoCae(a)}</span>
+                </button>
+              )}
+
+              {sucio(a) && <span className="pastilla av">sin guardar</span>}
               <button
                 type="button"
                 className={`btn btn-chico ${a.activo ? 'btn-ok' : ''}`}
@@ -685,6 +723,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               </button>
             </div>
 
+            {abierto === a.id && (
+              <>
             <div className="campos-aviso">
               <div>
                 <span className="etiqueta">Qué días cae</span>
@@ -999,7 +1039,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               >
                 {ensayando === a.id ? 'Mandando…' : '🧪 Probar en Telegram'}
               </button>
-              {sucio(a) && <span className="pastilla av">sin guardar</span>}
               <button
                 type="button"
                 className={`btn btn-chico${sucio(a) ? ' btn-oro' : ''}`}
@@ -1023,6 +1062,8 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 <Alerta tam={16} />
                 <span>Sin horarios este evento no avisa nunca. Cargale por lo menos uno.</span>
               </div>
+            )}
+              </>
             )}
           </section>
         ))
