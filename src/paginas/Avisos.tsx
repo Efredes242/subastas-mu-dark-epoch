@@ -1075,16 +1075,41 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               >
                 {ensayando === a.id ? 'Mandando…' : '🧪 Probar en Telegram'}
               </button>
-              <button
-                type="button"
-                className={`btn btn-chico${sucio(a) ? ' btn-oro' : ''}`}
-                disabled={ocupado || !sucio(a)}
-                title={sucio(a) ? 'Mandar los cambios' : 'No hay nada nuevo para guardar'}
-                onClick={() => void guardar(a)}
-              >
-                {sucio(a) ? 'Guardar cambios' : 'Guardado'}
-              </button>
             </div>
+
+            {/*
+              La barra de guardar.
+
+              Antes el botón era el último de cinco controles en la fila de la IA, gris y con la
+              palabra "Guardado" — que se lee como un cartel de estado y no como algo para apretar.
+              Ahora aparece sola cuando hay algo que mandar, dorada y a lo ancho, y desaparece
+              cuando no: un botón que casi siempre está apagado enseña a ignorarlo.
+            */}
+            {sucio(a) && (
+              <div className="barra-guardar">
+                <span className="que">Tenés cambios sin guardar en este evento.</span>
+                <button
+                  type="button"
+                  className="btn btn-chico"
+                  disabled={ocupado}
+                  title="Volver a como estaba guardado"
+                  onClick={() => {
+                    const comoEstaba = guardado[a.id];
+                    if (comoEstaba) tocar(a.id, comoEstaba);
+                  }}
+                >
+                  Descartar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-oro"
+                  disabled={ocupado}
+                  onClick={() => void guardar(a)}
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            )}
             </div>
 
             {ensayo?.id === a.id && (
