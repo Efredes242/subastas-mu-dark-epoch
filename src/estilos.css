@@ -395,21 +395,65 @@ select {
  * rareza, así el corte además dice algo.
  */
 /*
- * El "le toca a" cuando no se puede mover.
+ * El "le toca a" de cada item.
  *
- * Va sin caja ni flechita a propósito: un campo apagado se sigue leyendo como algo que debería
- * poder usarse y que está fallando. Esto se lee como lo que es, un dato.
+ * Con varias listas son varios renglones, y con el nombre de la lista en gris chico a la
+ * izquierda lo que se leía era una columna de nombres sueltos: no se veía cuál era de qué rueda.
+ * Cada par va ahora encerrado en una pastilla, y la lista pintada igual que su chip de "Sale en",
+ * que está justo al lado — la misma palabra con el mismo color en los dos lugares.
  */
-.turno-fijo {
-  flex: 1;
+.turnos-item {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 4px;
   min-width: 0;
-  padding: 8px 2px;
+}
+
+.turnos-fijos {
+  flex-basis: 230px;
+  gap: 6px;
+}
+
+.turno-fijo {
+  display: flex;
+  /* Del ancho del nombre y nada mas: un renglon largo y casi vacio no se lee como una pastilla. */
+  width: fit-content;
+  max-width: 100%;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.turno-fijo .cual {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border: 1px solid var(--oroLn);
+  border-radius: 999px;
+  background: var(--oroBg);
+  color: var(--oro);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.turno-fijo .quien {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--tx);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Una rueda sin nadie no es un nombre: no tiene que pesar como uno. */
+.turno-fijo .quien.nadie {
+  font-weight: 600;
+  color: var(--tx3);
 }
 
 .item-catalogo {

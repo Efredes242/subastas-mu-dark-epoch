@@ -1697,20 +1697,45 @@ function Catalogo({
 
                 {/* El turno de ESTE item en cada lista: quién se lo lleva la próxima vez que salga. */}
                 {seVe(estado, 'panel_turnos') && (
-                <div style={{ flex: '1 1 220px', display: 'grid', gap: 4, minWidth: 0 }}>
-                  <span className="etiqueta">Le toca a</span>
-                  {LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
-                    const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
-                    return (
-                      <label key={cola} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                        {e.colas.length > 1 && (
-                          <span
-                            style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--tx3)', width: 44, flexShrink: 0 }}
-                          >
-                            {corto}
-                          </span>
-                        )}
-                        {mueveTurnos ? (
+                  <div className={mueveTurnos ? 'turnos-item' : 'turnos-item turnos-fijos'}>
+                    <span className="etiqueta">
+                      {mueveTurnos ? 'Le toca a' : 'El próximo de cada lista'}
+                    </span>
+                    {LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
+                      const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
+                      /*
+                       * Lo mismo que elige el <select>. Fuera de un evento `leTocaEn` no devuelve
+                       * a nadie —mira quién vino, y todavía no vino nadie—, y ahí manda el primero
+                       * de la vuelta: es lo que el navegador muestra solo cuando el value no
+                       * coincide con ninguna opción.
+                       */
+                      const quien = vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0];
+
+                      // Sin poder moverlo, el par «lista → persona» va en una sola pastilla, con el
+                      // nombre de la lista pintado igual que el chip de "Sale en" de al lado: así se
+                      // lee de qué rueda es cada nombre, en vez de como una columna de nombres suelta.
+                      if (!mueveTurnos) {
+                        return (
+                          <div key={cola} className="turno-fijo" title={`El próximo de este item en ${largo}`}>
+                            <span className="cual">{corto}</span>
+                            {quien ? (
+                              <span className="quien">{quien.personaje}</span>
+                            ) : (
+                              <span className="quien nadie">nadie en esa lista</span>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <label key={cola} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                          {e.colas.length > 1 && (
+                            <span
+                              style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--tx3)', width: 44, flexShrink: 0 }}
+                            >
+                              {corto}
+                            </span>
+                          )}
                           <select
                             className="campo campo-chico"
                             style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
@@ -1726,22 +1751,10 @@ function Catalogo({
                               </option>
                             ))}
                           </select>
-                        ) : (
-                          <span className="turno-fijo" title={`El próximo de este item en ${largo}`}>
-                            {/*
-                              Lo mismo que muestra el <select> de arriba. Fuera de un evento
-                              `leTocaEn` no devuelve a nadie —mira quién vino, y todavía no vino
-                              nadie—, y ahí el que manda es el primero de la vuelta, que es lo que
-                              el navegador elige solo cuando el value no coincide con ninguna opción.
-                            */}
-                            {(vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0])?.personaje ??
-                              'nadie en esa lista'}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
+                        </label>
+                      );
+                    })}
+                  </div>
                 )}
 
                 {e.imagen && editaCatalogo && (
