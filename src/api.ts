@@ -91,6 +91,19 @@ export function seVe(estado: EstadoConAviso, parte: string): boolean {
   return como === 'admin' && estado.yo?.rol === 'admin';
 }
 
+/**
+ * Si quien está mirando puede hacer una de las dos cosas que cambian las reglas del reparto.
+ *
+ * Es la misma cuenta que hace el servidor en `puede()`, repetida acá para la pantalla: el
+ * guardián de la ruta es el que manda, esto solo decide si mostrar un campo o un texto. El admin
+ * siempre puede; el Grand Master, solo si el admin se lo dejó prendido.
+ */
+export function puedeHacer(estado: EstadoConAviso, cual: 'catalogo' | 'turnos'): boolean {
+  const rol = estado.yo?.rol;
+  if (rol === 'admin') return true;
+  return estado.permisos?.[cual] === 'gm' && rol === 'grandmaster';
+}
+
 export function zonaDelDispositivo(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

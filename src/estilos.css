@@ -386,6 +386,55 @@ select {
   background: var(--panel2);
 }
 
+/*
+ * Cada item del catálogo, en su propia caja.
+ *
+ * Un item ocupa varios renglones —nombre, cómo se escribe, en qué listas sale, a quién le toca en
+ * cada una— y uno abajo del otro se leen como una sola pared de campos: no se ve dónde termina
+ * uno y empieza el siguiente. La caja lo separa y la barra de la izquierda lleva el color de su
+ * rareza, así el corte además dice algo.
+ */
+/*
+ * El "le toca a" cuando no se puede mover.
+ *
+ * Va sin caja ni flechita a propósito: un campo apagado se sigue leyendo como algo que debería
+ * poder usarse y que está fallando. Esto se lee como lo que es, un dato.
+ */
+.turno-fijo {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 2px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tx);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-catalogo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--cLn);
+  border-radius: 13px;
+  background: var(--panel2);
+}
+
+.item-catalogo:last-child {
+  margin-bottom: 0;
+}
+
+.item-catalogo:hover {
+  border-color: var(--line2);
+  border-left-color: var(--c);
+  background: var(--panel2);
+}
+
 .recorte {
   min-width: 0;
   white-space: nowrap;

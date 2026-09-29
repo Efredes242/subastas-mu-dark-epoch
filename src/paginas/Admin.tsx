@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, seVe, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
+import { api, puedeHacer, seVe, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
 import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorIcono } from '../componentes/SelectorIcono';
 import { Avisos } from './Avisos';
@@ -1381,6 +1381,19 @@ function Catalogo({
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
 
+  /**
+   * Quién puede tocar qué, en esta pantalla.
+   *
+   * Las dos cosas que cambian el reparto —editar el catálogo y mover el "le toca a"— son del
+   * admin salvo que las preste. Antes el Grand Master veía los mismos campos que el admin y se
+   * enteraba recién al usarlos, con un error del servidor: hacía el cambio en la pantalla, se
+   * revertía solo y parecía que la app estaba rota. Ahora directamente no hay campo que tocar,
+   * y lo que queda es la misma información pero para leer.
+   */
+  const editaCatalogo = puedeHacer(estado, 'catalogo');
+  const mueveTurnos = puedeHacer(estado, 'turnos');
+  const esAdmin = estado.yo?.rol === 'admin';
+
   async function traer() {
     try {
       const r = await api<{ catalogo: EntradaCatalogo[] }>('/catalogo');
@@ -1474,7 +1487,7 @@ function Catalogo({
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 900 }}>
-      {seVe(estado, 'panel_turnos') && (
+      {esAdmin && seVe(estado, 'panel_turnos') && (
         <section className="panel subir sortear-turnos">
           <div className="que">
             <h2>Repartir los turnos de arranque</h2>
@@ -1525,7 +1538,7 @@ function Catalogo({
           Cada nombre que se carga alguna vez queda acá. Debajo de cada uno están <b>todas las palabras
           que lo cargan</b>: la clave más los alias. Una palabra pertenece a un solo item, así que si
           intentás repetir una en otro, el panel te avisa y no la guarda.
-          {sinImagen > 0 && (
+          {sinImagen > 0 && editaCatalogo && (
             <>
               {' '}
               <b style={{ color: 'var(--av)' }}>
@@ -1534,6 +1547,25 @@ function Catalogo({
             </>
           )}
         </p>
+
+        {/*
+          Por qué está todo quieto.
+          Sin esto, una pantalla llena de campos que no responden se lee como una app rota.
+        */}
+        {(!editaCatalogo || !mueveTurnos) && (
+          <div className="aviso" style={{ marginTop: 12, fontSize: 12.5 }}>
+            <Alerta tam={15} />
+            <span>
+              Esto es para mirar.{' '}
+              {!editaCatalogo && !mueveTurnos
+                ? 'Editar los items y mover el “le toca a”'
+                : !editaCatalogo
+                  ? 'Editar los items'
+                  : 'Mover el “le toca a”'}{' '}
+              lo hace el admin, porque cambia cómo se reparte de acá en adelante.
+            </span>
+          </div>
+        )}
       </section>
 
       <section className="panel subir" style={{ padding: '17px 12px 12px' }}>
@@ -1546,12 +1578,12 @@ function Catalogo({
         ) : (
           <div className="escalonado">
             {lista.map((e) => (
-              <div key={e.id} className={`fila r-${e.rareza}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', flexWrap: 'wrap' }}>
+              <div key={e.id} className={`fila item-catalogo r-${e.rareza}`}>
                 <button
                   type="button"
                   className="boton-icono"
-                  title={e.imagen ? 'Cambiar la imagen' : 'Elegir la imagen'}
-                  disabled={ocupado}
+                  title={!editaCatalogo ? e.nombre : e.imagen ? 'Cambiar la imagen' : 'Elegir la imagen'}
+                  disabled={ocupado || !editaCatalogo}
                   onClick={() => setEligiendo(eligiendo === e.id ? null : e.id)}
                 >
                   <IconoItem icono={e.icono} imagen={e.imagen} rareza={e.rareza} tam={46} />
@@ -1568,6 +1600,7 @@ function Catalogo({
                     style={{ fontWeight: 700, minHeight: 38 }}
                     defaultValue={e.nombre}
                     disabled={ocupado}
+                    readOnly={!editaCatalogo}
                     title="Cómo se muestra el item en toda la app"
                     onBlur={(ev) => {
                       const nombre = ev.target.value.trim();
@@ -1580,6 +1613,7 @@ function Catalogo({
                       className="campo campo-chico clave-item"
                       defaultValue={e.clave}
                       disabled={ocupado}
+                      readOnly={!editaCatalogo}
                       title="Lo que se escribe al cargar el drop. Si renombraste el item, acá se corrige."
                       onBlur={(ev) => {
                         const clave = ev.target.value.trim();
@@ -1619,6 +1653,7 @@ function Catalogo({
                     defaultValue={aliasComoTexto(e.alias)}
                     placeholder="pluma, plumas condor"
                     disabled={ocupado}
+                    readOnly={!editaCatalogo}
                     title="Separadas por coma. Si escribís cualquiera de estas al cargar, cae en este item."
                     onBlur={(ev) => {
                       const alias = ev.target.value.trim();
@@ -1639,11 +1674,13 @@ function Catalogo({
                           key={cola}
                           type="button"
                           className={`chip-lista${dentro ? ' dentro' : ''}`}
-                          disabled={ocupado || ultima}
+                          disabled={ocupado || ultima || !editaCatalogo}
                           title={
-                            ultima
-                              ? 'Un item tiene que salir en alguna lista'
-                              : `${dentro ? 'Sacar de' : 'Agregar a'}: ${largo}`
+                            !editaCatalogo
+                              ? largo
+                              : ultima
+                                ? 'Un item tiene que salir en alguna lista'
+                                : `${dentro ? 'Sacar de' : 'Agregar a'}: ${largo}`
                           }
                           onClick={() =>
                             void guardar(e.id, {
@@ -1673,28 +1710,41 @@ function Catalogo({
                             {corto}
                           </span>
                         )}
-                        <select
-                          className="campo campo-chico"
-                          style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
-                          value={String(leTocaEn(e.id, cola) ?? '')}
-                          disabled={ocupado || vuelta.length === 0}
-                          title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
-                          onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
-                        >
-                          {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
-                          {vuelta.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.personaje}
-                            </option>
-                          ))}
-                        </select>
+                        {mueveTurnos ? (
+                          <select
+                            className="campo campo-chico"
+                            style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
+                            value={String(leTocaEn(e.id, cola) ?? '')}
+                            disabled={ocupado || vuelta.length === 0}
+                            title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
+                            onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
+                          >
+                            {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
+                            {vuelta.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.personaje}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="turno-fijo" title={`El próximo de este item en ${largo}`}>
+                            {/*
+                              Lo mismo que muestra el <select> de arriba. Fuera de un evento
+                              `leTocaEn` no devuelve a nadie —mira quién vino, y todavía no vino
+                              nadie—, y ahí el que manda es el primero de la vuelta, que es lo que
+                              el navegador elige solo cuando el value no coincide con ninguna opción.
+                            */}
+                            {(vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0])?.personaje ??
+                              'nadie en esa lista'}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
                 </div>
                 )}
 
-                {e.imagen && (
+                {e.imagen && editaCatalogo && (
                   <button
                     type="button"
                     className="btn btn-chico"
