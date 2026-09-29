@@ -432,6 +432,41 @@ function Bot({
           los dos grupos— o tener uno cada uno, que es lo que hace falta si se quiere que cada
           gremio vea un nombre distinto.
         */}
+        {/*
+          Cómo se llama este servidor.
+
+          Va acá y no al lado de las solapas porque es configuración del servidor, igual que el bot
+          y el grupo, y porque en las solapas habría dos cajas de texto seguidas —una para
+          renombrar, otra para agregar— que se confunden entre sí.
+        */}
+        <div className="elegir-bot">
+          <span className="etiqueta">Cómo se llama este servidor</span>
+          <input
+            className="campo campo-chico"
+            style={{ marginTop: 8, maxWidth: 280 }}
+            defaultValue={estado.nombre}
+            disabled={ocupado}
+            maxLength={40}
+            key={estado.id}
+            placeholder="Pegasos04"
+            onBlur={(e) => {
+              const nombre = e.target.value.trim();
+              if (!nombre || nombre === estado.nombre) {
+                e.target.value = estado.nombre;
+                return;
+              }
+              void correr(async () => {
+                const r = await api<{ servidores: ServidorConBot[] }>(`/servidores/${estado.id}`, {
+                  metodo: 'PATCH',
+                  cuerpo: { nombre },
+                });
+                alCambiar(r.servidores);
+                setAviso(`Ahora se llama "${nombre}".`);
+              });
+            }}
+          />
+        </div>
+
         <div className="elegir-bot">
           <span className="etiqueta">Con qué bot manda</span>
           <div className="chips">
