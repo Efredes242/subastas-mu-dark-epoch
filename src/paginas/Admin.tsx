@@ -514,6 +514,8 @@ interface EntradaCatalogo {
   choque: string | null;
   /** En qué listas sale. La CQC cae en el Kundun y en el asedio; el Cofre, solo en el asedio. */
   colas: string[];
+  /** Si no gira: el id del miembro que se lleva todos sus drops. `null` es la rueda. */
+  fijoA: number | null;
 }
 
 /**
@@ -1698,62 +1700,120 @@ function Catalogo({
                 {/* El turno de ESTE item en cada lista: quién se lo lleva la próxima vez que salga. */}
                 {seVe(estado, 'panel_turnos') && (
                   <div className={mueveTurnos ? 'turnos-item' : 'turnos-item turnos-fijos'}>
-                    <span className="etiqueta">
-                      {mueveTurnos ? 'Le toca a' : 'El próximo de cada lista'}
-                    </span>
-                    {LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
-                      const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
-                      /*
-                       * Lo mismo que elige el <select>. Fuera de un evento `leTocaEn` no devuelve
-                       * a nadie —mira quién vino, y todavía no vino nadie—, y ahí manda el primero
-                       * de la vuelta: es lo que el navegador muestra solo cuando el value no
-                       * coincide con ninguna opción.
-                       */
-                      const quien = vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0];
-
-                      // Sin poder moverlo, el par «lista → persona» va en una sola pastilla, con el
-                      // nombre de la lista pintado igual que el chip de "Sale en" de al lado: así se
-                      // lee de qué rueda es cada nombre, en vez de como una columna de nombres suelta.
-                      if (!mueveTurnos) {
-                        return (
-                          <div key={cola} className="turno-fijo" title={`El próximo de este item en ${largo}`}>
-                            <span className="cual">{corto}</span>
-                            {quien ? (
-                              <span className="quien">{quien.personaje}</span>
-                            ) : (
-                              <span className="quien nadie">nadie en esa lista</span>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <label key={cola} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                          {e.colas.length > 1 && (
-                            <span
-                              style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--tx3)', width: 44, flexShrink: 0 }}
-                            >
-                              {corto}
-                            </span>
-                          )}
-                          <select
-                            className="campo campo-chico"
-                            style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
-                            value={String(leTocaEn(e.id, cola) ?? '')}
-                            disabled={ocupado || vuelta.length === 0}
-                            title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
-                            onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
+                    {/*
+                      Las dos formas de repartir un item.
+                      La rueda es lo de siempre. "Todo para uno" es el arreglo de las almas de
+                      guerra: uno solo las junta hasta completar lo que necesita. Cuánto le falta
+                      no lo puede saber la app —también las compra en las tiendas del juego—, así
+                      que no hay meta ni cuenta: queda fijo hasta que lo cambien acá.
+                    */}
+                    {mueveTurnos ? (
+                      <>
+                        <span className="etiqueta">Cómo se reparte</span>
+                        <div className="chips" style={{ marginBottom: 2 }}>
+                          <button
+                            type="button"
+                            className={`chip-lista${e.fijoA === null ? ' dentro' : ''}`}
+                            disabled={ocupado}
+                            title="Gira entre los que participan en cada lista, como siempre"
+                            onClick={() => e.fijoA !== null && void guardar(e.id, { fijoA: null })}
                           >
-                            {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
-                            {vuelta.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.personaje}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      );
-                    })}
+                            Por rueda
+                          </button>
+                          <button
+                            type="button"
+                            className={`chip-lista${e.fijoA !== null ? ' dentro' : ''}`}
+                            disabled={ocupado || estado.orden.length === 0}
+                            title="Todos los drops de este item van siempre a la misma persona"
+                            onClick={() =>
+                              e.fijoA === null && void guardar(e.id, { fijoA: estado.orden[0]?.id })
+                            }
+                          >
+                            Todo para uno
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="etiqueta">
+                        {e.fijoA === null ? 'El próximo de cada lista' : 'Todos los drops van para'}
+                      </span>
+                    )}
+
+                    {e.fijoA !== null ? (
+                      mueveTurnos ? (
+                        <select
+                          className="campo campo-chico"
+                          style={{ cursor: 'pointer' }}
+                          value={String(e.fijoA)}
+                          disabled={ocupado}
+                          title="Todos los drops de este item van para esta persona, hasta que la cambies"
+                          onChange={(ev) => void guardar(e.id, { fijoA: Number(ev.target.value) })}
+                        >
+                          {estado.orden.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.personaje}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="turno-fijo">
+                          <span className="quien">
+                            {estado.orden.find((p) => p.id === e.fijoA)?.personaje ?? 'alguien que ya no está'}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
+                        const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
+                        /*
+                         * Lo mismo que elige el <select>. Fuera de un evento `leTocaEn` no devuelve
+                         * a nadie —mira quién vino, y todavía no vino nadie—, y ahí manda el primero
+                         * de la vuelta: es lo que el navegador muestra solo cuando el value no
+                         * coincide con ninguna opción.
+                         */
+                        const quien = vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0];
+
+                        if (!mueveTurnos) {
+                          return (
+                            <div key={cola} className="turno-fijo" title={`El próximo de este item en ${largo}`}>
+                              <span className="cual">{corto}</span>
+                              {quien ? (
+                                <span className="quien">{quien.personaje}</span>
+                              ) : (
+                                <span className="quien nadie">nadie en esa lista</span>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <label key={cola} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                            {e.colas.length > 1 && (
+                              <span
+                                style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--tx3)', width: 44, flexShrink: 0 }}
+                              >
+                                {corto}
+                              </span>
+                            )}
+                            <select
+                              className="campo campo-chico"
+                              style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
+                              value={String(leTocaEn(e.id, cola) ?? '')}
+                              disabled={ocupado || vuelta.length === 0}
+                              title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
+                              onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
+                            >
+                              {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
+                              {vuelta.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.personaje}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        );
+                      })
+                    )}
                   </div>
                 )}
 

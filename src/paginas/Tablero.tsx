@@ -115,10 +115,12 @@ function CopiarListas({ ruedas, cual, hayEvento, drops }: {
       const { leToca, proximo } = turnoActual(t, hayEvento);
       const hoy = drops.filter((d) => d.catalogoId === t.catalogoId && d.cola === t.cola && d.dueno);
 
-      const partes = [
-        leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
-        proximo ? `después ${proximo.personaje}` : '',
-      ].filter(Boolean);
+      const partes = t.fijo
+        ? [`va todo para ${t.fijo.personaje}`]
+        : [
+            leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
+            proximo ? `después ${proximo.personaje}` : '',
+          ].filter(Boolean);
 
       const yaSalio = hoy.length > 0 ? `  (hoy: ${hoy.map((d) => d.dueno).join(', ')})` : '';
       return `• ${t.nombre} → ${partes.join(' · ')}${yaSalio}`;
@@ -191,20 +193,41 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
               </span>
             </span>
           )}
-          <span>
-            <span className="rotulo-mini">sigue </span>
-            <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>{leToca?.personaje ?? '—'}</span>
-          </span>
-          {proximo && (
+          {turno.fijo ? (
             <span>
-              <span className="rotulo-mini">después </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--av)' }}>{proximo.personaje}</span>
+              <span className="rotulo-mini">va todo para </span>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>{turno.fijo.personaje}</span>
             </span>
+          ) : (
+            <>
+              <span>
+                <span className="rotulo-mini">sigue </span>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>{leToca?.personaje ?? '—'}</span>
+              </span>
+              {proximo && (
+                <span>
+                  <span className="rotulo-mini">después </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--av)' }}>{proximo.personaje}</span>
+                </span>
+              )}
+            </>
           )}
         </span>
       </div>
 
-      {turno.vuelta.map((p, i) => {
+      {/*
+        Un item que no gira no tiene vuelta que mostrar: pintar la lista con alguien "que sigue"
+        diría lo contrario de lo que pasa. Se muestra la persona sola y nada más.
+      */}
+      {turno.fijo && (
+        <div className="turno toca">
+          <RetratoClase clase={turno.fijo.clase} tam={22} />
+          <span className="quien">{turno.fijo.personaje}</span>
+          <span className="marca">se lleva todos</span>
+        </div>
+      )}
+
+      {!turno.fijo && turno.vuelta.map((p, i) => {
         const clase =
           p.seLlevo > 0
             ? 'cobro'

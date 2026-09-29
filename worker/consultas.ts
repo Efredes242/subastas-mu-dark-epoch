@@ -362,9 +362,50 @@ export function siguienteEnLaRueda(
 export async function elegirGanador(
   db: D1Database,
   item: FilaItem,
-): Promise<{ id: number; personaje: string; catalogoId: number | null; cola: Cola; salteados: string[] } | null> {
+): Promise<{
+  id: number;
+  personaje: string;
+  catalogoId: number | null;
+  cola: Cola;
+  salteados: string[];
+  /** Ganó por estar puesto a mano en el catálogo, no por la rueda. */
+  fijo: boolean;
+  /** Le toca igual aunque no haya venido: vale la pena dejarlo escrito. */
+  faltando: boolean;
+} | null> {
   const cola: Cola = COLAS.includes(item.cola as Cola) ? (item.cola as Cola) : 'items';
   const presentes = await presentesDe(db, item.evento_id);
+
+  /*
+   * Un item con dueño fijo no gira: va entero para esa persona, esté o no.
+   *
+   * Es un arreglo del gremio —uno junta todas las almas hasta completar lo que necesita, y
+   * recién ahí pasa al siguiente—, así que saltearlo por no haber venido a ese Kundun rompería
+   * justo lo que se quiso arreglar. Que no vino queda escrito en "cómo se decidió".
+   */
+  if (item.catalogo_id !== null) {
+    const duenoFijo = await db
+      .prepare(
+        `SELECT u.id, u.personaje FROM catalogo c
+           JOIN usuarios u ON u.id = c.fijo_a AND u.activo = 1
+          WHERE c.id = ?`,
+      )
+      .bind(item.catalogo_id)
+      .first<{ id: number; personaje: string }>();
+
+    if (duenoFijo) {
+      return {
+        id: duenoFijo.id,
+        personaje: duenoFijo.personaje,
+        catalogoId: item.catalogo_id,
+        cola,
+        salteados: [],
+        fijo: true,
+        faltando: presentes.size > 0 && !presentes.has(duenoFijo.id),
+      };
+    }
+  }
+
   const orden = await ordenDePrioridad(db);
   const enRueda = enLaRueda(orden, cola, await participantesDe(db));
 
@@ -378,6 +419,8 @@ export async function elegirGanador(
     catalogoId: item.catalogo_id,
     cola,
     salteados: elegido.salteados.map((u) => u.personaje),
+    fijo: false,
+    faltando: false,
   };
 }
 
@@ -599,6 +642,8 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     for (const cola of colasDe.get(entrada.id) ?? []) {
       const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), ultimos.get(`${entrada.id}|${cola}`) ?? null);
       const suyos = items.filter((i) => i.catalogoId === entrada.id && i.cola === cola);
+      // El dueño fijo no sale de la rueda: puede no estar en la lista de este item, y vale igual.
+      const duenoFijo = entrada.fijo_a === null ? null : orden.find((u) => u.id === entrada.fijo_a);
 
       turnos.push({
         catalogoId: entrada.id,
@@ -608,6 +653,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         rareza: entrada.rareza,
         cola,
         salieron: suyos.length,
+        fijo: duenoFijo ? { id: duenoFijo.id, personaje: duenoFijo.personaje, clase: duenoFijo.clase } : null,
         vuelta: vuelta.map((u) => ({
           id: u.id,
           personaje: u.personaje,

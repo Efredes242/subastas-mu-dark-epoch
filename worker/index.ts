@@ -658,15 +658,19 @@ async function asignarConLaRueda(env: Env, item: FilaItem): Promise<{ quien: str
   const ganador = await elegirGanador(env.DB, item);
   if (!ganador) return null;
 
-  const metodo =
-    `Le tocaba a ${ganador.personaje} en la lista de ${item.nombre}` +
-    (ganador.salteados.length > 0 ? ` — se saltearon ${ganador.salteados.join(', ')} por no estar` : '');
+  const metodo = ganador.fijo
+    ? `Todos los ${item.nombre} van para ${ganador.personaje}` + (ganador.faltando ? ' — no estuvo, pero el item es suyo' : '')
+    : `Le tocaba a ${ganador.personaje} en la lista de ${item.nombre}` +
+      (ganador.salteados.length > 0 ? ` — se saltearon ${ganador.salteados.join(', ')} por no estar` : '');
 
   await env.DB.prepare("UPDATE items SET asignado_a = ?, estado = 'reclamado', metodo = ? WHERE id = ?")
     .bind(ganador.id, metodo, item.id)
     .run();
-  // Solo avanza la lista de ESTE item: las de los demás quedan donde estaban.
-  if (ganador.catalogoId !== null) await guardarTurno(env.DB, ganador.catalogoId, ganador.cola, ganador.id);
+  // Solo avanza la lista de ESTE item: las de los demás quedan donde estaban. Un item con dueño
+  // fijo no mueve nada: el día que vuelva a la rueda tiene que retomarla donde la dejó.
+  if (ganador.catalogoId !== null && !ganador.fijo) {
+    await guardarTurno(env.DB, ganador.catalogoId, ganador.cola, ganador.id);
+  }
 
   return { quien: ganador.personaje, salteados: ganador.salteados };
 }
@@ -1350,6 +1354,7 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
   return c.json({
     catalogo: results.map((e) => ({
       ...e,
+      fijoA: e.fijo_a,
       choque: choca(e),
       colas: colasDe.get(e.id) ?? [],
       turnos: Object.fromEntries(
@@ -1437,6 +1442,25 @@ app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
   // En qué listas sale este item. La CQC cae en el Kundun y en el asedio; el Cofre, solo
   // en el asedio. Cada lista lleva su propia rueda, así que sacar una borra su turno.
   let sinListas = false;
+  /*
+   * A quién van todos los drops de este item.
+   *
+   * Se acepta el id de un miembro activo o null para volver a la rueda. Cualquier otra cosa se
+   * ignora en silencio: el panel manda el campo solo cuando lo tocan.
+   */
+  if ('fijoA' in cuerpo) {
+    const aQuien = cuerpo.fijoA === null ? null : entero(cuerpo.fijoA);
+    if (aQuien === null) {
+      await c.env.DB.prepare('UPDATE catalogo SET fijo_a = NULL WHERE id = ?').bind(id).run();
+    } else {
+      const existe = await c.env.DB.prepare('SELECT id FROM usuarios WHERE id = ? AND activo = 1')
+        .bind(aQuien)
+        .first<{ id: number }>();
+      if (!existe) return c.json({ error: 'Ese miembro no existe.' }, 404);
+      await c.env.DB.prepare('UPDATE catalogo SET fijo_a = ? WHERE id = ?').bind(aQuien, id).run();
+    }
+  }
+
   if (Array.isArray(cuerpo.colas)) {
     const pedidas = COLAS.filter((k) => cuerpo.colas.includes(k));
     if (pedidas.length === 0) {

@@ -118,6 +118,12 @@ export interface FilaCatalogo {
   imagen: string | null;
   veces: number;
   creado_en: string;
+  /**
+   * El item no gira: todos sus drops van a esta persona, hasta que el admin la cambie.
+   *
+   * NULL es lo de siempre, la rueda.
+   */
+  fijo_a: number | null;
 }
 
 export interface ItemPublico {
@@ -247,6 +253,8 @@ export interface Estado {
     cola: string;
     /** Cuántos de este item salieron en el Kundun de ahora. */
     salieron: number;
+    /** Si el item no gira, quién se lleva todo. `null` es la rueda de siempre. */
+    fijo: { id: number; personaje: string; clase: string } | null;
     vuelta: Array<{ id: number; personaje: string; vino: boolean; seLlevo: number; clase: string }>;
   }>;
   /** El reparto del Kundun anterior, para que todos vean quién se llevó qué. */
