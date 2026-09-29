@@ -5,7 +5,7 @@ import { SelectorIcono } from '../componentes/SelectorIcono';
 import { Avisos } from './Avisos';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { PedidosDeIngreso } from '../componentes/PedidosDeIngreso';
-import { ir, type PropsPagina } from '../App';
+import { type PropsPagina } from '../App';
 import {
   Abajo,
   Alerta,
@@ -852,9 +852,7 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
           <SelectorZona zona={zona} alCambiar={setZona} offsetServidor={estado.agenda.offsetServidorHoras} />
-          <button type="button" className="btn btn-chico" onClick={() => ir('/')}>
-            Ver el tablero
-          </button>
+
 
         </div>
       </div>

@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { api, comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
-import { ir, type PropsPagina } from '../App';
-import { Escudo, IconoItem, Lineas, Orden, Reloj } from '../iconos';
+import { type PropsPagina } from '../App';
+import { IconoItem, Lineas, Orden, Reloj } from '../iconos';
 
-type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'entrar';
+type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas';
 type Turno = PropsPagina['estado']['turnos'][number];
 
 const NOMBRE_COLA: Record<string, string> = {
@@ -592,54 +592,6 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
         </div>
       </div>
 
-      {hoja === 'entrar' && (
-        <div className="hoja" onClick={() => setHoja(null)} role="presentation">
-          <div
-            className="hoja-cuerpo"
-            style={{ maxWidth: 400, padding: 24 }}
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label="Entrar"
-          >
-            {estado.yo && (
-              // Sin sesión no se llega hasta acá: el login está antes que el tablero.
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                  <div className="icono-item r-divino" style={{ width: 46, height: 46, borderRadius: 15 }}>
-                    <Escudo tam={23} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>
-                      {estado.yo.personaje}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--tx3)' }}>
-                      {estado.yo.rol === 'admin' ? 'Admin' : estado.yo.rol === 'grandmaster' ? 'Grand Master' : 'Jugador'}
-                      {' · '}
-                      {estado.yo.usuario}
-                    </div>
-                  </div>
-                </div>
-
-                <button type="button" className="btn btn-oro" style={{ minHeight: 50 }} onClick={() => ir('/admin')}>
-                  Ir a mi panel
-                </button>
-
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={async () => {
-                    await api('/auth/logout', { cuerpo: {} }).catch(() => {});
-                    window.location.href = '/';
-                  }}
-                >
-                  Salir
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {hoja === 'anterior' && (
         <HojaPanel titulo="La puja anterior" alCerrar={() => setHoja(null)}>
           {estado.anterior ? (
@@ -761,9 +713,6 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               )}
             </div>
 
-            <button type="button" className="btn btn-chico" style={{ justifySelf: 'start' }} onClick={() => ir('/admin')}>
-              Panel del gremio
-            </button>
           </div>
         </HojaPanel>
       )}

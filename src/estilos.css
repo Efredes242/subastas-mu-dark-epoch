@@ -1453,6 +1453,35 @@ select {
   background: var(--oroBg);
 }
 
+/*
+ * El camino entre el tablero y el panel.
+ *
+ * Vive en la esquina de la cuenta porque es lo único que está en todas las pantallas. Se ve solo
+ * para quien maneja la app, y dice a dónde lleva y no dónde estás: ofrecer ir a donde uno ya está
+ * es la forma más rápida de que un botón deje de leerse.
+ */
+.btn-panel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid var(--oroLn);
+  border-radius: 999px;
+  background: var(--oroBg);
+  color: var(--oro);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shs);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-panel:hover {
+  background: var(--oro);
+  color: var(--panel);
+}
+
 .btn-salir {
   display: flex;
   align-items: center;
@@ -1590,10 +1619,12 @@ select {
   .chapa-cuenta > .recorte {
     display: none;
   }
-  .btn-salir > span {
+  .btn-salir > span,
+  .btn-panel > span {
     display: none;
   }
-  .btn-salir {
+  .btn-salir,
+  .btn-panel {
     padding: 8px 10px;
   }
 }

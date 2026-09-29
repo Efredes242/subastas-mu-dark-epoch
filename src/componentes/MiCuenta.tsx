@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api, formatoPC, type EstadoConAviso } from '../api';
 import { BotonTema, type Tema } from './BotonTema';
 import { RetratoClase, useClases } from './Clase';
-import { Alerta, Salir, Tilde } from '../iconos';
+import { Alerta, Escudo, Lineas, Salir, Tilde } from '../iconos';
+import { ir } from '../App';
 
 const NOMBRE_ROL: Record<string, string> = {
   admin: 'Admin',
@@ -28,6 +29,8 @@ export function MiCuenta({
 }) {
   const clases = useClases();
   const [abierto, setAbierto] = useState(false);
+  /** En qué pantalla estamos, para no ofrecer ir a donde ya se está. */
+  const enElPanel = window.location.pathname === '/admin';
   const caja = useRef<HTMLDivElement>(null);
 
   const [cambiando, setCambiando] = useState(false);
@@ -86,6 +89,25 @@ export function MiCuenta({
   return (
     <div className="rincon-cuenta" ref={caja}>
       <BotonTema tema={tema} alternar={alternarTema} />
+
+      {/*
+        El camino entre el tablero y el panel, para los que manejan la app.
+        Estaba escondido adentro de dos hojas del tablero, así que en la práctica había que
+        escribir /admin en la barra de direcciones. Va acá porque esta esquina es lo único que
+        está en todas las pantallas, y el botón cambia según dónde estés: nunca te ofrece ir a
+        donde ya estás.
+      */}
+      {(yo.rol === 'admin' || yo.rol === 'grandmaster') && (
+        <button
+          type="button"
+          className="btn-panel"
+          onClick={() => ir(enElPanel ? '/' : '/admin')}
+          title={enElPanel ? 'Volver al tablero del gremio' : 'Ir al panel de administración'}
+        >
+          {enElPanel ? <Escudo tam={16} /> : <Lineas tam={16} />}
+          <span>{enElPanel ? 'Tablero' : 'Panel'}</span>
+        </button>
+      )}
 
       <button
         type="button"
