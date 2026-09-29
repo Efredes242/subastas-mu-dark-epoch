@@ -1741,6 +1741,58 @@ function Miembros({
 }) {
   const clases = useClases();
   const [lista, setLista] = useState<Miembro[]>([]);
+  /**
+   * Lo que se está editando de cada miembro, hasta que se guarda.
+   *
+   * Antes cada campo se mandaba solo al salir de él. Funcionaba, pero no se veía: uno escribe una
+   * contraseña, hace clic afuera, el campo se vacía y no pasa nada más — y lo que parece es que no
+   * guardó. Ahora los cambios se juntan y hay un botón, como en los roles y en los avisos.
+   */
+  const [borrador, setBorrador] = useState<Record<number, Partial<Miembro> & { password?: string }>>({});
+
+  const tocar = (id: number, cambios: Partial<Miembro> & { password?: string }) =>
+    setBorrador((previo) => ({ ...previo, [id]: { ...previo[id], ...cambios } }));
+
+  /** El miembro como quedaría si se guardara lo que hay escrito. */
+  const comoQueda = (m: Miembro) => ({ ...m, ...borrador[m.id] });
+
+  /**
+   * Qué cambió de verdad.
+   *
+   * Se compara contra lo guardado y no contra si se tocó el campo: escribir algo y volver a
+   * dejarlo como estaba no es un cambio, y marcarlo obligaría a guardar para sacarse el cartel.
+   */
+  const loQueCambio = (m: Miembro) => {
+    const b = borrador[m.id];
+    if (!b) return null;
+    const cambios: Record<string, unknown> = {};
+    if (b.clase !== undefined && b.clase !== m.clase) cambios.clase = b.clase;
+    if (b.pc !== undefined && b.pc !== m.pc) cambios.pc = b.pc;
+    if (b.email !== undefined && (b.email ?? null) !== (m.email ?? null)) cambios.email = b.email || null;
+    // La contraseña no se puede comparar —nunca vuelve del servidor—, así que vale con que haya algo.
+    if (b.password) cambios.password = b.password;
+    return Object.keys(cambios).length > 0 ? cambios : null;
+  };
+
+  const pendientes = lista.filter((m) => loQueCambio(m) !== null);
+
+  async function guardarMiembros() {
+    setOcupado(true);
+    alError('');
+    try {
+      for (const m of pendientes) {
+        const cambios = loQueCambio(m);
+        if (cambios) await api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: cambios });
+      }
+      await traer();
+      alListo();
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo guardar.');
+      await traer();
+    } finally {
+      setOcupado(false);
+    }
+  }
   const [bajas, setBajas] = useState<Miembro[]>([]);
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
@@ -1754,6 +1806,7 @@ function Miembros({
     try {
       const r = await api<{ miembros: Miembro[]; inactivos: Miembro[] }>('/miembros');
       setLista(r.miembros);
+      setBorrador({});
       setBajas(r.inactivos);
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudo traer la lista.');
@@ -1885,12 +1938,10 @@ function Miembros({
                     <select
                       className="campo campo-chico"
                       style={{ cursor: 'pointer' }}
-                      value={m.clase}
+                      value={comoQueda(m).clase}
                       disabled={ocupado}
                       title="La clase del personaje. El retrato sale de acá."
-                      onChange={(e) =>
-                        void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { clase: e.target.value } }))
-                      }
+                      onChange={(e) => tocar(m.id, { clase: e.target.value })}
                     >
                       <option value="">sin clase</option>
                       {clases.map((cl) => (
@@ -1908,11 +1959,9 @@ function Miembros({
                       className="campo campo-chico num"
                       defaultValue={m.pc > 0 ? formatoPC(m.pc) : ''}
                       placeholder="30.07M"
+                      disabled={ocupado}
                       title="Como aparece en el juego: 30.07M"
-                      onBlur={(e) => {
-                        const valor = leerPC(e.target.value);
-                        if (valor !== m.pc) void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { pc: valor } }));
-                      }}
+                      onChange={(e) => tocar(m.id, { pc: leerPC(e.target.value) })}
                     />
                   </label>
 
@@ -1920,18 +1969,15 @@ function Miembros({
                     <span className="etiqueta">Gmail</span>
                     <input
                       className="campo campo-chico"
+                      key={`mail-${m.id}`}
                       defaultValue={m.email ?? ''}
                       placeholder="opcional"
                       inputMode="email"
                       autoCapitalize="none"
                       spellCheck={false}
+                      disabled={ocupado}
                       title="Vincular un Gmail para que pueda entrar con el botón de Google"
-                      onBlur={(e) => {
-                        const valor = e.target.value.trim().toLowerCase();
-                        if (valor !== (m.email ?? '')) {
-                          void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { email: valor || null } }));
-                        }
-                      }}
+                      onChange={(e) => tocar(m.id, { email: e.target.value.trim().toLowerCase() || null })}
                     />
                   </label>
 
@@ -1940,19 +1986,28 @@ function Miembros({
                     <input
                       className="campo campo-chico"
                       type="password"
+                      key={`clave-${m.id}-${lista.length}`}
                       placeholder={m.tienePassword ? '••••••' : 'sin clave'}
-                      title="Solo hace falta para el admin y el Grand Master. Se guarda al salir del campo."
-                      onBlur={(e) => {
-                        const clave = e.target.value;
-                        if (clave.length === 0) return;
-                        e.target.value = '';
-                        void correr(() => api(`/miembros/${m.id}`, { metodo: 'PATCH', cuerpo: { password: clave } }));
-                      }}
+                      disabled={ocupado}
+                      title="Solo hace falta para el admin y el Grand Master. La va a tener que cambiar la primera vez que entre."
+                      onChange={(e) => tocar(m.id, { password: e.target.value })}
                     />
                   </label>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {pendientes.length > 0 && (
+          <div className="barra-guardar">
+            <span className="que">Sin guardar: {pendientes.map((m) => m.personaje).join(', ')}</span>
+            <button type="button" className="btn btn-chico" disabled={ocupado} onClick={() => setBorrador({})}>
+              Descartar
+            </button>
+            <button type="button" className="btn btn-oro" disabled={ocupado} onClick={() => void guardarMiembros()}>
+              {ocupado ? 'Guardando…' : 'Guardar los cambios'}
+            </button>
           </div>
         )}
       </section>
