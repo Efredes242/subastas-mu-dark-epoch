@@ -2148,15 +2148,15 @@ select {
 }
 
 /*
- * La barra de guardar de un evento.
+ * La barra de guardar de los avisos.
  *
- * Aparece sola cuando hay cambios y ocupa el ancho entero, abajo de todo, que es donde uno termina
- * de configurar. Se pega al borde inferior de la pantalla mientras el evento sigue abierto: la
- * tarjeta es larga y el botón no puede quedar fuera de vista justo cuando hace falta.
+ * Una sola para toda la pestaña, pegada al borde de abajo. Adentro del evento abierto faltaba
+ * justo cuando más se necesita —prender o apagar se hace desde la fila plegada, sin abrir nada— y
+ * con ocho eventos un botón por cada uno es ocho lugares donde mirar.
  */
 .barra-guardar {
   position: sticky;
-  bottom: 10px;
+  bottom: 12px;
   z-index: 5;
   display: flex;
   align-items: center;
@@ -2365,8 +2365,7 @@ select {
 
 .cuerpo-aviso > .titulo-aviso,
 .cuerpo-aviso > .imagenes-aviso,
-.cuerpo-aviso > .pie-aviso,
-.cuerpo-aviso > .barra-guardar {
+.cuerpo-aviso > .pie-aviso {
   grid-column: 1 / -1;
 }
 

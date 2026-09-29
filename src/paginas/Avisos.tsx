@@ -563,15 +563,15 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
    * hubieran estado. Los que tienen cambios a medio hacer se quedan como están; el que se acaba de
    * guardar toma la versión del servidor, que es la que vale.
    */
-  const asentar = (avisos: Aviso[], recien?: number) => {
-    const aMedias = new Map(lista.filter((a) => a.id !== recien && sucio(a)).map((a) => [a.id, a]));
+  const asentar = (avisos: Aviso[], recien: number[] = []) => {
+    const aMedias = new Map(lista.filter((a) => !recien.includes(a.id) && sucio(a)).map((a) => [a.id, a]));
     setLista(avisos.map((a) => aMedias.get(a.id) ?? a));
     setGuardado(Object.fromEntries(avisos.map((a) => [a.id, a])));
   };
 
   async function correr(
     fn: () => Promise<{ avisos: Aviso[]; resumen?: Resumen; aviso?: string }>,
-    recien?: number,
+    recien: number[] = [],
   ) {
     setOcupado(true);
     alError('');
@@ -587,25 +587,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
     }
   }
 
-  const guardar = (a: Aviso) =>
-    correr(() =>
-      api(`/avisos/${a.id}`, {
-        metodo: 'PATCH',
-        cuerpo: {
-          nombre: a.nombre,
-          emoji: a.emoji,
-          titulo: a.titulo,
-          dias: a.dias,
-          horas: a.horas,
-          antes: a.antes,
-          mensaje: a.mensaje,
-          alEmpezar: a.alEmpezar,
-          mensajeInicio: a.mensajeInicio,
-          activo: a.activo,
-        },
-      }),
-      a.id,
-    );
 
   /**
    * Mandar este evento al grupo para verlo de verdad.
@@ -631,6 +612,57 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
       setEnsayando(null);
     }
   }
+
+  /** Los eventos que tienen algo sin mandar. Lo que decide si se ve la barra. */
+  const pendientes = lista.filter(sucio);
+
+  /**
+   * Guardar todos los que estén pendientes, de una.
+   *
+   * De a uno y no en paralelo: cada guardado devuelve la lista entera, y dos respuestas pisándose
+   * dejarían el panel mostrando el estado del que llegó último. Al final se asienta una sola vez
+   * con lo que devolvió el último, que ya tiene adentro todos los cambios.
+   */
+  async function guardarTodo() {
+    if (pendientes.length === 0) return;
+    setOcupado(true);
+    alError('');
+    setAviso('');
+    try {
+      let ultima: { avisos: Aviso[] } | null = null;
+      for (const a of pendientes) {
+        ultima = await api<{ avisos: Aviso[] }>(`/avisos/${a.id}`, {
+          metodo: 'PATCH',
+          cuerpo: {
+            nombre: a.nombre,
+            emoji: a.emoji,
+            titulo: a.titulo,
+            dias: a.dias,
+            horas: a.horas,
+            antes: a.antes,
+            mensaje: a.mensaje,
+            alEmpezar: a.alEmpezar,
+            mensajeInicio: a.mensajeInicio,
+            activo: a.activo,
+          },
+        });
+      }
+      if (ultima) asentar(ultima.avisos, pendientes.map((a) => a.id));
+      setAviso(
+        pendientes.length === 1
+          ? `Guardado: ${pendientes[0].nombre}.`
+          : `Guardados ${pendientes.length} eventos.`,
+      );
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo guardar.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  /** Volver todo a como está guardado. */
+  const descartarTodo = () =>
+    setLista((previos) => previos.map((a) => guardado[a.id] ?? a));
 
   async function redactar(a: Aviso) {
     setRedactando(a.id);
@@ -1076,40 +1108,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                 {ensayando === a.id ? 'Mandando…' : '🧪 Probar en Telegram'}
               </button>
             </div>
-
-            {/*
-              La barra de guardar.
-
-              Antes el botón era el último de cinco controles en la fila de la IA, gris y con la
-              palabra "Guardado" — que se lee como un cartel de estado y no como algo para apretar.
-              Ahora aparece sola cuando hay algo que mandar, dorada y a lo ancho, y desaparece
-              cuando no: un botón que casi siempre está apagado enseña a ignorarlo.
-            */}
-            {sucio(a) && (
-              <div className="barra-guardar">
-                <span className="que">Tenés cambios sin guardar en este evento.</span>
-                <button
-                  type="button"
-                  className="btn btn-chico"
-                  disabled={ocupado}
-                  title="Volver a como estaba guardado"
-                  onClick={() => {
-                    const comoEstaba = guardado[a.id];
-                    if (comoEstaba) tocar(a.id, comoEstaba);
-                  }}
-                >
-                  Descartar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-oro"
-                  disabled={ocupado}
-                  onClick={() => void guardar(a)}
-                >
-                  Guardar cambios
-                </button>
-              </div>
-            )}
             </div>
 
             {ensayo?.id === a.id && (
@@ -1233,6 +1231,31 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
             </div>
           </div>
         </section>
+      )}
+
+      {/*
+        La barra de guardar, una sola para toda la pestaña.
+
+        Antes vivía adentro del evento abierto, y ahí faltaba justo cuando más se la necesita: un
+        evento se prende y se apaga desde la fila plegada, sin abrirlo, y en ese caso no había
+        ningún botón a la vista. Además, con ocho eventos, un botón por cada uno es ocho lugares
+        donde mirar.
+
+        Se pega al borde de abajo y dice cuáles son los que están pendientes, porque a esta altura
+        los cambios pueden estar en un evento que ni siquiera se ve en pantalla.
+      */}
+      {pendientes.length > 0 && (
+        <div className="barra-guardar">
+          <span className="que">
+            Sin guardar: {pendientes.map((a) => a.nombre).join(', ')}
+          </span>
+          <button type="button" className="btn btn-chico" disabled={ocupado} onClick={descartarTodo}>
+            Descartar
+          </button>
+          <button type="button" className="btn btn-oro" disabled={ocupado} onClick={() => void guardarTodo()}>
+            {ocupado ? 'Guardando…' : `Guardar ${pendientes.length === 1 ? 'el cambio' : 'los cambios'}`}
+          </button>
+        </div>
       )}
 
       {/* El simulador: cómo se va a ver el mensaje en Telegram. */}
