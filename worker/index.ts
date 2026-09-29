@@ -1944,11 +1944,76 @@ app.post('/api/orden/por-pc', requiereAdmin, async (c) => {
 // Quien entra con Google y no está cargado en el gremio deja un pedido. Acá el admin lo resuelve.
 // Solo el admin: quién entra a la app no es una decisión que se delegue, ni al Grand Master.
 
+/**
+ * Los miembros a los que se le puede pegar una cuenta de Google.
+ *
+ * Solo los que no tienen una: pegarle a alguien la cuenta de otro le sacaría la suya sin que
+ * nadie se entere, y es la clase de error que se descubre el día que esa persona no puede entrar.
+ */
+async function sinGoogle(db: D1Database) {
+  const { results } = await db
+    .prepare(
+      `SELECT id, personaje, rol, email
+         FROM usuarios
+        WHERE activo = 1 AND (google_sub IS NULL OR google_sub = '')
+        ORDER BY orden, id`,
+    )
+    .all<{ id: number; personaje: string; rol: string; email: string | null }>();
+  return results;
+}
+
 app.get('/api/ingresos', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(
     "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
   ).all<FilaPedido>();
-  return c.json({ pedidos: results.map(comoPedido) });
+  return c.json({ pedidos: results.map(comoPedido), candidatos: await sinGoogle(c.env.DB) });
+});
+
+/**
+ * Aceptar a alguien pegándolo a un personaje que ya existe.
+ *
+ * Es el caso más común una vez que el gremio está cargado: la persona ya está en las listas del
+ * reparto desde antes, y lo único que le falta es poder entrar. Crear un miembro nuevo ahí sería
+ * partir a la misma persona en dos, con dos turnos en cada rueda.
+ *
+ * No se le toca el rol ni la contraseña: si ya entraba con usuario, va a poder seguir haciéndolo, y
+ * ahora además con Google.
+ */
+app.post('/api/ingresos/:id/vincular', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const pedido = await c.env.DB.prepare('SELECT * FROM pedidos_ingreso WHERE id = ?')
+    .bind(id)
+    .first<FilaPedido>();
+  if (!pedido) return c.json({ error: 'Ese pedido ya no está.' }, 404);
+
+  const quien = await c.env.DB.prepare(
+    "SELECT * FROM usuarios WHERE id = ? AND activo = 1 AND (google_sub IS NULL OR google_sub = '')",
+  )
+    .bind(entero(cuerpo.usuarioId))
+    .first<{ id: number; personaje: string }>();
+  if (!quien) return c.json({ error: 'Ese miembro ya no está, o ya tiene una cuenta de Google.' }, 404);
+
+  const deOtro = await c.env.DB.prepare('SELECT 1 FROM usuarios WHERE lower(email) = ? AND id <> ?')
+    .bind(pedido.email, quien.id)
+    .first();
+  if (deOtro) return c.json({ error: 'Ese mail ya figura en otro miembro.' }, 409);
+
+  await c.env.DB.prepare('UPDATE usuarios SET email = ?, google_sub = ?, avatar = ? WHERE id = ?')
+    .bind(pedido.email, pedido.google_sub, pedido.avatar, quien.id)
+    .run();
+
+  await c.env.DB.prepare('DELETE FROM pedidos_ingreso WHERE id = ?').bind(id).run();
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
+  ).all<FilaPedido>();
+  return c.json({
+    pedidos: results.map(comoPedido),
+    candidatos: await sinGoogle(c.env.DB),
+    aviso: `${quien.personaje} ya entra con ${pedido.email}.`,
+  });
 });
 
 /**
@@ -2003,6 +2068,7 @@ app.post('/api/ingresos/:id/aprobar', requiereAdmin, async (c) => {
   ).all<FilaPedido>();
   return c.json({
     pedidos: results.map(comoPedido),
+    candidatos: await sinGoogle(c.env.DB),
     aviso: `${personaje} ya puede entrar. Cargale la clase y el PC en Miembros.`,
   });
 });
@@ -2015,7 +2081,7 @@ app.post('/api/ingresos/:id/rechazar', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(
     "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
   ).all<FilaPedido>();
-  return c.json({ pedidos: results.map(comoPedido), aviso: 'Rechazado.' });
+  return c.json({ pedidos: results.map(comoPedido), candidatos: await sinGoogle(c.env.DB), aviso: 'Rechazado.' });
 });
 
 /**
@@ -2029,7 +2095,7 @@ app.delete('/api/ingresos/:id', requiereAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(
     "SELECT * FROM pedidos_ingreso ORDER BY estado = 'rechazado', pedido_en DESC",
   ).all<FilaPedido>();
-  return c.json({ pedidos: results.map(comoPedido), aviso: 'Borrado. Si vuelve a intentar, pide de nuevo.' });
+  return c.json({ pedidos: results.map(comoPedido), candidatos: await sinGoogle(c.env.DB), aviso: 'Borrado. Si vuelve a intentar, pide de nuevo.' });
 });
 
 // ── Las imágenes de un aviso ─────────────────────────────────────────────────

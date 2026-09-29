@@ -24,6 +24,14 @@ export interface PedidoDeIngreso {
   intentos: number;
 }
 
+/** Un miembro que ya existe y todavía no tiene cuenta de Google pegada. */
+interface Candidato {
+  id: number;
+  personaje: string;
+  rol: string;
+  email: string | null;
+}
+
 const ROLES: Array<[string, string, string]> = [
   ['jugador', 'Jugador', 'Solo mira: el reparto, quién estuvo y a quién le toca'],
   ['grandmaster', 'Grand Master', 'Además maneja el evento y reparte'],
@@ -51,6 +59,16 @@ export function PedidosDeIngreso({
   cerrable?: () => void;
 }) {
   const [pedidos, setPedidos] = useState<PedidoDeIngreso[] | null>(null);
+  /** Los miembros a los que se le puede pegar la cuenta, en vez de crear uno nuevo. */
+  const [candidatos, setCandidatos] = useState<Candidato[]>([]);
+  /**
+   * Para cada pedido, a qué miembro se lo piensa vincular. 0 = crear uno nuevo.
+   *
+   * Vincular es lo más común una vez que el gremio está cargado: la persona ya está en las listas
+   * del reparto y lo único que le falta es poder entrar. Crear uno nuevo ahí la partiría en dos,
+   * con dos turnos en cada rueda.
+   */
+  const [vincularA, setVincularA] = useState<Record<number, number>>({});
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
   /** El nombre de personaje y el rol que se está tipeando, por pedido. */
@@ -58,8 +76,9 @@ export function PedidosDeIngreso({
 
   async function traer() {
     try {
-      const r = await api<{ pedidos: PedidoDeIngreso[] }>('/ingresos');
+      const r = await api<{ pedidos: PedidoDeIngreso[]; candidatos: Candidato[] }>('/ingresos');
       setPedidos(r.pedidos);
+      setCandidatos(r.candidatos ?? []);
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudieron traer los pedidos.');
     }
@@ -73,13 +92,16 @@ export function PedidosDeIngreso({
   const deQuien = (p: PedidoDeIngreso) =>
     alta[p.id] ?? { personaje: p.nombre.split(' ')[0] ?? '', rol: 'jugador' };
 
-  async function correr(fn: () => Promise<{ pedidos: PedidoDeIngreso[]; aviso?: string }>) {
+  async function correr(
+    fn: () => Promise<{ pedidos: PedidoDeIngreso[]; candidatos?: Candidato[]; aviso?: string }>,
+  ) {
     setOcupado(true);
     alError('');
     setAviso('');
     try {
       const r = await fn();
       setPedidos(r.pedidos);
+      if (r.candidatos) setCandidatos(r.candidatos);
       setAviso(r.aviso ?? '');
       alResolver();
     } catch (e) {
@@ -139,6 +161,39 @@ export function PedidosDeIngreso({
                   </div>
                 </div>
 
+                <div className="a-quien">
+                  <span className="etiqueta">Qué hacer con esta cuenta</span>
+                  <div className="chips">
+                    <button
+                      type="button"
+                      className={`chip-lista${!vincularA[p.id] ? ' dentro' : ''}`}
+                      disabled={ocupado}
+                      onClick={() => setVincularA((previo) => ({ ...previo, [p.id]: 0 }))}
+                    >
+                      Crear un miembro nuevo
+                    </button>
+                    {candidatos.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`chip-lista${vincularA[p.id] === m.id ? ' dentro' : ''}`}
+                        disabled={ocupado}
+                        title={`Pegarle esta cuenta a ${m.personaje}, que ya está en el gremio`}
+                        onClick={() => setVincularA((previo) => ({ ...previo, [p.id]: m.id }))}
+                      >
+                        {m.personaje}
+                        {m.email && ' · ya tiene mail'}
+                      </button>
+                    ))}
+                  </div>
+                  {candidatos.length === 0 && (
+                    <p className="pie">
+                      Todos los miembros ya tienen su cuenta de Google, así que solo queda crear uno nuevo.
+                    </p>
+                  )}
+                </div>
+
+                {!vincularA[p.id] && (
                 <div className="alta">
                   <label>
                     <span className="etiqueta">Nombre del personaje</span>
@@ -171,21 +226,27 @@ export function PedidosDeIngreso({
                     </div>
                   </div>
                 </div>
+                )}
 
                 <div className="decidir">
                   <button
                     type="button"
                     className="btn btn-chico btn-ok"
-                    disabled={ocupado || eleccion.personaje.trim().length < 2}
+                    disabled={ocupado || (!vincularA[p.id] && eleccion.personaje.trim().length < 2)}
                     onClick={() =>
                       void correr(() =>
-                        api(`/ingresos/${p.id}/aprobar`, {
-                          cuerpo: { personaje: eleccion.personaje.trim(), rol: eleccion.rol },
-                        }),
+                        vincularA[p.id]
+                          ? api(`/ingresos/${p.id}/vincular`, { cuerpo: { usuarioId: vincularA[p.id] } })
+                          : api(`/ingresos/${p.id}/aprobar`, {
+                              cuerpo: { personaje: eleccion.personaje.trim(), rol: eleccion.rol },
+                            }),
                       )
                     }
                   >
-                    <Tilde tam={14} /> Aceptar
+                    <Tilde tam={14} />{' '}
+                    {vincularA[p.id]
+                      ? `Vincular a ${candidatos.find((m) => m.id === vincularA[p.id])?.personaje ?? ''}`
+                      : 'Crear y aceptar'}
                   </button>
                   <button
                     type="button"
@@ -237,8 +298,9 @@ export function PedidosDeIngreso({
 
       {pendientes.length > 0 && (
         <div className="aviso" style={{ marginTop: 12, fontSize: 12, display: 'block', lineHeight: 1.5 }}>
-          <Alerta tam={14} /> Al aceptar queda con el personaje y el rol de acá. La clase, el PC y las
-          listas de drops se cargan después, en Miembros.
+          <Alerta tam={14} /> Si la persona <b>ya está</b> en el gremio, vinculala a su personaje: así
+          entra con Google y conserva su turno en las ruedas. Creá uno nuevo solo si no existe todavía —
+          la clase, el PC y las listas se cargan después, en Miembros.
         </div>
       )}
     </section>

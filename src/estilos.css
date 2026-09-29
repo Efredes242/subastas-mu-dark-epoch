@@ -1829,6 +1829,34 @@ select {
   color: var(--tx3);
 }
 
+/*
+ * Qué hacer con la cuenta que pide entrar.
+ *
+ * Va antes que el formulario de alta porque es la decisión que manda: si la persona ya está en el
+ * gremio, lo único que hace falta es pegarle la cuenta, y crear un miembro nuevo la partiría en dos
+ * con dos turnos en cada rueda.
+ */
+.pedido > .a-quien {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.pedido > .a-quien > .chips {
+  margin-top: 8px;
+}
+
+.pedido > .a-quien > .pie {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--tx3);
+  line-height: 1.45;
+}
+
+.pedido > .alta {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .pedido > .alta {
   display: grid;
   gap: 11px;
