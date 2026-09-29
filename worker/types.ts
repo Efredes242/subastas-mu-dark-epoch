@@ -11,10 +11,18 @@ export interface Env {
    */
   AI?: { run: (modelo: string, entrada: unknown) => Promise<unknown> };
   /**
-   * El token del bot de Telegram. Va como secreto del Worker, nunca en la base ni en el repo:
-   * con el token cualquiera publica en el grupo haciéndose pasar por el bot.
+   * Los tokens de los bots de Telegram, uno por servidor del juego.
+   *
+   * Van como secretos del Worker, nunca en la base ni en el repo: con el token cualquiera publica
+   * en el grupo haciéndose pasar por el bot. Cada servidor guarda en la base el NOMBRE del secreto
+   * que le toca, y el Worker lo busca acá — así el token nunca pasa por el panel.
+   *
+   * Para sumar un bot: `npx wrangler secret put TELEGRAM_TOKEN_2` desde una terminal de verdad, y
+   * después elegirlo en el servidor desde el panel.
    */
   TELEGRAM_TOKEN?: string;
+  TELEGRAM_TOKEN_2?: string;
+  TELEGRAM_TOKEN_3?: string;
 }
 
 /**

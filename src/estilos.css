@@ -2179,6 +2179,74 @@ select {
   color: var(--oro);
 }
 
+/*
+ * Las solapas de servidor.
+ *
+ * Lo de abajo es siempre de uno solo: dos juegos de avisos mezclados en la misma pantalla serían
+ * imposibles de leer, y peor, fáciles de confundir al momento de prender algo. El punto dice de un
+ * vistazo cuál está mandando de verdad.
+ */
+.solapas-servidor {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solapas-servidor > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  background: var(--panel2);
+  color: var(--tx2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.solapas-servidor > button.activa {
+  border-color: var(--oro);
+  background: var(--oroBg);
+  color: var(--oro);
+}
+
+.solapas-servidor .punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.solapas-servidor .punto.ok { background: var(--ok); }
+.solapas-servidor .punto.mal { background: var(--mal); }
+
+.sumar-servidor {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Con qué bot manda cada servidor. */
+.elegir-bot {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+
+.elegir-bot > .chips { margin-top: 8px; }
+
+.elegir-bot > .pie {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  color: var(--tx3);
+  line-height: 1.45;
+}
+
 /* El bot cuando ya está andando: una línea en vez del instructivo de tres pasos. */
 .bot-plegado {
   display: flex;

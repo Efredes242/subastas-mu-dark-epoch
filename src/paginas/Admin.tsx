@@ -2994,7 +2994,7 @@ function EjecutarTelegram({
     setHecho('');
     try {
       const r = await api<{ aviso: string }>('/telegram/ensayo', {
-        cuerpo: elegido === 'resumen' ? { cual: 'resumen' } : { avisoId: Number(elegido), antes },
+        cuerpo: { avisoId: Number(elegido), antes },
       });
       setHecho(r.aviso);
     } catch (e) {
@@ -3049,18 +3049,7 @@ function EjecutarTelegram({
                   {!a.activo && <span className="apagado">apagado</span>}
                 </button>
               ))}
-              <button
-                type="button"
-                className={`opcion-ejecutar${elegido === 'resumen' ? ' elegida' : ''}`}
-                onClick={() => {
-                  setElegido('resumen');
-                  setHecho('');
-                }}
-              >
-                <span className="punto-radio" />
-                <span className="nombre">📅 Resumen de la mañana</span>
-              </button>
-            </div>
+                          </div>
 
             {elAviso && elAviso.antes.length > 1 && (
               <div className="antes-ejecutar">

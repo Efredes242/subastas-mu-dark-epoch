@@ -148,65 +148,30 @@ function comoTelegram(texto: string) {
   );
 }
 
-interface Resumen {
-  hora: number;
+/**
+ * Un servidor del juego con el estado de su bot.
+ *
+ * Solo los avisos están separados por servidor: el reparto de drops sigue siendo de uno solo. Cada
+ * uno tiene su grupo de Telegram, su bot y su huso, porque dos servidores del juego no arrancan a
+ * la misma hora ni tienen los mismos eventos.
+ */
+interface ServidorConBot {
+  id: number;
+  nombre: string;
+  chat: string;
+  chatNombre: string;
   activo: boolean;
-  texto: string;
-}
-
-const MESES = [
-  'enero',
-  'febrero',
-  'marzo',
-  'abril',
-  'mayo',
-  'junio',
-  'julio',
-  'agosto',
-  'septiembre',
-  'octubre',
-  'noviembre',
-  'diciembre',
-];
-
-const MARCAS_RESUMEN: Array<[string, string]> = [
-  ['{dia}', 'domingo'],
-  ['{fecha}', '20 de septiembre'],
-  ['{lista}', 'los eventos del día'],
-  ['{cuantos}', 'cuántos hay'],
-];
-
-/** El mismo armado que hace el Worker, para que el simulador muestre lo que va a salir. */
-function armarResumen(avisos: Aviso[], plantilla: string, diaSemana: number, fecha: Date): string {
-  const delDia = avisos
-    .filter((a) => a.activo && a.dias.includes(diaSemana) && a.horas.length > 0)
-    .sort((a, b) => Math.min(...a.horas.map((h) => h.minutos)) - Math.min(...b.horas.map((h) => h.minutos)));
-
-  const lista =
-    delDia.length === 0
-      ? 'Hoy no hay eventos cargados.'
-      : delDia
-          .map((a) => {
-            const horas = a.horas.map((h) => comoHora(h.minutos));
-            const cuando = horas.length === 1 ? horas[0] : `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}`;
-            return `${a.emoji || '•'} *${a.nombre}* — ${cuando}`;
-          })
-          .join('\n');
-
-  return plantilla
-    .replace(/\{dia\}/g, DIAS_LARGOS[diaSemana] ?? '')
-    .replace(/\{fecha\}/g, `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`)
-    .replace(/\{cuantos\}/g, String(delDia.length))
-    .replace(/\{lista\}/g, lista);
-}
-
-interface EstadoBot {
+  /** El nombre del secreto del Worker donde vive su token, no el token. */
+  token: string;
+  offset: number;
   conToken: boolean;
   bot: { nombre: string; usuario: string } | null;
   problema?: string;
-  chat: string;
+}
+
+interface TokenDisponible {
   nombre: string;
-  activo: boolean;
+  cargado: boolean;
 }
 
 interface ChatVisto {
@@ -231,34 +196,38 @@ interface ComoEstaElBot {
   prueba: boolean;
 }
 
-function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: ComoEstaElBot) => void }) {
-  const [estado, setEstado] = useState<EstadoBot | null>(null);
+function Bot({
+  estado,
+  tokens,
+  alError,
+  alSaber,
+  alCambiar,
+}: {
+  estado: ServidorConBot;
+  tokens: TokenDisponible[];
+  alError: (m: string) => void;
+  alSaber: (c: ComoEstaElBot) => void;
+  alCambiar: (servidores: ServidorConBot[]) => void;
+}) {
   const [chats, setChats] = useState<ChatVisto[] | null>(null);
   /** Si se está mostrando la configuración entera del bot o solo la línea de estado. */
   const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
 
-  async function traer() {
-    try {
-      setEstado(await api<EstadoBot>('/telegram'));
-    } catch (e) {
-      alError(e instanceof Error ? e.message : 'No se pudo leer el bot.');
-    }
-  }
-
+  // Cambiar de servidor cierra la configuración y limpia lo que se estaba mirando del anterior.
   useEffect(() => {
-    void traer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setChats(null);
+    setAbierto(false);
+    setAviso('');
+  }, [estado.id]);
 
   // Que los eventos de abajo sepan si lo que configuran sale de verdad o queda guardado nomás.
   useEffect(() => {
-    if (!estado) return;
     const listo = estado.conToken && !!estado.chat && !estado.problema;
     alSaber({ manda: listo && estado.activo, prueba: listo });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado?.activo, estado?.conToken, estado?.chat, estado?.problema]);
+  }, [estado.id, estado.activo, estado.conToken, estado.chat, estado.problema]);
 
   async function correr(fn: () => Promise<void>) {
     setOcupado(true);
@@ -274,7 +243,7 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
 
   const buscarChats = () =>
     correr(async () => {
-      const r = await api<{ chats: ChatVisto[] }>('/telegram/chats');
+      const r = await api<{ chats: ChatVisto[] }>(`/servidores/${estado.id}/chats`);
       setChats(r.chats);
       setAviso(
         r.chats.length === 0
@@ -285,32 +254,30 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
 
   const elegir = (c: ChatVisto) =>
     correr(async () => {
-      setEstado(await api<EstadoBot>('/telegram', { metodo: 'PATCH', cuerpo: { chat: c.id, nombre: c.nombre } }));
+      const r = await api<{ servidores: ServidorConBot[] }>(`/servidores/${estado.id}`, {
+        metodo: 'PATCH',
+        cuerpo: { chat: c.id, chatNombre: c.nombre },
+      });
+      alCambiar(r.servidores);
       setChats(null);
       setAviso(`Van a salir a "${c.nombre}".`);
     });
 
   const prender = (activo: boolean) =>
     correr(async () => {
-      setEstado(await api<EstadoBot>('/telegram', { metodo: 'PATCH', cuerpo: { activo } }));
+      const r = await api<{ servidores: ServidorConBot[] }>(`/servidores/${estado.id}`, {
+        metodo: 'PATCH',
+        cuerpo: { activo },
+      });
+      alCambiar(r.servidores);
       setAviso(activo ? 'Los avisos salen solos de acá en más.' : 'Los avisos quedaron apagados.');
     });
 
   const probar = () =>
     correr(async () => {
-      const r = await api<{ aviso: string }>('/telegram/probar', { cuerpo: {} });
+      const r = await api<{ aviso: string }>('/telegram/probar', { cuerpo: { servidorId: estado.id } });
       setAviso(r.aviso);
     });
-
-  if (!estado) {
-    return (
-      <section className="panel subir" style={{ padding: 18 }}>
-        <div style={{ display: 'grid', placeItems: 'center', padding: 20 }}>
-          <div className="cargando" />
-        </div>
-      </section>
-    );
-  }
 
   /**
    * Con el bot andando, todo esto es un instructivo de tres pasos que ya se siguieron.
@@ -325,7 +292,7 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
       <section className="panel subir bot-plegado">
         <span className={`punto ${estado.activo ? 'ok' : 'mal'}`} />
         <span className="que">
-          <b>{estado.activo ? 'Los avisos salen' : 'Avisos apagados'}</b> · {estado.nombre || estado.chat}
+          <b>{estado.activo ? 'Los avisos salen' : 'Avisos apagados'}</b> · {estado.chatNombre || estado.chat}
         </span>
         <button
           type="button"
@@ -407,7 +374,7 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 700 }}>
-                {estado.chat ? estado.nombre || estado.chat : 'Falta elegir a qué chat mandar'}
+                {estado.chat ? estado.chatNombre || estado.chat : 'Falta elegir a qué chat mandar'}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--tx3)', lineHeight: 1.45 }}>
                 {estado.chat
@@ -457,6 +424,50 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
         </div>
       )}
 
+        {/*
+          Con qué bot manda este servidor.
+
+          Lo que se elige es el NOMBRE del secreto, nunca el token: el token no pasa por esta
+          pantalla ni por la base. Dos servidores pueden compartir el mismo bot —el mismo sale en
+          los dos grupos— o tener uno cada uno, que es lo que hace falta si se quiere que cada
+          gremio vea un nombre distinto.
+        */}
+        <div className="elegir-bot">
+          <span className="etiqueta">Con qué bot manda</span>
+          <div className="chips">
+            {tokens.map((t) => (
+              <button
+                key={t.nombre}
+                type="button"
+                className={`chip-lista${estado.token === t.nombre ? ' dentro' : ''}`}
+                disabled={ocupado || !t.cargado}
+                title={
+                  t.cargado
+                    ? `Usar el bot de ${t.nombre}`
+                    : `Todavía no hay ningún token en ${t.nombre}. Cargalo con wrangler secret put.`
+                }
+                onClick={() =>
+                  void correr(async () => {
+                    const r = await api<{ servidores: ServidorConBot[] }>(`/servidores/${estado.id}`, {
+                      metodo: 'PATCH',
+                      cuerpo: { token: t.nombre },
+                    });
+                    alCambiar(r.servidores);
+                    setAviso(`Este servidor pasa a mandar con el bot de ${t.nombre}.`);
+                  })
+                }
+              >
+                {t.nombre.replace('TELEGRAM_TOKEN', 'Bot')}
+                {!t.cargado && ' · sin cargar'}
+              </button>
+            ))}
+          </div>
+          <p className="pie">
+            El token no se carga desde acá: va como secreto del Worker con{' '}
+            <code>npx wrangler secret put TELEGRAM_TOKEN_2</code>, desde una terminal de verdad.
+          </p>
+        </div>
+
       {aviso && (
         <div className="aviso aparecer" style={{ marginTop: 12, fontSize: 12.5 }}>
           <Tilde tam={16} />
@@ -468,6 +479,18 @@ function Bot({ alError, alSaber }: { alError: (m: string) => void; alSaber: (c: 
 }
 
 export function Avisos({ alError }: { alError: (m: string) => void }) {
+  /**
+   * Los servidores del juego, y cuál se está configurando.
+   *
+   * Cada uno tiene sus eventos, su grupo y su bot. Lo que se ve abajo es siempre de uno solo: dos
+   * juegos de avisos mezclados en la misma pantalla serían imposibles de leer, y peor, fáciles de
+   * confundir al momento de prender algo.
+   */
+  const [servidores, setServidores] = useState<ServidorConBot[] | null>(null);
+  const [tokens, setTokens] = useState<TokenDisponible[]>([]);
+  const [cual, setCual] = useState<number | null>(null);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+
   const [lista, setLista] = useState<Aviso[]>([]);
   /** Cada evento tal como está guardado, para saber qué se tocó y todavía no se mandó. */
   const [guardado, setGuardado] = useState<Record<number, Aviso>>({});
@@ -489,23 +512,36 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState('');
 
-  const [resumen, setResumen] = useState<Resumen | null>(null);
 
-  /** Qué evento y qué recordatorio está mirando el simulador. null = el resumen del día. */
+  /** Qué evento y qué recordatorio está mirando el simulador. */
   const [mirando, setMirando] = useState<number | null>(null);
   const [conAntes, setConAntes] = useState(15);
-  const [verResumen, setVerResumen] = useState(false);
 
   /** El pedido que se le hace a la IA, por si quiere otro tono. */
   const [tono, setTono] = useState('');
   const [redactando, setRedactando] = useState<number | null>(null);
 
-  async function traer() {
+  /** El servidor que se está mirando. Si el elegido ya no está, el primero. */
+  const elServidor = servidores?.find((x) => x.id === cual) ?? servidores?.[0] ?? null;
+
+  async function traerServidores() {
     try {
-      const r = await api<{ avisos: Aviso[]; resumen: Resumen }>('/avisos');
+      const r = await api<{ servidores: ServidorConBot[]; tokens: TokenDisponible[] }>('/servidores');
+      setServidores(r.servidores);
+      setTokens(r.tokens);
+      setCual((previo) => (r.servidores.some((x) => x.id === previo) ? previo : (r.servidores[0]?.id ?? null)));
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudieron traer los servidores.');
+    }
+  }
+
+  async function traer(servidorId?: number) {
+    const id = servidorId ?? elServidor?.id;
+    if (!id) return;
+    try {
+      const r = await api<{ avisos: Aviso[] }>(`/avisos?servidor=${id}`);
       asentar(r.avisos);
-      setResumen(r.resumen);
-      setMirando((previo) => previo ?? r.avisos[0]?.id ?? null);
+      setMirando((previo) => (r.avisos.some((a) => a.id === previo) ? previo : (r.avisos[0]?.id ?? null)));
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudieron traer los avisos.');
     } finally {
@@ -514,9 +550,21 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   }
 
   useEffect(() => {
-    void traer();
+    void traerServidores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cambiar de servidor trae sus avisos y deja lo del anterior atrás, sin arrastrar nada.
+  useEffect(() => {
+    if (!elServidor) return;
+    setCargando(true);
+    setLista([]);
+    setGuardado({});
+    setAbierto(null);
+    setEnsayo(null);
+    void traer(elServidor.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elServidor?.id]);
 
   /** Lo que se está editando vive acá hasta que se guarda: así escribir no dispara un pedido. */
   const tocar = (id: number, cambios: Partial<Aviso>) =>
@@ -570,7 +618,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
   };
 
   async function correr(
-    fn: () => Promise<{ avisos: Aviso[]; resumen?: Resumen; aviso?: string }>,
+    fn: () => Promise<{ avisos: Aviso[]; aviso?: string }>,
     recien: number[] = [],
   ) {
     setOcupado(true);
@@ -578,7 +626,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
     try {
       const r = await fn();
       asentar(r.avisos, recien);
-      if (r.resumen) setResumen(r.resumen);
       setAviso(r.aviso ?? '');
     } catch (e) {
       alError(e instanceof Error ? e.message : 'No se pudo guardar.');
@@ -603,7 +650,7 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
     setEnsayo(null);
     try {
       const r = await api<{ aviso: string }>('/telegram/ensayo', {
-        cuerpo: { cual: 'evento', avisoId: a.id, antes: a.antes[0] ?? 15, minutos: 1 },
+        cuerpo: { servidorId: elServidor?.id, avisoId: a.id, antes: a.antes[0] ?? 15, minutos: 1 },
       });
       setEnsayo({ id: a.id, texto: r.aviso });
     } catch (e) {
@@ -691,7 +738,104 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
 
   return (
     <div style={{ display: 'grid', gap: 16, maxWidth: 980 }}>
-      <Bot alError={alError} alSaber={setBot} />
+      {/*
+        Los servidores. Solo aparece cuando hay más de uno o cuando se está por agregar el segundo:
+        con uno solo, una fila de solapas con una sola solapa es ruido.
+      */}
+      {servidores && (servidores.length > 1 || nombreNuevo !== '') && (
+        <div className="solapas-servidor">
+          {servidores.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              className={x.id === elServidor?.id ? 'activa' : ''}
+              onClick={() => setCual(x.id)}
+            >
+              <span className={`punto ${x.activo && x.conToken && x.chat ? 'ok' : 'mal'}`} />
+              {x.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {servidores && (
+        <div className="sumar-servidor">
+          <input
+            className="campo campo-chico"
+            style={{ flex: '1 1 180px', minWidth: 0 }}
+            value={nombreNuevo}
+            disabled={ocupado}
+            maxLength={40}
+            placeholder={servidores.length > 1 ? 'Otro servidor más…' : 'Nombre del segundo servidor…'}
+            onChange={(e) => setNombreNuevo(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn btn-chico"
+            disabled={ocupado || nombreNuevo.trim().length < 1}
+            onClick={() =>
+              void (async () => {
+                setOcupado(true);
+                alError('');
+                try {
+                  const r = await api<{ servidores: ServidorConBot[]; aviso?: string }>('/servidores', {
+                    cuerpo: { nombre: nombreNuevo.trim() },
+                  });
+                  setServidores(r.servidores);
+                  setCual(r.servidores.at(-1)?.id ?? null);
+                  setNombreNuevo('');
+                  setAviso(r.aviso ?? '');
+                } catch (e) {
+                  alError(e instanceof Error ? e.message : 'No se pudo agregar.');
+                } finally {
+                  setOcupado(false);
+                }
+              })()
+            }
+          >
+            <Mas tam={14} /> Agregar servidor
+          </button>
+          {servidores.length > 1 && elServidor && (
+            <button
+              type="button"
+              className="btn btn-chico btn-mal"
+              disabled={ocupado}
+              title={`Borrar "${elServidor.nombre}" y todos sus avisos`}
+              onClick={() =>
+                void (async () => {
+                  setOcupado(true);
+                  alError('');
+                  try {
+                    const r = await api<{ servidores: ServidorConBot[]; aviso?: string }>(
+                      `/servidores/${elServidor.id}`,
+                      { metodo: 'DELETE' },
+                    );
+                    setServidores(r.servidores);
+                    setCual(r.servidores[0]?.id ?? null);
+                    setAviso(r.aviso ?? '');
+                  } catch (e) {
+                    alError(e instanceof Error ? e.message : 'No se pudo borrar.');
+                  } finally {
+                    setOcupado(false);
+                  }
+                })()
+              }
+            >
+              <Tacho tam={14} /> Borrar este servidor
+            </button>
+          )}
+        </div>
+      )}
+
+      {elServidor && (
+        <Bot
+          estado={elServidor}
+          tokens={tokens}
+          alError={alError}
+          alSaber={setBot}
+          alCambiar={setServidores}
+        />
+      )}
 
       {bot?.manda === false && (
         <div className="aviso mal" style={{ fontSize: 13, lineHeight: 1.5 }}>
@@ -710,7 +854,9 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
             type="button"
             className="btn btn-oro btn-chico"
             disabled={ocupado}
-            onClick={() => void correr(() => api('/avisos', { cuerpo: { nombre: 'Evento nuevo' } }))}
+            onClick={() =>
+              void correr(() => api('/avisos', { cuerpo: { nombre: 'Evento nuevo', servidorId: elServidor?.id } }))
+            }
           >
             <Mas tam={15} /> Agregar un evento
           </button>
@@ -1130,109 +1276,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
         </div>
       )}
 
-      {/* El resumen de la mañana: la agenda del día, una vez por día. */}
-      {resumen && (
-        <section className="panel subir" style={{ padding: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>El resumen de la mañana</h2>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-chico"
-                disabled={ocupado}
-                onClick={() => void correr(() => api('/avisos/resumen/probar', { cuerpo: {} }).then((r) => ({ avisos: lista, ...(r as object) })))}
-              >
-                Mandarlo ahora
-              </button>
-              <button
-                type="button"
-                className={`btn btn-chico ${resumen.activo ? 'btn-ok' : 'btn-oro'}`}
-                disabled={ocupado}
-                onClick={() =>
-                  void correr(() =>
-                    api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { activo: !resumen.activo } }),
-                  )
-                }
-              >
-                {resumen.activo ? 'Prendido' : 'Prender'}
-              </button>
-            </div>
-          </div>
-          <p style={{ margin: '6px 0 12px', fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
-            Una vez por día, la lista de lo que cae ese día. Sirve para que el gremio arranque sabiendo
-            qué hay, sobre todo si se agregó algún evento de noche.
-          </p>
-
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="etiqueta">A qué hora (del servidor)</span>
-              <input
-                className="campo campo-chico"
-                style={{ width: 100 }}
-                defaultValue={comoHora(resumen.hora)}
-                disabled={ocupado}
-                onBlur={(e) => {
-                  const m = leerHora(e.target.value);
-                  if (m === null || m === resumen.hora) {
-                    e.target.value = comoHora(resumen.hora);
-                    return;
-                  }
-                  void correr(() => api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { hora: e.target.value } }));
-                }}
-              />
-            </label>
-            <div style={{ fontSize: 12, color: 'var(--tx3)', paddingBottom: 9 }}>
-              Sale todos los días a esa hora, una sola vez.
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <span className="etiqueta">El texto</span>
-              <div className="marcas-aviso">
-                {MARCAS_RESUMEN.map(([marca, que]) => (
-                  <button
-                    key={marca}
-                    type="button"
-                    title={que}
-                    disabled={ocupado}
-                    onClick={() => setResumen({ ...resumen, texto: `${resumen.texto}${marca}` })}
-                  >
-                    {marca}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <textarea
-              className="campo"
-              rows={4}
-              value={resumen.texto}
-              disabled={ocupado}
-              onChange={(e) => setResumen({ ...resumen, texto: e.target.value })}
-              style={{ padding: 12, minHeight: 96, lineHeight: 1.5, resize: 'vertical', marginTop: 6 }}
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={`btn btn-chico${verResumen ? ' btn-suave' : ''}`}
-                disabled={ocupado}
-                onClick={() => setVerResumen(true)}
-              >
-                Ver en el simulador
-              </button>
-              <button
-                type="button"
-                className="btn btn-oro btn-chico"
-                disabled={ocupado}
-                onClick={() => void correr(() => api('/avisos/resumen', { metodo: 'PATCH', cuerpo: { texto: resumen.texto } }))}
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/*
         La barra de guardar, una sola para toda la pestaña.
 
@@ -1271,29 +1314,16 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               <button
                 key={a.id}
                 type="button"
-                className={`chip-lista${!verResumen && elSimulado.id === a.id ? ' dentro' : ''}`}
-                onClick={() => {
-                  setMirando(a.id);
-                  setVerResumen(false);
-                }}
+                className={`chip-lista${elSimulado.id === a.id ? ' dentro' : ''}`}
+                onClick={() => setMirando(a.id)}
               >
                 {a.nombre}
               </button>
             ))}
-            {resumen && (
-              <button
-                type="button"
-                className={`chip-lista${verResumen ? ' dentro' : ''}`}
-                onClick={() => setVerResumen(true)}
-              >
-                📅 Resumen del día
-              </button>
-            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            {!verResumen &&
-              momentos.map((n) => (
+            {momentos.map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -1304,11 +1334,6 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
                   {n === 0 ? 'cuando arranca' : n === 60 ? '1 hora antes' : `${n} min antes`}
                 </button>
               ))}
-            {verResumen && resumen && (
-              <span className="chip-lista dentro">
-                <Reloj tam={12} /> todos los días a las {comoHora(resumen.hora)}
-              </span>
-            )}
           </div>
 
           <div className="telegram">
@@ -1323,35 +1348,24 @@ export function Avisos({ alError }: { alError: (m: string) => void }) {
               <div className="burbuja">
                 <div className="texto">
                   {comoTelegram(
-                    verResumen && resumen
-                      ? armarResumen(lista, resumen.texto, new Date().getDay(), new Date())
-                      : armarMensaje(
-                          elMomento === 0 ? elSimulado.mensajeInicio : elSimulado.mensaje,
-                          elSimulado,
-                          cae,
-                          elMomento,
-                          'hoy',
-                        ),
+                    armarMensaje(
+                      elMomento === 0 ? elSimulado.mensajeInicio : elSimulado.mensaje,
+                      elSimulado,
+                      cae,
+                      elMomento,
+                      'hoy',
+                    ),
                   )}
                 </div>
                 <div className="hora">
-                  {verResumen && resumen ? comoHora(resumen.hora) : comoHora(Math.max(0, cae.minutos - elMomento))}
+                  {comoHora(Math.max(0, cae.minutos - elMomento))}
                 </div>
               </div>
             </div>
           </div>
 
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--tx3)', lineHeight: 1.5 }}>
-            {verResumen && resumen ? (
-              resumen.activo ? (
-                <>
-                  Sale <b style={{ color: 'var(--oro)' }}>todos los días a las {comoHora(resumen.hora)}</b> del
-                  servidor, con los eventos de ese día.
-                </>
-              ) : (
-                <>El resumen está apagado: se prende arriba.</>
-              )
-            ) : elSimulado.dias.length === 0 || elSimulado.horas.length === 0 ? (
+            {elSimulado.dias.length === 0 || elSimulado.horas.length === 0 ? (
               <>Sin días o sin horas, este evento no dispara ningún aviso.</>
             ) : (
               <>

@@ -1,7 +1,6 @@
 import { comoClases, type FilaClase } from './clases';
 import { googleConfigurado } from './google';
 import { leerInterfaz, leerPermisos, type Escondido, type Permiso, type Quien } from './interfaz';
-import { RESUMEN_POR_DEFECTO } from './avisos';
 import {
   asedioDelDia,
   comoHora,
@@ -43,14 +42,6 @@ export interface Telegram {
   activo: boolean;
 }
 
-export interface Resumen {
-  /** A qué hora del servidor sale, en minutos desde medianoche. 10:00 → 600. */
-  hora: number;
-  activo: boolean;
-  /** El texto, con sus marcas. Vacío = el de fábrica. */
-  texto: string;
-}
-
 export interface Ajustes {
   horario: Horario;
   /** Qué pedazos de la app están escondidos y para quién. */
@@ -59,8 +50,6 @@ export interface Ajustes {
   permisos: Record<Permiso, Quien>;
   /** A dónde manda los avisos el bot. El token no está acá: es un secreto del Worker. */
   telegram: Telegram;
-  /** El resumen de la mañana con los eventos del día. */
-  resumen: Resumen;
 }
 
 /**
@@ -76,11 +65,6 @@ export async function leerAjustes(db: D1Database): Promise<Ajustes> {
       chat: fila?.telegram_chat ?? '',
       nombre: fila?.telegram_nombre ?? '',
       activo: (fila?.telegram_activo ?? 0) === 1,
-    },
-    resumen: {
-      hora: fila?.resumen_hora ?? 600,
-      activo: (fila?.resumen_activo ?? 0) === 1,
-      texto: fila?.resumen_texto || RESUMEN_POR_DEFECTO,
     },
   };
 }

@@ -32,20 +32,28 @@ import {
 } from './consultas';
 import { empezarLoginGoogle, googleConfigurado, terminarLoginGoogle, volvioEnVentana } from './google';
 import { comoPedido, usuarioLibre, type FilaPedido } from './ingresos';
+import {
+  TOKENS,
+  comoServidor,
+  leerServidor,
+  leerServidores,
+  tokenDe,
+  tokensCargados,
+  type FilaServidor,
+  type Servidor,
+} from './servidores';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
 import { FOTOS_MAXIMAS, borrar, chatsVistos, mandar, mandarConFotos, quienEs, type Foto } from './telegram';
 import {
   ANTES_MAXIMO,
   armarMensaje,
-  armarResumen,
   comoAviso,
   comoGuardadasHoras,
   laVezQueAnuncia,
   type Aviso,
   type Disparo,
   disparosEntre,
-  RESUMEN_POR_DEFECTO,
   comoHora as comoHoraAviso,
   DIAS_LARGOS,
   leerAviso,
@@ -783,75 +791,64 @@ async function conImagenes(db: D1Database, filas: FilaAviso[]) {
   return filas.map((f) => ({ ...comoAviso(f), imagenes: porAviso.get(f.id) ?? [] }));
 }
 
+/**
+ * De qué servidor habla este pedido.
+ *
+ * Si no lo dice, el primero. Que el panel se olvide de mandarlo no puede terminar tocando un
+ * servidor al azar: siempre el mismo, y el que existe seguro.
+ */
+async function delServidor(db: D1Database, cual: unknown): Promise<Servidor | null> {
+  const id = entero(cual);
+  const fila = id
+    ? await db.prepare('SELECT * FROM servidores WHERE id = ?').bind(id).first<FilaServidor>()
+    : await db.prepare('SELECT * FROM servidores ORDER BY orden, id LIMIT 1').first<FilaServidor>();
+  return fila ? comoServidor(fila) : null;
+}
+
+/** Los avisos de un servidor, con sus imágenes. */
+async function avisosDe(db: D1Database, servidorId: number) {
+  const { results } = await db
+    .prepare('SELECT * FROM avisos WHERE servidor_id = ? ORDER BY orden ASC, id ASC')
+    .bind(servidorId)
+    .all<FilaAviso>();
+  return conImagenes(db, results);
+}
+
 app.get('/api/avisos', requiereAdmin, async (c) => {
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  const { resumen } = await leerAjustes(c.env.DB);
-  return c.json({ avisos: await conImagenes(c.env.DB, results), antesMaximo: ANTES_MAXIMO, resumen });
-});
+  const servidor = await delServidor(c.env.DB, c.req.query('servidor'));
+  if (!servidor) return c.json({ error: 'Todavía no hay ningún servidor cargado.' }, 404);
 
-/** El resumen de la mañana: a qué hora sale, si sale, y con qué texto. */
-app.patch('/api/avisos/resumen', requiereAdmin, async (c) => {
-  const cuerpo = await c.req.json().catch(() => ({}));
-  const actual = (await leerAjustes(c.env.DB)).resumen;
-
-  const hora = cuerpo.hora === undefined ? actual.hora : leerHora(texto(cuerpo.hora, 20));
-  if (hora === null) return c.json({ error: 'No entendí la hora. Escribila así: 10:00' }, 400);
-
-  const activo = typeof cuerpo.activo === 'boolean' ? cuerpo.activo : actual.activo;
-  const plantilla = cuerpo.texto === undefined ? actual.texto : texto(cuerpo.texto, 1000) || RESUMEN_POR_DEFECTO;
-
-  await c.env.DB.prepare(
-    'UPDATE ajustes SET resumen_hora = ?, resumen_activo = ?, resumen_texto = ?, actualizado_en = ? WHERE id = 1',
-  )
-    .bind(hora, activo ? 1 : 0, plantilla, new Date().toISOString())
-    .run();
-
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
   return c.json({
-    avisos: await conImagenes(c.env.DB, results),
-    resumen: { hora, activo, texto: plantilla },
-    aviso: activo ? `El resumen sale todos los días a las ${comoHoraAviso(hora)}.` : 'El resumen quedó apagado.',
+    servidor,
+    avisos: await avisosDe(c.env.DB, servidor.id),
+    antesMaximo: ANTES_MAXIMO,
   });
-});
-
-/** Mandar el resumen de hoy ahora mismo, para verlo en el grupo. */
-app.post('/api/avisos/resumen/probar', requiereAdmin, async (c) => {
-  const token = c.env.TELEGRAM_TOKEN;
-  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
-
-  const ajustes = await leerAjustes(c.env.DB);
-  if (!ajustes.telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
-
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
-  const texto2 = armarResumen(
-    results.map(comoAviso),
-    new Date(),
-    ajustes.horario.offsetServidor,
-    ajustes.resumen.texto,
-  );
-
-  try {
-    await mandar(token, ajustes.telegram.chat, texto2);
-    return c.json({ aviso: `Mandado a ${ajustes.telegram.nombre || ajustes.telegram.chat}.` });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
-  }
 });
 
 app.post('/api/avisos', requiereAdmin, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
+  const servidor = await delServidor(c.env.DB, cuerpo.servidorId);
+  if (!servidor) return c.json({ error: 'Todavía no hay ningún servidor cargado.' }, 404);
+
   const nombre = texto(cuerpo.nombre, 60) || 'Evento nuevo';
 
-  const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM avisos').first<{ n: number | null }>();
+  // El orden es dentro del servidor: si fuera global, el primer evento del segundo servidor
+  // nacería con el número que sigue al último del primero y quedaría siempre al fondo.
+  const ultimo = await c.env.DB.prepare('SELECT MAX(orden) AS n FROM avisos WHERE servidor_id = ?')
+    .bind(servidor.id)
+    .first<{ n: number | null }>();
+
   await c.env.DB.prepare(
-    `INSERT INTO avisos (nombre, dias, horas, antes, mensaje, activo, orden)
-     VALUES (?, '0,1,2,3,4,5,6', '', '15', ?, 1, ?)`,
+    `INSERT INTO avisos (nombre, dias, horas, antes, mensaje, activo, orden, servidor_id)
+     VALUES (?, '0,1,2,3,4,5,6', '', '15', ?, 1, ?, ?)`,
   )
-    .bind(nombre, mensajePorDefecto(nombre), (ultimo?.n ?? 0) + 1)
+    .bind(nombre, mensajePorDefecto(nombre), (ultimo?.n ?? 0) + 1, servidor.id)
     .run();
 
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: await conImagenes(c.env.DB, results), aviso: `Agregué "${nombre}". Cargale los horarios.` });
+  return c.json({
+    avisos: await avisosDe(c.env.DB, servidor.id),
+    aviso: `Agregué "${nombre}" en ${servidor.nombre}. Cargale los horarios.`,
+  });
 });
 
 app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
@@ -878,17 +875,21 @@ app.patch('/api/avisos/:id', requiereAdmin, async (c) => {
     .run();
   if ((r.meta.changes ?? 0) === 0) return c.json({ error: 'Ese evento ya no está.' }, 404);
 
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: await conImagenes(c.env.DB, results) });
+  const suyo = await c.env.DB.prepare('SELECT servidor_id AS n FROM avisos WHERE id = ?')
+    .bind(id)
+    .first<{ n: number }>();
+  return c.json({ avisos: await avisosDe(c.env.DB, suyo?.n ?? 1) });
 });
 
 app.delete('/api/avisos/:id', requiereAdmin, async (c) => {
   const id = entero(c.req.param('id'));
+  const deQuienEra = await c.env.DB.prepare('SELECT servidor_id AS n FROM avisos WHERE id = ?')
+    .bind(id)
+    .first<{ n: number }>();
   // Primero las imágenes: si se va el aviso y ellas quedan, nadie las vuelve a encontrar.
   await c.env.DB.prepare('DELETE FROM imagenes_aviso WHERE aviso_id = ?').bind(id).run();
   await c.env.DB.prepare('DELETE FROM avisos WHERE id = ?').bind(id).run();
-  const { results } = await c.env.DB.prepare('SELECT * FROM avisos ORDER BY orden ASC, id ASC').all<FilaAviso>();
-  return c.json({ avisos: await conImagenes(c.env.DB, results), aviso: 'Borrado.' });
+  return c.json({ avisos: await avisosDe(c.env.DB, deQuienEra?.n ?? 1), aviso: 'Borrado.' });
 });
 
 /**
@@ -962,12 +963,17 @@ app.post('/api/avisos/:id/redactar', requiereAdmin, async (c) => {
 // El token es un secreto del Worker y no sale nunca de acá: el panel solo ve si está puesto,
 // a qué chat se manda y si está prendido.
 
-app.get('/api/telegram', requiereAdmin, async (c) => {
-  const { telegram } = await leerAjustes(c.env.DB);
-  const token = c.env.TELEGRAM_TOKEN ?? '';
+// ── Los servidores del juego ─────────────────────────────────────────────────
+//
+// Cada uno con su gremio, su grupo de Telegram y su bot. Solo los avisos están separados así: el
+// reparto de drops sigue siendo de uno solo.
 
+/** Un servidor como lo ve el panel, con el estado de su bot. */
+async function conEstadoDelBot(env: Env, s: Servidor) {
+  const token = tokenDe(env, s);
   let bot: { nombre: string; usuario: string } | null = null;
   let problema = '';
+
   if (token) {
     try {
       bot = await quienEs(token);
@@ -976,13 +982,106 @@ app.get('/api/telegram', requiereAdmin, async (c) => {
     }
   }
 
-  return c.json({ conToken: token.length > 0, bot, problema, ...telegram });
+  return { ...s, conToken: !!token, bot, problema };
+}
+
+app.get('/api/servidores', requiereAdmin, async (c) => {
+  const servidores = await leerServidores(c.env.DB);
+  return c.json({
+    servidores: await Promise.all(servidores.map((s) => conEstadoDelBot(c.env, s))),
+    // Qué tokens hay cargados en el Worker, para que el panel ofrezca solo los que sirven.
+    tokens: TOKENS.map((t) => ({ nombre: t, cargado: tokensCargados(c.env).includes(t) })),
+  });
 });
 
-/** Los chats donde al bot le hablaron. Es la única forma de saber a dónde puede escribir. */
-app.get('/api/telegram/chats', requiereAdmin, async (c) => {
-  const token = c.env.TELEGRAM_TOKEN;
-  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+app.post('/api/servidores', requiereAdmin, async (c) => {
+  const limpio = leerServidor(await c.req.json().catch(() => ({})));
+  if (!limpio) return c.json({ error: 'Ponele un nombre al servidor.' }, 400);
+
+  const ultimo = await c.env.DB.prepare('SELECT max(orden) AS n FROM servidores').first<{ n: number | null }>();
+  await c.env.DB.prepare(
+    'INSERT INTO servidores (nombre, orden, token, offset_horas) VALUES (?, ?, ?, ?)',
+  )
+    .bind(limpio.nombre, (ultimo?.n ?? 0) + 1, limpio.token, limpio.offset)
+    .run();
+
+  const servidores = await leerServidores(c.env.DB);
+  return c.json({
+    servidores: await Promise.all(servidores.map((s) => conEstadoDelBot(c.env, s))),
+    aviso: `Agregué "${limpio.nombre}". Elegile el grupo y prendelo.`,
+  });
+});
+
+app.patch('/api/servidores/:id', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+  const cuerpo = await c.req.json().catch(() => ({}));
+
+  const fila = await c.env.DB.prepare('SELECT * FROM servidores WHERE id = ?').bind(id).first<FilaServidor>();
+  if (!fila) return c.json({ error: 'Ese servidor ya no está.' }, 404);
+  const actual = comoServidor(fila);
+
+  const nombre = cuerpo.nombre === undefined ? actual.nombre : texto(cuerpo.nombre, 40);
+  if (!nombre) return c.json({ error: 'Ponele un nombre al servidor.' }, 400);
+
+  const chat = cuerpo.chat === undefined ? actual.chat : texto(cuerpo.chat, 40);
+  const chatNombre = cuerpo.chatNombre === undefined ? actual.chatNombre : texto(cuerpo.chatNombre, 80);
+  const activo = typeof cuerpo.activo === 'boolean' ? cuerpo.activo : actual.activo;
+  const token = TOKENS.includes(cuerpo.token) ? (cuerpo.token as string) : actual.token;
+  const offsetPedido = entero(cuerpo.offset);
+  const offset =
+    cuerpo.offset === undefined ? actual.offset : offsetPedido >= -12 && offsetPedido <= 14 ? offsetPedido : actual.offset;
+
+  // Prender los avisos sin chat elegido no manda nada y hace creer que sí.
+  if (activo && !chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+
+  await c.env.DB.prepare(
+    `UPDATE servidores
+        SET nombre = ?, telegram_chat = ?, telegram_nombre = ?, telegram_activo = ?, token = ?, offset_horas = ?
+      WHERE id = ?`,
+  )
+    .bind(nombre, chat, chatNombre, activo ? 1 : 0, token, offset, id)
+    .run();
+
+  const servidores = await leerServidores(c.env.DB);
+  return c.json({ servidores: await Promise.all(servidores.map((x) => conEstadoDelBot(c.env, x))) });
+});
+
+/**
+ * Borrar un servidor.
+ *
+ * Se lleva sus avisos y las imágenes de esos avisos: dejarlos sueltos sería basura que nadie
+ * vuelve a ver, apuntando a un servidor que ya no existe. Y no se puede borrar el último: sin
+ * ninguno, la pantalla de avisos no tendría dónde pararse.
+ */
+app.delete('/api/servidores/:id', requiereAdmin, async (c) => {
+  const id = entero(c.req.param('id'));
+
+  const cuantos = await c.env.DB.prepare('SELECT count(*) AS n FROM servidores').first<{ n: number }>();
+  if ((cuantos?.n ?? 0) <= 1) return c.json({ error: 'Es el único servidor: no se puede borrar.' }, 409);
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      'DELETE FROM imagenes_aviso WHERE aviso_id IN (SELECT id FROM avisos WHERE servidor_id = ?)',
+    ).bind(id),
+    c.env.DB.prepare('DELETE FROM avisos WHERE servidor_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM servidores WHERE id = ?').bind(id),
+  ]);
+
+  const servidores = await leerServidores(c.env.DB);
+  return c.json({
+    servidores: await Promise.all(servidores.map((x) => conEstadoDelBot(c.env, x))),
+    aviso: 'Borrado, con sus avisos.',
+  });
+});
+
+/** Los chats donde al bot de este servidor le hablaron. Es la única forma de saber a dónde puede escribir. */
+app.get('/api/servidores/:id/chats', requiereAdmin, async (c) => {
+  const servidor = await delServidor(c.env.DB, c.req.param('id'));
+  if (!servidor) return c.json({ error: 'Ese servidor ya no está.' }, 404);
+
+  const token = tokenDe(c.env, servidor);
+  if (!token) return c.json({ error: 'A este servidor le falta el token del bot.' }, 400);
+
   try {
     return c.json({ chats: await chatsVistos(token) });
   } catch (e) {
@@ -990,44 +1089,14 @@ app.get('/api/telegram/chats', requiereAdmin, async (c) => {
   }
 });
 
-app.patch('/api/telegram', requiereAdmin, async (c) => {
-  const cuerpo = await c.req.json().catch(() => ({}));
-  const actual = (await leerAjustes(c.env.DB)).telegram;
-
-  const chat = cuerpo.chat === undefined ? actual.chat : texto(cuerpo.chat, 40);
-  const nombre = cuerpo.nombre === undefined ? actual.nombre : texto(cuerpo.nombre, 80);
-  const activo = typeof cuerpo.activo === 'boolean' ? cuerpo.activo : actual.activo;
-
-  // Prender los avisos sin chat elegido no manda nada y hace creer que sí.
-  if (activo && !chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
-
-  await c.env.DB.prepare(
-    'UPDATE ajustes SET telegram_chat = ?, telegram_nombre = ?, telegram_activo = ?, actualizado_en = ? WHERE id = 1',
-  )
-    .bind(chat, nombre, activo ? 1 : 0, new Date().toISOString())
-    .run();
-
-  return c.json({ chat, nombre, activo, conToken: !!c.env.TELEGRAM_TOKEN });
-});
-
-/**
- * Mandar un aviso de ensayo al grupo.
- *
- * Va marcado como prueba y con fecha de vencimiento: se anota para que el cron lo borre solo,
- * porque un ensayo no tiene por qué quedar en el chat del gremio. La espera vive en la base y no
- * en este pedido: un Worker no dura ni un minuto esperando.
- *
- * Anda aunque los avisos estén apagados, que es justamente cuando uno quiere probar.
- */
 app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
-  const token = c.env.TELEGRAM_TOKEN;
-  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
-
-  const ajustes = await leerAjustes(c.env.DB);
-  if (!ajustes.telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
-
   const cuerpo = await c.req.json().catch(() => ({}));
-  const cual = texto(cuerpo.cual, 20);
+  const servidor = await delServidor(c.env.DB, cuerpo.servidorId);
+  if (!servidor) return c.json({ error: 'Ese servidor ya no está.' }, 404);
+
+  const token = tokenDe(c.env, servidor);
+  if (!token) return c.json({ error: 'A este servidor le falta el token del bot.' }, 400);
+  if (!servidor.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
   // 0 vale: es el aviso de cuando arranca.
   const pedido = entero(cuerpo.antes);
   const antes = pedido === 0 ? 0 : Math.min(Math.max(pedido || 15, 1), ANTES_MAXIMO);
@@ -1037,30 +1106,25 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
   // Las fotos del evento que se está ensayando. El resumen no lleva.
   let fotosDelEnsayo: Foto[] = [];
 
-  if (cual === 'resumen') {
-    const { results } = await c.env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
-    cuerpoTexto = armarResumen(results.map(comoAviso), new Date(), ajustes.horario.offsetServidor, ajustes.resumen.texto);
-    queEs = 'el resumen de la mañana';
-  } else {
-    const fila = await c.env.DB.prepare('SELECT * FROM avisos WHERE id = ?')
-      .bind(entero(cuerpo.avisoId))
-      .first<FilaAviso>();
-    if (!fila) return c.json({ error: 'Ese evento ya no está.' }, 404);
-    const aviso = comoAviso(fila);
-    const cuandoCae = aviso.horas[0] ?? { minutos: 780, dura: 10 };
-    // antes = 0 es el aviso de "arrancó", que tiene su propio texto.
-    const conAntes = antes === 0 ? 0 : aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15);
-    cuerpoTexto = armarMensaje(conAntes === 0 ? aviso.mensajeInicio : aviso.mensaje, {
-      evento: aviso.nombre,
-      hora: cuandoCae.minutos,
-      antes: conAntes,
-      emoji: aviso.emoji,
-      estilo: aviso.titulo,
-      dura: cuandoCae.dura,
-    });
-    fotosDelEnsayo = await fotosDe(c.env.DB, aviso.id);
-    queEs = aviso.nombre;
-  }
+const fila = await c.env.DB.prepare('SELECT * FROM avisos WHERE id = ?')
+    .bind(entero(cuerpo.avisoId))
+    .first<FilaAviso>();
+  if (!fila) return c.json({ error: 'Ese evento ya no está.' }, 404);
+  const aviso = comoAviso(fila);
+  const cuandoCae = aviso.horas[0] ?? { minutos: 780, dura: 10 };
+  // antes = 0 es el aviso de "arrancó", que tiene su propio texto.
+  const conAntes = antes === 0 ? 0 : aviso.antes.includes(antes) ? antes : (aviso.antes[0] ?? 15);
+  cuerpoTexto = armarMensaje(conAntes === 0 ? aviso.mensajeInicio : aviso.mensaje, {
+    evento: aviso.nombre,
+    hora: cuandoCae.minutos,
+    antes: conAntes,
+    emoji: aviso.emoji,
+    estilo: aviso.titulo,
+    dura: cuandoCae.dura,
+  });
+  fotosDelEnsayo = await fotosDe(c.env.DB, aviso.id);
+  queEs = aviso.nombre;
+
 
   // Cuánto se queda en el grupo. Lo elige quien lo manda; si no dice nada, dos minutos.
   const MINUTOS = Math.min(Math.max(entero(cuerpo.minutos) || 2, 1), 10);
@@ -1074,14 +1138,14 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
 
   try {
     // Con las mismas fotos que llevaría de verdad: un ensayo que no muestra lo mismo no sirve.
-    const ids = await mandarConFotos(token, ajustes.telegram.chat, conAviso, fotosDelEnsayo);
+    const ids = await mandarConFotos(token, servidor.chat, conAviso, fotosDelEnsayo);
     for (const id of ids) {
       await c.env.DB.prepare('INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)')
-        .bind(ajustes.telegram.chat, id, cuandoSeBorra(new Date(Date.now() + MINUTOS * 60_000)).toISOString())
+        .bind(servidor.chat, id, cuandoSeBorra(new Date(Date.now() + MINUTOS * 60_000)).toISOString())
         .run();
     }
     return c.json({
-      aviso: `Mandé ${queEs} a ${ajustes.telegram.nombre || ajustes.telegram.chat}. Se borra en ${cuanto}.`,
+      aviso: `Mandé ${queEs} a ${servidor.chatNombre || servidor.chat}. Se borra en ${cuanto}.`,
     });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
@@ -1091,24 +1155,25 @@ app.post('/api/telegram/ensayo', requiereAdmin, async (c) => {
 /** Mandar un mensaje de prueba, para ver que llega antes de dejarlo solo. */
 app.post('/api/telegram/probar', requiereAdmin, async (c) => {
   const cuerpo = await c.req.json().catch(() => ({}));
-  const token = c.env.TELEGRAM_TOKEN;
-  if (!token) return c.json({ error: 'Falta el token del bot.' }, 400);
+  const servidor = await delServidor(c.env.DB, cuerpo.servidorId);
+  if (!servidor) return c.json({ error: 'Ese servidor ya no está.' }, 404);
 
-  const { telegram } = await leerAjustes(c.env.DB);
-  if (!telegram.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
+  const token = tokenDe(c.env, servidor);
+  if (!token) return c.json({ error: 'A este servidor le falta el token del bot.' }, 400);
+  if (!servidor.chat) return c.json({ error: 'Elegí primero a qué chat mandar.' }, 400);
 
   const cuerpoTexto =
     texto(cuerpo.texto, 1000) ||
     '🔔 Prueba desde el panel. Si leés esto, el bot quedó conectado.\n\n_Este mensaje se borra solo en un minuto._';
   try {
     // Una prueba no tiene por qué quedar en el chat del gremio, igual que los ensayos.
-    const mensajeId = await mandar(token, telegram.chat, cuerpoTexto);
+    const mensajeId = await mandar(token, servidor.chat, cuerpoTexto);
     if (mensajeId > 0) {
       await c.env.DB.prepare('INSERT INTO mensajes_temporales (chat, mensaje_id, borrar_en) VALUES (?, ?, ?)')
-        .bind(telegram.chat, mensajeId, cuandoSeBorra(new Date(Date.now() + 60_000)).toISOString())
+        .bind(servidor.chat, mensajeId, cuandoSeBorra(new Date(Date.now() + 60_000)).toISOString())
         .run();
     }
-    return c.json({ aviso: `Mandado a ${telegram.nombre || telegram.chat}. Se borra en un minuto.` });
+    return c.json({ aviso: `Mandado a ${servidor.chatNombre || servidor.chat}. Se borra en un minuto.` });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : 'No se pudo mandar.' }, 502);
   }
@@ -2100,8 +2165,13 @@ const programado = async (env: Env) => {
   const ahora = new Date();
   const cerrados = await cerrarVencidos(env.DB, ahora);
   const evento = await asegurarEvento(env.DB, ahora, await leerHorario(env.DB));
-  const mandados = await mandarAvisos(env, ahora);
-  const conResumen = await mandarResumen(env, ahora);
+  // Cada servidor con su bot, su grupo y su huso. De a uno: los dos pueden tener algo justo a
+  // la misma hora, y las esperas al segundo exacto no se estorban entre sí porque cada una se
+  // duerme hasta su propio momento.
+  let mandados = 0;
+  for (const servidor of await leerServidores(env.DB)) {
+    mandados += await mandarAvisos(env, servidor, ahora);
+  }
   const borrados = await borrarVencidos(env, ahora);
   console.log(
     'cron:',
@@ -2111,7 +2181,6 @@ const programado = async (env: Env) => {
     '|',
     mandados,
     'avisos',
-    conResumen ? '| resumen' : '',
     borrados > 0 ? `| ${borrados} borrados` : '',
   );
 };
@@ -2129,6 +2198,12 @@ const programado = async (env: Env) => {
  * no gasta CPU.
  */
 const ESPERA_MAXIMA = 90_000;
+
+const esperarHasta = async (cuando: Date): Promise<void> => {
+  const faltan = cuando.getTime() - Date.now();
+  if (faltan <= 0) return;
+  await new Promise((listo) => setTimeout(listo, Math.min(faltan, ESPERA_MAXIMA)));
+};
 
 /**
  * Lo más que un mensaje del bot se queda en el grupo.
@@ -2151,20 +2226,6 @@ const VIDA_MAXIMA = 60 * 60_000;
  */
 const cuandoSeBorra = (pedido: Date): Date =>
   new Date(Math.min(pedido.getTime(), Date.now() + VIDA_MAXIMA));
-
-/**
- * Con qué nombre se agrupan los resúmenes de la mañana.
- *
- * Es uno solo para todos los días, a propósito: así el de hoy reemplaza al de ayer y en el grupo
- * queda siempre el que sirve, en vez de una lista de agendas viejas.
- */
-const OCURRENCIA_RESUMEN = 'resumen';
-
-const esperarHasta = async (cuando: Date): Promise<void> => {
-  const faltan = cuando.getTime() - Date.now();
-  if (faltan <= 0) return;
-  await new Promise((listo) => setTimeout(listo, Math.min(faltan, ESPERA_MAXIMA)));
-};
 
 /**
  * Sacar del grupo los avisos anteriores de este mismo evento.
@@ -2254,80 +2315,13 @@ async function borrarVencidos(env: Env, ahora: Date): Promise<number> {
  * La marca en `avisos_enviados` va con el id 0, que no es de ningún evento, y el día como clave:
  * así sale una sola vez aunque el cron pase mil veces por esa hora.
  */
-async function mandarResumen(env: Env, ahora: Date): Promise<boolean> {
-  const token = env.TELEGRAM_TOKEN;
-  if (!token) return false;
+async function mandarAvisos(env: Env, s: Servidor, ahora: Date): Promise<number> {
+  const token = tokenDe(env, s);
+  if (!token || !s.activo || !s.chat) return 0;
 
-  const ajustes = await leerAjustes(env.DB);
-  if (!ajustes.resumen.activo || !ajustes.telegram.activo || !ajustes.telegram.chat) return false;
-
-  // En qué minuto del día del servidor estamos.
-  const local = new Date(ahora.getTime() + ajustes.horario.offsetServidor * 3_600_000);
-  const minutoDelDia = local.getUTCHours() * 60 + local.getUTCMinutes();
-
-  // La ventana arranca un poco antes de la hora para poder esperar hasta el minuto exacto, y se
-  // estira un par de minutos para atrás por si el cron llegó tarde de verdad.
-  const faltanMin = ajustes.resumen.hora - minutoDelDia;
-  if (faltanMin > ESPERA_MAXIMA / 60_000 || faltanMin < -2) return false;
-
-  if (faltanMin > 0) {
-    const aLaHora = new Date(ahora.getTime() + faltanMin * 60_000);
-    aLaHora.setUTCSeconds(0, 0);
-    await esperarHasta(aLaHora);
-  }
-
-  const clave = `resumen-${local.toISOString().slice(0, 10)}`;
-  const puesto = await env.DB.prepare(
-    'INSERT INTO avisos_enviados (aviso_id, clave) VALUES (0, ?) ON CONFLICT DO NOTHING',
-  )
-    .bind(clave)
-    .run();
-  if ((puesto.meta.changes ?? 0) === 0) return false;
-
-  const { results } = await env.DB.prepare('SELECT * FROM avisos').all<FilaAviso>();
-  try {
-    const mensajeId = await mandar(
-      token,
-      ajustes.telegram.chat,
-      armarResumen(results.map(comoAviso), ahora, ajustes.horario.offsetServidor, ajustes.resumen.texto),
-    );
-
-    // El de hoy reemplaza al de ayer, pero sin esperar a mañana: como todo lo demás, se va a la
-    // hora. Para eso está — se lee a la mañana y después estorba.
-    if (mensajeId > 0) {
-      await anotarParaBorrar(
-        env,
-        ajustes.telegram.chat,
-        [mensajeId],
-        cuandoSeBorra(new Date(Date.now() + 25 * 3_600_000)),
-        OCURRENCIA_RESUMEN,
-      );
-      await borrarLosAnteriores(env, token, OCURRENCIA_RESUMEN, [mensajeId]);
-    }
-    return true;
-  } catch (e) {
-    await env.DB.prepare('DELETE FROM avisos_enviados WHERE aviso_id = 0 AND clave = ?').bind(clave).run();
-    console.error('resumen sin mandar:', e);
-    return false;
-  }
-}
-
-/**
- * Los avisos que les toca salir en este minuto.
- *
- * Se mira una ventana de dos minutos hacia atrás y no el minuto exacto, porque el cron puede
- * llegar unos segundos tarde y perderse el disparo. Lo que evita que el grupo reciba el mismo
- * aviso dos veces no es la ventana sino `avisos_enviados`: la clave es (aviso, momento exacto),
- * y si el INSERT no escribió nada es porque ya había salido.
- */
-async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
-  const token = env.TELEGRAM_TOKEN;
-  if (!token) return 0;
-
-  const ajustes = await leerAjustes(env.DB);
-  if (!ajustes.telegram.activo || !ajustes.telegram.chat) return 0;
-
-  const { results } = await env.DB.prepare('SELECT * FROM avisos WHERE activo = 1').all<FilaAviso>();
+  const { results } = await env.DB.prepare('SELECT * FROM avisos WHERE activo = 1 AND servidor_id = ?')
+    .bind(s.id)
+    .all<FilaAviso>();
   if (results.length === 0) return 0;
 
   const desde = new Date(ahora.getTime() - 2 * 60_000);
@@ -2338,7 +2332,7 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
   const salidas: Array<{ aviso: Aviso; d: Disparo }> = [];
   for (const fila of results) {
     const aviso = comoAviso(fila);
-    for (const d of disparosEntre(aviso, desde, hasta, ajustes.horario.offsetServidor)) {
+    for (const d of disparosEntre(aviso, desde, hasta, s.offset)) {
       salidas.push({ aviso, d });
     }
   }
@@ -2362,12 +2356,7 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
     if ((puesto.meta.changes ?? 0) === 0) continue;
 
     try {
-      const ids = await mandarConFotos(
-        token,
-        ajustes.telegram.chat,
-        d.texto,
-        await fotosDe(env.DB, aviso.id),
-      );
+      const ids = await mandarConFotos(token, s.chat, d.texto, await fotosDe(env.DB, aviso.id));
       mandados++;
 
       // El aviso vive lo que vive el evento: después es basura en el chat, así que se anota
@@ -2379,7 +2368,7 @@ async function mandarAvisos(env: Env, ahora: Date): Promise<number> {
       // borra el viejo. Al revés quedaría un hueco sin ningún aviso a la vista.
       if (ids.length > 0) {
         const laVez = laVezQueAnuncia(aviso.id, d.empieza);
-        await anotarParaBorrar(env, ajustes.telegram.chat, ids, cuandoSeBorra(d.termina), laVez);
+        await anotarParaBorrar(env, s.chat, ids, cuandoSeBorra(d.termina), laVez);
         await borrarLosAnteriores(env, token, laVez, ids);
       }
     } catch (e) {
