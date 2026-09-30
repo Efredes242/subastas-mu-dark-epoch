@@ -1359,13 +1359,6 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
 
 // ── Catálogo ──────────────────────────────────────────────────────────────────
 
-/** En la base los alias van entre barras ("|pluma||plumas|"); acá se ven como lista. */
-const aliasComoTexto = (alias: string) =>
-  alias
-    .split('|')
-    .filter(Boolean)
-    .join(', ');
-
 /** Todo lo que se puede escribir para cargar este item: la clave y sus alias. */
 const palabrasDe = (e: { clave: string; alias: string }) =>
   [e.clave, ...e.alias.split('|').filter(Boolean)].filter((p, i, todas) => todas.indexOf(p) === i);
@@ -1565,8 +1558,8 @@ function Catalogo({
         <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800 }}>Catálogo del gremio</h2>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--tx3)', lineHeight: 1.5 }}>
           Cada nombre que se carga alguna vez queda acá. Debajo de cada uno están <b>todas las palabras
-          que lo cargan</b>: la clave más los alias. Una palabra pertenece a un solo item, así que si
-          intentás repetir una en otro, el panel te avisa y no la guarda.
+          que lo cargan</b>. Una palabra pertenece a un solo item, así que si intentás repetir una en
+          otro, el panel te avisa y no la guarda.
           {sinImagen > 0 && editaCatalogo && (
             <>
               {' '}
@@ -1603,7 +1596,7 @@ function Catalogo({
                 value={nuevo.clave}
                 placeholder={nuevo.nombre.trim() ? nuevo.nombre.trim().toLowerCase() : 'jol'}
                 disabled={ocupado}
-                title="Opcional: si lo dejás vacío se usa el nombre. Los alias se agregan después."
+                title="Opcional: si lo dejás vacío se usa el nombre del item."
                 onChange={(ev) => setNuevo((p) => ({ ...p, clave: ev.target.value }))}
               />
             </label>
@@ -1679,7 +1672,7 @@ function Catalogo({
                       if (nombre.length >= 2 && nombre !== e.nombre) void guardar(e.id, { nombre });
                     }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, paddingLeft: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, paddingLeft: 2, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11.5, color: 'var(--tx3)', flexShrink: 0 }}>escribís</span>
                     <input
                       className="campo campo-chico clave-item"
@@ -1716,23 +1709,6 @@ function Catalogo({
                     </div>
                   )}
                 </div>
-
-                <label style={{ flex: '0 1 190px', minWidth: 0, display: 'grid', gap: 4 }}>
-                  <span className="etiqueta">Otras formas de escribirlo</span>
-                  <input
-                    className="campo campo-chico"
-                    style={{ minHeight: 38 }}
-                    defaultValue={aliasComoTexto(e.alias)}
-                    placeholder="pluma, plumas condor"
-                    disabled={ocupado}
-                    readOnly={!editaCatalogo}
-                    title="Separadas por coma. Si escribís cualquiera de estas al cargar, cae en este item."
-                    onBlur={(ev) => {
-                      const alias = ev.target.value.trim();
-                      if (alias !== aliasComoTexto(e.alias)) void guardar(e.id, { alias });
-                    }}
-                  />
-                </label>
 
                 {/* En qué listas sale. Un item puede caer en más de una: cada una lleva su rueda. */}
                 <div style={{ flex: '0 1 auto', display: 'grid', gap: 4, minWidth: 0 }}>
