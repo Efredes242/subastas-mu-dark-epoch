@@ -26,6 +26,7 @@ import {
   leerAjustes,
   leerHorario,
   enLaRueda,
+  NOMBRE_COLA,
   ordenDePrioridad,
   participantesDe,
   type Cola,
@@ -1420,14 +1421,27 @@ app.post('/api/catalogo', requiereGrandMaster, async (c) => {
     .bind(clave)
     .first<{ id: number }>();
 
-  // Como los que nacen solos: arranca en la lista del Kundun y desde el panel se le suman otras.
+  /*
+   * En qué listas sale, desde el alta.
+   *
+   * Antes todo item nuevo caía en la del Kundun y había que acordarse de agregarle las otras.
+   * El que se olvidaba no se enteraba hasta que el item salía y se lo llevaba quien no iba.
+   */
+  const pedidas = Array.isArray(cuerpo.colas) ? COLAS.filter((k) => cuerpo.colas.includes(k)) : [];
+  const colas = pedidas.length > 0 ? pedidas : (['items'] as Cola[]);
   if (creado) {
-    await c.env.DB.prepare("INSERT INTO catalogo_colas (catalogo_id, cola) VALUES (?, 'items')")
-      .bind(creado.id)
-      .run();
+    await c.env.DB.batch(
+      colas.map((k) =>
+        c.env.DB.prepare('INSERT INTO catalogo_colas (catalogo_id, cola) VALUES (?, ?)').bind(creado.id, k),
+      ),
+    );
   }
 
-  return c.json({ ok: true, id: creado?.id ?? null, aviso: `${comoTitulo(nombre)} quedó en el catálogo. Se carga escribiendo «${clave}».` });
+  return c.json({
+    ok: true,
+    id: creado?.id ?? null,
+    aviso: `${comoTitulo(nombre)} quedó en el catálogo, en ${enumerar(colas.map((k) => NOMBRE_COLA[k]))}.`,
+  });
 });
 
 app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {

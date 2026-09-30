@@ -639,10 +639,6 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   const turnos: Estado['turnos'] = [];
 
   for (const entrada of catalogo) {
-    // Un item apagado no tiene rueda que mostrar: desaparece del tablero y de dónde se eligen
-    // los drops, que se arman los dos desde acá. Lo ya repartido no se toca.
-    if (entrada.activo === 0) continue;
-
     for (const cola of colasDe.get(entrada.id) ?? []) {
       const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), ultimos.get(`${entrada.id}|${cola}`) ?? null);
       const suyos = items.filter((i) => i.catalogoId === entrada.id && i.cola === cola);
@@ -657,6 +653,14 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         rareza: entrada.rareza,
         cola,
         salieron: suyos.length,
+        /*
+         * La rueda de un item apagado se calcula igual.
+         *
+         * Filtrarla acá dejaba al panel mostrando "nadie en esa lista" en un item recién apagado,
+         * que dice algo falso: la lista tiene gente, lo que está fuera de juego es el item. Los
+         * que no tienen que verlo —el tablero y la lista de drops— lo filtran por su cuenta.
+         */
+        activo: entrada.activo === 1,
         fijo: duenoFijo ? { id: duenoFijo.id, personaje: duenoFijo.personaje, clase: duenoFijo.clase } : null,
         vuelta: vuelta.map((u) => ({
           id: u.id,

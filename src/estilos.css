@@ -419,6 +419,20 @@ select {
   min-width: 0;
 }
 
+.listas-nuevas {
+  display: grid;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.listas-nuevas .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 34px;
+  align-items: center;
+}
+
 .sumar-item .btn {
   flex-shrink: 0;
   min-height: 34px;

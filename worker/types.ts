@@ -257,6 +257,8 @@ export interface Estado {
     salieron: number;
     /** Si el item no gira, quién se lleva todo. `null` es la rueda de siempre. */
     fijo: { id: number; personaje: string; clase: string } | null;
+    /** Un item apagado no se reparte: viaja igual, para que el panel pueda mostrar su rueda. */
+    activo: boolean;
     vuelta: Array<{ id: number; personaje: string; vino: boolean; seLlevo: number; clase: string }>;
   }>;
   /** El reparto del Kundun anterior, para que todos vean quién se llevó qué. */

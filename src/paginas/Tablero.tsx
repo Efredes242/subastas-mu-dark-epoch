@@ -376,8 +376,10 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
 
   // Lo del asedio va aparte: solo sale los domingos y mezclarlo con el Kundun de todos
   // los días llenaba la lista de ruedas que no aplican.
-  const ruedasKundun = estado.turnos.filter((t) => t.cola !== 'asedio');
-  const ruedasAsedio = estado.turnos.filter((t) => t.cola === 'asedio');
+  // Un item apagado viaja en el estado para que el panel muestre su rueda, pero acá no está.
+  const enJuego = estado.turnos.filter((t) => t.activo);
+  const ruedasKundun = enJuego.filter((t) => t.cola !== 'asedio');
+  const ruedasAsedio = enJuego.filter((t) => t.cola === 'asedio');
 
   // Las ruedas ya traen la imagen de cada item del catálogo; el historial la reusa.
   const imagenDe = (catalogoId: number | null) =>

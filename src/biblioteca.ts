@@ -48,6 +48,18 @@ export const BIBLIOTECA: IconoBiblioteca[] = [
     "tipo": "clase"
   },
   {
+    "id": "joya-de-creacion",
+    "nombre": "Joya de Creacion",
+    "url": "/iconos/joya-de-creacion.webp",
+    "tipo": "item"
+  },
+  {
+    "id": "joya-del-despertar",
+    "nombre": "Joya del Despertar",
+    "url": "/iconos/joya-del-despertar.webp",
+    "tipo": "item"
+  },
+  {
     "id": "llama-del-condor",
     "nombre": "Llama del Condor",
     "url": "/iconos/llama-del-condor.webp",

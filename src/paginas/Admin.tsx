@@ -287,7 +287,9 @@ function CargaDeDrops({
     const vistos = new Map<number, EstadoConAviso['turnos'][number]>();
     for (const t of estado.turnos) {
       const suya = cual === 'asedio' ? t.cola === 'asedio' : t.cola !== 'asedio';
-      if (suya && !vistos.has(t.catalogoId)) vistos.set(t.catalogoId, t);
+      // Un item apagado viaja en el estado para que el catálogo muestre su rueda, pero no se
+      // puede cargar: acá no tiene que aparecer.
+      if (suya && t.activo && !vistos.has(t.catalogoId)) vistos.set(t.catalogoId, t);
     }
     return [...vistos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   };
@@ -1477,7 +1479,11 @@ function Catalogo({
   const [eligiendo, setEligiendo] = useState<number | null>(null);
 
   /** El item que se está dando de alta a mano. */
-  const [nuevo, setNuevo] = useState({ nombre: '', clave: '' });
+  const [nuevo, setNuevo] = useState<{ nombre: string; clave: string; colas: string[] }>({
+    nombre: '',
+    clave: '',
+    colas: ['items'],
+  });
 
   async function agregar() {
     const nombre = nuevo.nombre.trim();
@@ -1486,9 +1492,9 @@ function Catalogo({
     alError('');
     try {
       const r = await api<{ ok: boolean; aviso?: string }>('/catalogo', {
-        cuerpo: { nombre, clave: nuevo.clave.trim() },
+        cuerpo: { nombre, clave: nuevo.clave.trim(), colas: nuevo.colas },
       });
-      setNuevo({ nombre: '', clave: '' });
+      setNuevo({ nombre: '', clave: '', colas: nuevo.colas });
       if (r.aviso) alError(r.aviso);
       await traer();
       await alListo();
@@ -1596,6 +1602,32 @@ function Catalogo({
                 onChange={(ev) => setNuevo((p) => ({ ...p, clave: ev.target.value }))}
               />
             </label>
+            <div className="listas-nuevas">
+              <span className="etiqueta">En qué listas sale</span>
+              <div className="chips">
+                {LISTAS.map(([cola, corto, largo]) => {
+                  const dentro = nuevo.colas.includes(cola);
+                  const ultima = dentro && nuevo.colas.length === 1;
+                  return (
+                    <button
+                      key={cola}
+                      type="button"
+                      className={`chip-lista${dentro ? ' dentro' : ''}`}
+                      disabled={ocupado || ultima}
+                      title={ultima ? 'Un item tiene que salir en alguna lista' : largo}
+                      onClick={() =>
+                        setNuevo((p) => ({
+                          ...p,
+                          colas: dentro ? p.colas.filter((k) => k !== cola) : [...p.colas, cola],
+                        }))
+                      }
+                    >
+                      {corto}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <button type="submit" className="btn btn-chico btn-oro" disabled={ocupado || nuevo.nombre.trim().length < 2}>
               <Mas tam={14} /> Agregar
             </button>
@@ -1605,7 +1637,7 @@ function Catalogo({
         {apagados > 0 && (
           <p className="pie" style={{ marginTop: 10 }}>
             {apagados === 1 ? 'Hay 1 item apagado' : `Hay ${apagados} items apagados`}: no se pueden cargar ni
-            aparecen en las listas del tablero, pero siguen acá con su imagen y sus palabras.
+            aparecen en las listas del tablero, pero siguen acá con su imagen y su configuración.
           </p>
         )}
 
@@ -2578,7 +2610,7 @@ const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
   [
     'El panel',
     [
-      ['panel_catalogo', 'Solapa Catálogo', 'Los items, sus palabras y sus imágenes'],
+      ['panel_catalogo', 'Solapa Catálogo', 'Los items, sus imágenes y cómo se reparte cada uno'],
       ['panel_listas', 'Solapa Listas', 'Quién participa en cada lista de drops'],
       ['panel_miembros', 'Solapa Miembros', 'Alta y baja de personajes'],
       ['panel_turnos', 'Le toca a', 'El turno de cada rueda, dentro del catálogo'],
