@@ -402,6 +402,76 @@ select {
  * Cada par va ahora encerrado en una pastilla, y la lista pintada igual que su chip de "Sale en",
  * que está justo al lado — la misma palabra con el mismo color en los dos lugares.
  */
+/*
+ * Dar de alta un item sin esperar a que caiga.
+ *
+ * El catálogo se llena solo la primera vez que se escribe un nombre al cargar los drops, pero
+ * eso deja el item sin imagen y sin alias justo cuando más apurado se está. Cargarlo antes
+ * deja todo listo.
+ */
+/*
+ * El renglon al pie de una caja: una aclaracion que se lee si hace falta y no antes.
+ *
+ * Se venia usando en dos lugares sin existir en la hoja, asi que salia con el tamano de un
+ * parrafo normal y pesaba mas que lo que estaba aclarando.
+ */
+.pie {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tx3);
+}
+
+.sumar-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.sumar-item label {
+  display: grid;
+  flex: 1 1 190px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sumar-item .btn {
+  flex-shrink: 0;
+  min-height: 34px;
+}
+
+/*
+ * Un item apagado se ve, pero no se impone: es el que justamente no está en juego.
+ *
+ * La opacidad va en los hijos y no en la fila: la fila entra con la animación escalonada del
+ * catálogo, y una animación le gana en la cascada a un opacity declarado a secas. Los botones
+ * quedan enteros, que son con los que se lo vuelve a prender.
+ */
+.item-catalogo.apagado {
+  border-left-color: var(--line);
+  background: transparent;
+}
+
+.item-catalogo.apagado > *:not(.acciones-item) {
+  opacity: 0.45;
+}
+
+.item-catalogo.apagado:hover > *,
+.item-catalogo.apagado:focus-within > * {
+  opacity: 1;
+}
+
+.acciones-item {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .turnos-item {
   display: grid;
   flex: 1 1 220px;

@@ -124,6 +124,8 @@ export interface FilaCatalogo {
    * NULL es lo de siempre, la rueda.
    */
   fijo_a: number | null;
+  /** Apagado sigue en el catálogo pero no se puede cargar ni sale en las listas. */
+  activo: number;
 }
 
 export interface ItemPublico {

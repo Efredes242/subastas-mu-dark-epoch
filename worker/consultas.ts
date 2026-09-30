@@ -639,6 +639,10 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
   const turnos: Estado['turnos'] = [];
 
   for (const entrada of catalogo) {
+    // Un item apagado no tiene rueda que mostrar: desaparece del tablero y de dónde se eligen
+    // los drops, que se arman los dos desde acá. Lo ya repartido no se toca.
+    if (entrada.activo === 0) continue;
+
     for (const cola of colasDe.get(entrada.id) ?? []) {
       const vuelta = vueltaDesde(enLaRueda(orden, cola, quienes), ultimos.get(`${entrada.id}|${cola}`) ?? null);
       const suyos = items.filter((i) => i.catalogoId === entrada.id && i.cola === cola);

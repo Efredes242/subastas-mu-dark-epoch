@@ -540,18 +540,36 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
   // Los dos caminos terminan en lo mismo: una entrada del catálogo y cuántas salieron.
   const aCargar: { entrada: FilaCatalogo; cantidad: number }[] = [];
 
+  // Un item apagado no se carga, ni eligiéndolo de la lista ni escribiendo su palabra. Se
+  // nombra en el aviso: en silencio parecería que el renglón se escribió mal.
+  const apagados: string[] = [];
+
   for (const elegido of elegidos) {
     const entrada = await c.env.DB.prepare('SELECT * FROM catalogo WHERE id = ?')
       .bind(elegido.catalogoId)
       .first<FilaCatalogo>();
-    if (entrada) aCargar.push({ entrada, cantidad: elegido.cantidad });
+    if (!entrada) continue;
+    if (entrada.activo === 0) apagados.push(entrada.nombre);
+    else aCargar.push({ entrada, cantidad: elegido.cantidad });
   }
 
   for (const renglon of renglones) {
-    aCargar.push({ entrada: await asegurarEnCatalogo(c.env.DB, renglon), cantidad: renglon.cantidad });
+    const entrada = await asegurarEnCatalogo(c.env.DB, renglon);
+    if (entrada.activo === 0) apagados.push(entrada.nombre);
+    else aCargar.push({ entrada, cantidad: renglon.cantidad });
   }
 
-  if (aCargar.length === 0) return c.json({ error: 'No elegiste ningún drop.' }, 400);
+  if (aCargar.length === 0) {
+    return c.json(
+      {
+        error:
+          apagados.length > 0
+            ? `${enumerar([...new Set(apagados)])} ${apagados.length === 1 ? 'está apagado' : 'están apagados'} en el catálogo. Prendelos ahí y volvé a cargar.`
+            : 'No elegiste ningún drop.',
+      },
+      400,
+    );
+  }
 
   for (const renglon of aCargar) {
     const entrada = renglon.entrada;
@@ -613,6 +631,10 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
   const pendientes = nuevosEnCatalogo.length;
 
   const partes = [`Cargué ${creados} ${creados === 1 ? 'item' : 'items'} y ${repartidos === creados ? 'los repartí' : `repartí ${repartidos}`} siguiendo la rueda.`];
+  if (apagados.length > 0) {
+    const cuales = [...new Set(apagados)];
+    partes.push(`No cargué ${enumerar(cuales)}: ${cuales.length === 1 ? 'está apagado' : 'están apagados'} en el catálogo.`);
+  }
   if (salteados.size > 0) partes.push(`Perdieron la vuelta: ${[...salteados].join(', ')}.`);
   if (sinRueda.size > 0) {
     partes.push(`Sin repartir los de ${[...sinRueda].join(' y ')}: no hay nadie presente en esa lista.`);
@@ -1355,6 +1377,7 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
     catalogo: results.map((e) => ({
       ...e,
       fijoA: e.fijo_a,
+      activo: e.activo === 1,
       choque: choca(e),
       colas: colasDe.get(e.id) ?? [],
       turnos: Object.fromEntries(
@@ -1362,6 +1385,49 @@ app.get('/api/catalogo', requiereGrandMaster, async (c) => {
       ),
     })),
   });
+});
+
+/**
+ * Dar de alta un item sin esperar a que caiga.
+ *
+ * Hasta ahora el catálogo se llenaba solo: la primera vez que se escribía un nombre al cargar
+ * los drops, la entrada se creaba sola. Eso sigue, pero deja el item recién nacido sin imagen
+ * y sin alias justo en el momento más apurado, que es cuando se está cargando el botín.
+ * Cargarlo antes deja todo listo para cuando caiga.
+ */
+app.post('/api/catalogo', requiereGrandMaster, async (c) => {
+  if (!(await dejaHacer(c, 'catalogo'))) return c.json({ error: 'El catálogo lo edita solo el admin.' }, 403);
+
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const nombre = texto(cuerpo.nombre, 60).replace(/\s+/g, ' ');
+  if (nombre.length < 2) return c.json({ error: 'Ponele un nombre al item.' }, 400);
+
+  // La palabra con la que se carga: la que escriban, o el nombre mismo.
+  const clave = normalizar(texto(cuerpo.clave, 60) || nombre);
+  if (!clave) return c.json({ error: 'Ese nombre no deja ninguna palabra con la que cargarlo.' }, 400);
+
+  const ocupada = await c.env.DB.prepare(
+    'SELECT nombre FROM catalogo WHERE clave = ?1 OR instr(alias, ?2) > 0 LIMIT 1',
+  )
+    .bind(clave, `|${clave}|`)
+    .first<{ nombre: string }>();
+  if (ocupada) return c.json({ error: `«${clave}» ya es la forma de cargar ${ocupada.nombre}.` }, 409);
+
+  await c.env.DB.prepare('INSERT INTO catalogo (clave, nombre) VALUES (?, ?)')
+    .bind(clave, comoTitulo(nombre))
+    .run();
+  const creado = await c.env.DB.prepare('SELECT id FROM catalogo WHERE clave = ?')
+    .bind(clave)
+    .first<{ id: number }>();
+
+  // Como los que nacen solos: arranca en la lista del Kundun y desde el panel se le suman otras.
+  if (creado) {
+    await c.env.DB.prepare("INSERT INTO catalogo_colas (catalogo_id, cola) VALUES (?, 'items')")
+      .bind(creado.id)
+      .run();
+  }
+
+  return c.json({ ok: true, id: creado?.id ?? null, aviso: `${comoTitulo(nombre)} quedó en el catálogo. Se carga escribiendo «${clave}».` });
 });
 
 app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
@@ -1442,6 +1508,10 @@ app.patch('/api/catalogo/:id', requiereGrandMaster, async (c) => {
   // En qué listas sale este item. La CQC cae en el Kundun y en el asedio; el Cofre, solo
   // en el asedio. Cada lista lleva su propia rueda, así que sacar una borra su turno.
   let sinListas = false;
+  if (typeof cuerpo.activo === 'boolean') {
+    await c.env.DB.prepare('UPDATE catalogo SET activo = ? WHERE id = ?').bind(cuerpo.activo ? 1 : 0, id).run();
+  }
+
   /*
    * A quién van todos los drops de este item.
    *

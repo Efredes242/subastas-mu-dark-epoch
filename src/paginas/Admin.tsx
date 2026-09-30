@@ -516,6 +516,8 @@ interface EntradaCatalogo {
   colas: string[];
   /** Si no gira: el id del miembro que se lleva todos sus drops. `null` es la rueda. */
   fijoA: number | null;
+  /** Apagado sigue acá, pero no se puede cargar ni sale en las listas del tablero. */
+  activo: boolean;
 }
 
 /**
@@ -1485,6 +1487,31 @@ function Catalogo({
   // Qué item tiene abierto el selector de imagen.
   const [eligiendo, setEligiendo] = useState<number | null>(null);
 
+  /** El item que se está dando de alta a mano. */
+  const [nuevo, setNuevo] = useState({ nombre: '', clave: '' });
+
+  async function agregar() {
+    const nombre = nuevo.nombre.trim();
+    if (nombre.length < 2) return;
+    setOcupado(true);
+    alError('');
+    try {
+      const r = await api<{ ok: boolean; aviso?: string }>('/catalogo', {
+        cuerpo: { nombre, clave: nuevo.clave.trim() },
+      });
+      setNuevo({ nombre: '', clave: '' });
+      if (r.aviso) alError(r.aviso);
+      await traer();
+      await alListo();
+    } catch (e) {
+      alError(e instanceof Error ? e.message : 'No se pudo agregar.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const apagados = lista.filter((e) => !e.activo).length;
+
   const sinImagen = lista.filter((e) => !e.imagen).length;
 
   return (
@@ -1550,6 +1577,49 @@ function Catalogo({
           )}
         </p>
 
+        {editaCatalogo && (
+          <form
+            className="sumar-item"
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              void agregar();
+            }}
+          >
+            <label>
+              <span className="etiqueta">Item nuevo</span>
+              <input
+                className="campo campo-chico"
+                value={nuevo.nombre}
+                placeholder="Joya de la Bendición"
+                disabled={ocupado}
+                title="Cómo se va a mostrar en toda la app"
+                onChange={(ev) => setNuevo((p) => ({ ...p, nombre: ev.target.value }))}
+              />
+            </label>
+            <label>
+              <span className="etiqueta">Qué se escribe para cargarlo</span>
+              <input
+                className="campo campo-chico"
+                value={nuevo.clave}
+                placeholder={nuevo.nombre.trim() ? nuevo.nombre.trim().toLowerCase() : 'jol'}
+                disabled={ocupado}
+                title="Opcional: si lo dejás vacío se usa el nombre. Los alias se agregan después."
+                onChange={(ev) => setNuevo((p) => ({ ...p, clave: ev.target.value }))}
+              />
+            </label>
+            <button type="submit" className="btn btn-chico btn-oro" disabled={ocupado || nuevo.nombre.trim().length < 2}>
+              <Mas tam={14} /> Agregar
+            </button>
+          </form>
+        )}
+
+        {apagados > 0 && (
+          <p className="pie" style={{ marginTop: 10 }}>
+            {apagados === 1 ? 'Hay 1 item apagado' : `Hay ${apagados} items apagados`}: no se pueden cargar ni
+            aparecen en las listas del tablero, pero siguen acá con su imagen y sus palabras.
+          </p>
+        )}
+
         {/*
           Por qué está todo quieto.
           Sin esto, una pantalla llena de campos que no responden se lee como una app rota.
@@ -1580,7 +1650,7 @@ function Catalogo({
         ) : (
           <div className="escalonado">
             {lista.map((e) => (
-              <div key={e.id} className={`fila item-catalogo r-${e.rareza}`}>
+              <div key={e.id} className={`fila item-catalogo r-${e.rareza}${e.activo ? '' : ' apagado'}`}>
                 <button
                   type="button"
                   className="boton-icono"
@@ -1817,16 +1887,32 @@ function Catalogo({
                   </div>
                 )}
 
-                {e.imagen && editaCatalogo && (
-                  <button
-                    type="button"
-                    className="btn btn-chico"
-                    style={{ flexShrink: 0 }}
-                    disabled={ocupado}
-                    onClick={() => void guardar(e.id, { imagen: null })}
-                  >
-                    Quitar imagen
-                  </button>
+                {editaCatalogo && (
+                  <div className="acciones-item">
+                    <button
+                      type="button"
+                      className={`btn btn-chico${e.activo ? ' btn-ok' : ''}`}
+                      disabled={ocupado}
+                      title={
+                        e.activo
+                          ? 'Está prendido: se puede cargar y sale en las listas'
+                          : 'Está apagado: no se puede cargar ni sale en las listas'
+                      }
+                      onClick={() => void guardar(e.id, { activo: !e.activo })}
+                    >
+                      {e.activo ? 'Prendido' : 'Apagado'}
+                    </button>
+                    {e.imagen && (
+                      <button
+                        type="button"
+                        className="btn btn-chico"
+                        disabled={ocupado}
+                        onClick={() => void guardar(e.id, { imagen: null })}
+                      >
+                        Quitar imagen
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {eligiendo === e.id && (
