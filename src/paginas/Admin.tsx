@@ -1826,18 +1826,35 @@ function Catalogo({
                     </>
                   )}
 
-                  {e.imagen && editaCatalogo && (
+                  {/*
+                    El renglón está siempre, tenga o no imagen: el que no la tiene es justo el que
+                    necesita el botón a mano, y de paso las tarjetas cortas se emparejan un poco
+                    con las largas, que ahora miden todas lo mismo.
+                  */}
+                  {editaCatalogo && (
                     <div className="linea-item">
                       <span className="etiqueta">Imagen</span>
-                      <button
-                        type="button"
-                        className="btn btn-chico"
-                        style={{ justifySelf: 'start' }}
-                        disabled={ocupado}
-                        onClick={() => void guardar(e.id, { imagen: null })}
-                      >
-                        Quitar
-                      </button>
+                      <div className="chips">
+                        <button
+                          type="button"
+                          className="btn btn-chico"
+                          disabled={ocupado}
+                          title={e.imagen ? 'Cambiar la imagen del item' : 'Elegir la imagen del item'}
+                          onClick={() => setEligiendo(eligiendo === e.id ? null : e.id)}
+                        >
+                          {e.imagen ? 'Cambiar' : 'Elegir'}
+                        </button>
+                        {e.imagen && (
+                          <button
+                            type="button"
+                            className="btn btn-chico"
+                            disabled={ocupado}
+                            onClick={() => void guardar(e.id, { imagen: null })}
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 

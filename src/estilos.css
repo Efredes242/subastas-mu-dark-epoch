@@ -435,12 +435,18 @@ select {
 .rejilla-catalogo {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  /*
+   * Todas las tarjetas del mismo alto, no solo las de una misma fila: con 1fr cada fila mide lo
+   * que la mas alta de todo el catalogo. Un item con una lista menos dejaba una caja mas corta
+   * al lado de otra larga y el borde cortado a mitad de camino se leia como algo roto.
+   */
+  grid-auto-rows: 1fr;
   gap: 10px;
-  align-items: start;
 }
 
 .item-catalogo {
-  display: block;
+  display: flex;
+  flex-direction: column;
   padding: 11px 13px 12px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--cLn);
@@ -480,9 +486,18 @@ select {
   align-items: center;
 }
 
+/*
+ * Los renglones arrancan arriba y el aire sobrante queda abajo.
+ *
+ * Repartirlo entre los renglones seria lo comodo, pero entonces una tarjeta de tres renglones
+ * los separaria mas que la de cuatro de al lado y se perderia lo unico que hace legible esta
+ * vista: que "Sale en" este a la misma altura en todas.
+ */
 .cuerpo-item {
   display: grid;
+  flex: 1;
   gap: 8px;
+  align-content: start;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
