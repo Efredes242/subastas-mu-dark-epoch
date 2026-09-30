@@ -1637,214 +1637,48 @@ function Catalogo({
         ) : lista.length === 0 ? (
           <div className="vacio">Todavía no se cargó ningún item. Empezá por la solapa Evento.</div>
         ) : (
-          <div className="escalonado">
+          <div className="escalonado rejilla-catalogo">
             {lista.map((e) => (
               <div key={e.id} className={`fila item-catalogo r-${e.rareza}${e.activo ? '' : ' apagado'}`}>
-                <button
-                  type="button"
-                  className="boton-icono"
-                  title={!editaCatalogo ? e.nombre : e.imagen ? 'Cambiar la imagen' : 'Elegir la imagen'}
-                  disabled={ocupado || !editaCatalogo}
-                  onClick={() => setEligiendo(eligiendo === e.id ? null : e.id)}
-                >
-                  <IconoItem icono={e.icono} imagen={e.imagen} rareza={e.rareza} tam={46} />
-                  {!e.imagen && (
-                    <span className="falta-imagen">
-                      <Subir tam={11} />
-                    </span>
-                  )}
-                </button>
-
-                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                  <input
-                    className="campo campo-chico"
-                    style={{ fontWeight: 700, minHeight: 38 }}
-                    defaultValue={e.nombre}
-                    disabled={ocupado}
-                    readOnly={!editaCatalogo}
-                    title="Cómo se muestra el item en toda la app"
-                    onBlur={(ev) => {
-                      const nombre = ev.target.value.trim();
-                      if (nombre.length >= 2 && nombre !== e.nombre) void guardar(e.id, { nombre });
-                    }}
-                  />
-                  {/*
-                    Con qué palabra se carga ya no se muestra: los drops se eligen de la lista,
-                    sumando y restando, y nadie escribe el nombre. Lo que queda del item es
-                    cuántas veces salió y si todavía le falta la imagen.
-                  */}
-                  <div className="dato-item">
-                    salió {e.veces} {e.veces === 1 ? 'vez' : 'veces'}
-                    {!e.imagen && ' · falta la imagen'}
-                  </div>
-
-                  {e.choque && (
-                    <div className="choque-clave">
-                      <Alerta tam={13} />
-                      <span>
-                        <b>{e.nombre}</b> se queda con «{e.clave}», así que esa misma palabra
-                        guardada en <b>{e.choque}</b> nunca se usa.
+                {/*
+                  La cabeza: qué item es y si está en juego. Lo que se mira para encontrarlo.
+                */}
+                <div className="cabeza-item">
+                  <button
+                    type="button"
+                    className="boton-icono"
+                    title={!editaCatalogo ? e.nombre : e.imagen ? 'Cambiar la imagen' : 'Elegir la imagen'}
+                    disabled={ocupado || !editaCatalogo}
+                    onClick={() => setEligiendo(eligiendo === e.id ? null : e.id)}
+                  >
+                    <IconoItem icono={e.icono} imagen={e.imagen} rareza={e.rareza} tam={40} />
+                    {!e.imagen && (
+                      <span className="falta-imagen">
+                        <Subir tam={11} />
                       </span>
+                    )}
+                  </button>
+
+                  <div style={{ minWidth: 0 }}>
+                    <input
+                      className="campo campo-chico"
+                      style={{ fontWeight: 700, minHeight: 36 }}
+                      defaultValue={e.nombre}
+                      disabled={ocupado}
+                      readOnly={!editaCatalogo}
+                      title="Cómo se muestra el item en toda la app"
+                      onBlur={(ev) => {
+                        const nombre = ev.target.value.trim();
+                        if (nombre.length >= 2 && nombre !== e.nombre) void guardar(e.id, { nombre });
+                      }}
+                    />
+                    <div className="dato-item">
+                      salió {e.veces} {e.veces === 1 ? 'vez' : 'veces'}
+                      {!e.imagen && ' · falta la imagen'}
                     </div>
-                  )}
-                </div>
-
-                {/* En qué listas sale. Un item puede caer en más de una: cada una lleva su rueda. */}
-                <div style={{ flex: '0 1 auto', display: 'grid', gap: 4, minWidth: 0 }}>
-                  <span className="etiqueta">Sale en</span>
-                  {/* En columna: tres pastillas en fila competían por el ancho con todo lo demás. */}
-                  <div className="listas-item">
-                    {LISTAS.map(([cola, corto, largo]) => {
-                      const dentro = e.colas.includes(cola);
-                      const ultima = dentro && e.colas.length === 1;
-                      return (
-                        <button
-                          key={cola}
-                          type="button"
-                          className={`chip-lista${dentro ? ' dentro' : ''}`}
-                          disabled={ocupado || ultima || !editaCatalogo}
-                          title={
-                            !editaCatalogo
-                              ? largo
-                              : ultima
-                                ? 'Un item tiene que salir en alguna lista'
-                                : `${dentro ? 'Sacar de' : 'Agregar a'}: ${largo}`
-                          }
-                          onClick={() =>
-                            void guardar(e.id, {
-                              colas: dentro ? e.colas.filter((k) => k !== cola) : [...e.colas, cola],
-                            })
-                          }
-                        >
-                          {corto}
-                        </button>
-                      );
-                    })}
                   </div>
-                </div>
 
-                {/* El turno de ESTE item en cada lista: quién se lo lleva la próxima vez que salga. */}
-                {seVe(estado, 'panel_turnos') && (
-                  <div className={mueveTurnos ? 'turnos-item' : 'turnos-item turnos-fijos'}>
-                    {/*
-                      Las dos formas de repartir un item.
-                      La rueda es lo de siempre. "Todo para uno" es el arreglo de las almas de
-                      guerra: uno solo las junta hasta completar lo que necesita. Cuánto le falta
-                      no lo puede saber la app —también las compra en las tiendas del juego—, así
-                      que no hay meta ni cuenta: queda fijo hasta que lo cambien acá.
-                    */}
-                    {mueveTurnos ? (
-                      <>
-                        <span className="etiqueta">Cómo se reparte</span>
-                        <div className="chips" style={{ marginBottom: 2 }}>
-                          <button
-                            type="button"
-                            className={`chip-lista${e.fijoA === null ? ' dentro' : ''}`}
-                            disabled={ocupado}
-                            title="Gira entre los que participan en cada lista, como siempre"
-                            onClick={() => e.fijoA !== null && void guardar(e.id, { fijoA: null })}
-                          >
-                            Por rueda
-                          </button>
-                          <button
-                            type="button"
-                            className={`chip-lista${e.fijoA !== null ? ' dentro' : ''}`}
-                            disabled={ocupado || estado.orden.length === 0}
-                            title="Todos los drops de este item van siempre a la misma persona"
-                            onClick={() =>
-                              e.fijoA === null && void guardar(e.id, { fijoA: estado.orden[0]?.id })
-                            }
-                          >
-                            Todo para uno
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <span className="etiqueta">
-                        {e.fijoA === null ? 'El próximo de cada lista' : 'Todos los drops van para'}
-                      </span>
-                    )}
-
-                    {e.fijoA !== null ? (
-                      mueveTurnos ? (
-                        <select
-                          className="campo campo-chico"
-                          style={{ cursor: 'pointer' }}
-                          value={String(e.fijoA)}
-                          disabled={ocupado}
-                          title="Todos los drops de este item van para esta persona, hasta que la cambies"
-                          onChange={(ev) => void guardar(e.id, { fijoA: Number(ev.target.value) })}
-                        >
-                          {estado.orden.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.personaje}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="turno-fijo">
-                          <span className="quien">
-                            {estado.orden.find((p) => p.id === e.fijoA)?.personaje ?? 'alguien que ya no está'}
-                          </span>
-                        </div>
-                      )
-                    ) : (
-                      LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
-                        const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
-                        /*
-                         * Lo mismo que elige el <select>. Fuera de un evento `leTocaEn` no devuelve
-                         * a nadie —mira quién vino, y todavía no vino nadie—, y ahí manda el primero
-                         * de la vuelta: es lo que el navegador muestra solo cuando el value no
-                         * coincide con ninguna opción.
-                         */
-                        const quien = vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0];
-
-                        if (!mueveTurnos) {
-                          return (
-                            <div key={cola} className="turno-fijo" title={`El próximo de este item en ${largo}`}>
-                              <span className="cual">{corto}</span>
-                              {quien ? (
-                                <span className="quien">{quien.personaje}</span>
-                              ) : (
-                                <span className="quien nadie">nadie en esa lista</span>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <label key={cola} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                            {e.colas.length > 1 && (
-                              <span
-                                style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--tx3)', width: 44, flexShrink: 0 }}
-                              >
-                                {corto}
-                              </span>
-                            )}
-                            <select
-                              className="campo campo-chico"
-                              style={{ minWidth: 130, flex: 1, cursor: 'pointer' }}
-                              value={String(leTocaEn(e.id, cola) ?? '')}
-                              disabled={ocupado || vuelta.length === 0}
-                              title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
-                              onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
-                            >
-                              {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
-                              {vuelta.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.personaje}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-
-                {editaCatalogo && (
-                  <div className="acciones-item">
+                  {editaCatalogo && (
                     <button
                       type="button"
                       className={`btn btn-chico${e.activo ? ' btn-ok' : ''}`}
@@ -1858,18 +1692,165 @@ function Catalogo({
                     >
                       {e.activo ? 'Prendido' : 'Apagado'}
                     </button>
-                    {e.imagen && (
+                  )}
+                </div>
+
+                {/*
+                  El cuerpo: cómo se reparte. Un renglón por cosa, con el nombre a la izquierda
+                  siempre en el mismo lugar, para que se lea de arriba abajo sin buscar.
+                */}
+                <div className="cuerpo-item">
+                  <div className="linea-item">
+                    <span className="etiqueta">Sale en</span>
+                    <div className="chips">
+                      {LISTAS.map(([cola, corto, largo]) => {
+                        const dentro = e.colas.includes(cola);
+                        const ultima = dentro && e.colas.length === 1;
+                        return (
+                          <button
+                            key={cola}
+                            type="button"
+                            className={`chip-lista${dentro ? ' dentro' : ''}`}
+                            disabled={ocupado || ultima || !editaCatalogo}
+                            title={
+                              !editaCatalogo
+                                ? largo
+                                : ultima
+                                  ? 'Un item tiene que salir en alguna lista'
+                                  : `${dentro ? 'Sacar de' : 'Agregar a'}: ${largo}`
+                            }
+                            onClick={() =>
+                              void guardar(e.id, {
+                                colas: dentro ? e.colas.filter((k) => k !== cola) : [...e.colas, cola],
+                              })
+                            }
+                          >
+                            {corto}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {seVe(estado, 'panel_turnos') && (
+                    <>
+                      {mueveTurnos && (
+                        <div className="linea-item">
+                          <span className="etiqueta">Reparto</span>
+                          <div className="chips">
+                            <button
+                              type="button"
+                              className={`chip-lista${e.fijoA === null ? ' dentro' : ''}`}
+                              disabled={ocupado}
+                              title="Gira entre los que participan en cada lista, como siempre"
+                              onClick={() => e.fijoA !== null && void guardar(e.id, { fijoA: null })}
+                            >
+                              Por rueda
+                            </button>
+                            <button
+                              type="button"
+                              className={`chip-lista${e.fijoA !== null ? ' dentro' : ''}`}
+                              disabled={ocupado || estado.orden.length === 0}
+                              title="Todos los drops de este item van siempre a la misma persona"
+                              onClick={() => e.fijoA === null && void guardar(e.id, { fijoA: estado.orden[0]?.id })}
+                            >
+                              Todo para uno
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {e.fijoA !== null ? (
+                        <div className="linea-item">
+                          <span className="etiqueta">Todo para</span>
+                          {mueveTurnos ? (
+                            <select
+                              className="campo campo-chico"
+                              style={{ cursor: 'pointer' }}
+                              value={String(e.fijoA)}
+                              disabled={ocupado}
+                              title="Todos los drops de este item van para esta persona, hasta que la cambies"
+                              onChange={(ev) => void guardar(e.id, { fijoA: Number(ev.target.value) })}
+                            >
+                              {estado.orden.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.personaje}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="quien-fijo">
+                              {estado.orden.find((p) => p.id === e.fijoA)?.personaje ?? 'alguien que ya no está'}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        LISTAS.filter(([cola]) => e.colas.includes(cola)).map(([cola, corto, largo]) => {
+                          const vuelta = ruedaDe(e.id, cola)?.vuelta ?? [];
+                          /*
+                           * Lo mismo que elige el <select>. Fuera de un evento `leTocaEn` no devuelve
+                           * a nadie —mira quién vino, y todavía no vino nadie—, y ahí manda el primero
+                           * de la vuelta: es lo que el navegador muestra solo cuando el value no
+                           * coincide con ninguna opción.
+                           */
+                          const quien = vuelta.find((p) => p.id === leTocaEn(e.id, cola)) ?? vuelta[0];
+
+                          return (
+                            <div key={cola} className="linea-item">
+                              <span className="etiqueta">{corto}</span>
+                              {mueveTurnos ? (
+                                <select
+                                  className="campo campo-chico"
+                                  style={{ cursor: 'pointer' }}
+                                  value={String(leTocaEn(e.id, cola) ?? '')}
+                                  disabled={ocupado || vuelta.length === 0}
+                                  title={`El próximo de este item en ${largo} se lo lleva quien elijas acá`}
+                                  onChange={(ev) => void moverTurno(e.id, cola, Number(ev.target.value))}
+                                >
+                                  {vuelta.length === 0 && <option value="">nadie en esa lista</option>}
+                                  {vuelta.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.personaje}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className={`quien-fijo${quien ? '' : ' nadie'}`} title={largo}>
+                                  {quien?.personaje ?? 'nadie en esa lista'}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </>
+                  )}
+
+                  {e.imagen && editaCatalogo && (
+                    <div className="linea-item">
+                      <span className="etiqueta">Imagen</span>
                       <button
                         type="button"
                         className="btn btn-chico"
+                        style={{ justifySelf: 'start' }}
                         disabled={ocupado}
                         onClick={() => void guardar(e.id, { imagen: null })}
                       >
-                        Quitar imagen
+                        Quitar
                       </button>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+
+                  {e.choque && (
+                    <div className="choque-clave">
+                      <Alerta tam={13} />
+                      <span>
+                        <b>{e.nombre}</b> se queda con «{e.clave}», así que esa misma palabra
+                        guardada en <b>{e.choque}</b> nunca se usa.
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 {eligiendo === e.id && (
                   <SelectorIcono

@@ -387,33 +387,7 @@ select {
 }
 
 /*
- * Cada item del catálogo, en su propia caja.
- *
- * Un item ocupa varios renglones —nombre, cómo se escribe, en qué listas sale, a quién le toca en
- * cada una— y uno abajo del otro se leen como una sola pared de campos: no se ve dónde termina
- * uno y empieza el siguiente. La caja lo separa y la barra de la izquierda lleva el color de su
- * rareza, así el corte además dice algo.
- */
-/*
- * El "le toca a" de cada item.
- *
- * Con varias listas son varios renglones, y con el nombre de la lista en gris chico a la
- * izquierda lo que se leía era una columna de nombres sueltos: no se veía cuál era de qué rueda.
- * Cada par va ahora encerrado en una pastilla, y la lista pintada igual que su chip de "Sale en",
- * que está justo al lado — la misma palabra con el mismo color en los dos lugares.
- */
-/*
- * Dar de alta un item sin esperar a que caiga.
- *
- * El catálogo se llena solo la primera vez que se escribe un nombre al cargar los drops, pero
- * eso deja el item sin imagen y sin alias justo cuando más apurado se está. Cargarlo antes
- * deja todo listo.
- */
-/*
- * El renglon al pie de una caja: una aclaracion que se lee si hace falta y no antes.
- *
- * Se venia usando en dos lugares sin existir en la hoja, asi que salia con el tamano de un
- * parrafo normal y pesaba mas que lo que estaba aclarando.
+ * El renglón al pie de una caja: una aclaración que se lee si hace falta y no antes.
  */
 .pie {
   margin: 0;
@@ -422,6 +396,12 @@ select {
   color: var(--tx3);
 }
 
+/*
+ * Dar de alta un item sin esperar a que caiga.
+ *
+ * El catálogo se llena solo la primera vez que se escribe un nombre al cargar los drops, pero
+ * eso deja el item sin imagen justo cuando más apurado se está. Cargarlo antes deja todo listo.
+ */
 .sumar-item {
   display: flex;
   flex-wrap: wrap;
@@ -445,18 +425,46 @@ select {
 }
 
 /*
+ * La tarjeta de un item: cabeza arriba, datos abajo, de a dos por renglón.
+ *
+ * Antes era una fila de columnas que cada tarjeta acomodaba por su cuenta, así que "Sale en"
+ * arrancaba en un lugar distinto en cada una y no había dónde apoyar la vista. Ahora cada dato
+ * es un renglón con su nombre a la izquierda, siempre en la misma columna, y entran dos items
+ * por fila en una pantalla de escritorio.
+ */
+.rejilla-catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.item-catalogo {
+  display: block;
+  padding: 11px 13px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--cLn);
+  border-radius: 13px;
+  background: var(--panel2);
+}
+
+.item-catalogo:hover {
+  border-color: var(--line2);
+  border-left-color: var(--c);
+}
+
+/*
  * Un item apagado se ve, pero no se impone: es el que justamente no está en juego.
  *
- * La opacidad va en los hijos y no en la fila: la fila entra con la animación escalonada del
- * catálogo, y una animación le gana en la cascada a un opacity declarado a secas. Los botones
- * quedan enteros, que son con los que se lo vuelve a prender.
+ * La opacidad va en los hijos y no en la tarjeta: la tarjeta entra con la animación escalonada
+ * del catálogo, y una animación le gana en la cascada a un opacity declarado a secas.
  */
 .item-catalogo.apagado {
   border-left-color: var(--line);
   background: transparent;
 }
 
-.item-catalogo.apagado > *:not(.acciones-item) {
+.item-catalogo.apagado > * {
   opacity: 0.45;
 }
 
@@ -465,92 +473,63 @@ select {
   opacity: 1;
 }
 
-.acciones-item {
-  display: flex;
-  flex-shrink: 0;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.turnos-item {
+.cabeza-item {
   display: grid;
-  flex: 1 1 220px;
-  gap: 4px;
-  min-width: 0;
-}
-
-.turnos-fijos {
-  flex-basis: 230px;
-  gap: 6px;
-}
-
-.turno-fijo {
-  display: flex;
-  /* Del ancho del nombre y nada mas: un renglon largo y casi vacio no se lee como una pastilla. */
-  width: fit-content;
-  max-width: 100%;
-  gap: 8px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  min-width: 0;
-  padding: 5px 13px 5px 5px;
-  border: 1px solid var(--line);
-  /*
-   * Rectangulo redondeado y no pildora: adentro va otra pildora, y dos curvas de radio parecido
-   * a 5px de distancia se tocan — la de adentro se ve saliendose por la izquierda de la de afuera.
-   */
-  border-radius: 12px;
-  background: var(--panel);
 }
 
-.turno-fijo .cual {
-  flex-shrink: 0;
-  padding: 3px 9px;
-  border: 1px solid var(--oroLn);
-  border-radius: 999px;
-  background: var(--oroBg);
-  color: var(--oro);
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+.cuerpo-item {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
-.turno-fijo .quien {
+/*
+ * Un dato por renglón.
+ *
+ * El ancho del nombre es fijo para que los campos de la derecha arranquen todos en la misma
+ * vertical, que es lo que hace que la tarjeta se lea de un barrido.
+ */
+.linea-item {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.linea-item > .etiqueta {
   overflow: hidden;
-  font-size: 13.5px;
+  text-overflow: ellipsis;
+}
+
+.linea-item .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.linea-item .choque-clave {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+/* A quién le toca, cuando no se puede cambiar: un dato, no un campo apagado. */
+.quien-fijo {
+  overflow: hidden;
+  font-size: 13px;
   font-weight: 700;
   color: var(--tx);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Una rueda sin nadie no es un nombre: no tiene que pesar como uno. */
-.turno-fijo .quien.nadie {
+.quien-fijo.nadie {
   font-weight: 600;
   color: var(--tx3);
-}
-
-.item-catalogo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--cLn);
-  border-radius: 13px;
-  background: var(--panel2);
-}
-
-.item-catalogo:last-child {
-  margin-bottom: 0;
-}
-
-.item-catalogo:hover {
-  border-color: var(--line2);
-  border-left-color: var(--c);
-  background: var(--panel2);
 }
 
 .recorte {
@@ -3789,19 +3768,12 @@ select {
   color: var(--oro);
 }
 
-/* Catálogo: la clave que se escribe al cargar el drop. */
 /* El renglón de abajo del nombre: cuántas veces salió y si le falta la imagen. */
 .dato-item {
   margin-top: 6px;
   padding-left: 2px;
   font-size: 11.5px;
   color: var(--tx3);
-}
-
-/* "Sale en", una lista abajo de la otra y todas del mismo ancho. */
-.listas-item {
-  display: grid;
-  gap: 5px;
 }
 
 .choque-clave {
