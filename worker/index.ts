@@ -533,6 +533,41 @@ app.post('/api/items/lote', requiereGrandMaster, async (c) => {
     return c.json({ error: 'Primero marcá quiénes estuvieron y confirmá.' }, 409);
   }
 
+  /*
+   * Que dos no carguen el mismo botín.
+   *
+   * El admin y el Grand Master cargan los dos, y la pantalla no se entera sola de lo que hizo
+   * el otro. Con la página abierta de antes, uno carga lo que ya estaba cargado y el Kundun
+   * termina con el doble de drops y una rueda movida de más — que es exactamente lo que pasó.
+   *
+   * El panel manda cuántos drops está viendo. Si en la base hay más, es que llegaron después de
+   * que esa pantalla se dibujó: no se carga nada y se dice qué hay, que es lo único que hace
+   * falta para decidir. Un segundo intento, ya con la pantalla al día, pasa derecho.
+   */
+  if (typeof cuerpo.yaHabia === 'number') {
+    const { results: estaban } = await c.env.DB.prepare(
+      'SELECT nombre, copia, copias FROM items WHERE evento_id = ? ORDER BY id',
+    )
+      .bind(evento.id)
+      .all<{ nombre: string; copia: number; copias: number }>();
+
+    if (estaban.length > entero(cuerpo.yaHabia)) {
+      const cuantos = new Map<string, number>();
+      for (const it of estaban) cuantos.set(it.nombre, (cuantos.get(it.nombre) ?? 0) + 1);
+      const detalle = [...cuantos.entries()].map(([n, v]) => (v > 1 ? `${n} ×${v}` : n));
+
+      return c.json(
+        {
+          error:
+            `No cargué nada: este Kundun ya tiene ${estaban.length} ${estaban.length === 1 ? 'drop' : 'drops'} ` +
+            `que no tenías en pantalla (${enumerar(detalle)}). Los acabo de traer — fijate si todavía falta ` +
+            'cargar algo y volvé a darle.',
+        },
+        409,
+      );
+    }
+  }
+
   let creados = 0;
   const nuevosEnCatalogo: string[] = [];
   const nuevos: number[] = [];

@@ -319,12 +319,25 @@ function CargaDeDrops({
       const kundun = comoLista('kundun');
       const asedio = comoLista('asedio');
 
+      /*
+       * Cuántos drops está viendo esta pantalla.
+       *
+       * Va con el pedido para que el servidor pueda darse cuenta de que mientras tanto cargó
+       * otro. Entre las dos tandas se usa lo que volvió de la primera: si no, la del asedio se
+       * denunciaría a sí misma.
+       */
+      let yaHabia = estado.items.length;
+
       if (kundun.length > 0 || otro.kundun.trim().length >= 2) {
-        r = await api('/items/lote', { cuerpo: { items: kundun, texto: otro.kundun } });
+        const hecho = await api<EstadoConAviso>('/items/lote', {
+          cuerpo: { items: kundun, texto: otro.kundun, yaHabia },
+        });
+        r = hecho;
+        yaHabia = hecho.items.length;
       }
       // Los del asedio van forzados a su lista aunque el catálogo los tenga como del Kundun.
       if (domingo && (asedio.length > 0 || otro.asedio.trim().length >= 2)) {
-        r = await api('/items/lote', { cuerpo: { items: asedio, texto: otro.asedio, cola: 'asedio' } });
+        r = await api('/items/lote', { cuerpo: { items: asedio, texto: otro.asedio, cola: 'asedio', yaHabia } });
       }
 
       setCant({ kundun: {}, asedio: {} });
@@ -766,6 +779,16 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
       setAviso(r.aviso ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      /*
+       * Una acción que falla suele fallar porque la pantalla venía atrasada —el caso claro es
+       * querer cargar drops que otro ya cargó—, así que lo primero que hace falta es ver lo que
+       * hay de verdad. El error queda: se pisa el estado, no el cartel.
+       */
+      try {
+        setEstado(await api('/estado'));
+      } catch {
+        // Sin red tampoco se puede refrescar; al menos queda el error de arriba.
+      }
     } finally {
       setOcupado(false);
     }
