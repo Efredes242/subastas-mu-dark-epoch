@@ -47,14 +47,57 @@ export default function App() {
     void recargar();
   }, [recargar]);
 
-  // Mientras hay un Kundun en curso, refrescamos cada 8 s para ver lo que carga el admin.
+  /*
+   * El refresco solo.
+   *
+   * Antes corría únicamente con un Kundun ya abierto, y ahí estaba el agujero: una pestaña
+   * dejada abierta desde temprano no tenía evento, así que no arrancaba el timer y nunca se
+   * enteraba de que a la noche se abría otro. Con esa pantalla vieja se cargaron los drops dos
+   * veces. Ahora el refresco no se apaga nunca; lo que cambia es cada cuánto.
+   *
+   * Siempre con la pestaña a la vista: una abierta en segundo plano todo el día no tiene por
+   * qué pedir nada.
+   */
+  const hayKundun = !!estado?.evento && !estado.evento.cerrado;
+  const abreEn = estado?.agenda.proximo?.abre ?? null;
+
   useEffect(() => {
-    if (!estado?.evento || estado.evento.cerrado) return;
-    const t = setInterval(() => {
+    const cada = () => {
+      if (hayKundun) return 8_000;
+      // Cerca de la hora de abrir vale la pena mirar seguido: es cuando aparece el evento.
+      const falta = abreEn ? new Date(abreEn).getTime() - Date.now() : Infinity;
+      if (falta < 20 * 60_000) return 20_000;
+      return 90_000;
+    };
+
+    let t: number;
+    const programar = () => {
+      t = window.setTimeout(() => {
+        if (document.visibilityState === 'visible') void recargar();
+        programar();
+      }, cada());
+    };
+    programar();
+    return () => window.clearTimeout(t);
+  }, [hayKundun, abreEn, recargar]);
+
+  /*
+   * Y al volver a la pestaña, de una.
+   *
+   * Es el momento exacto en que alguien va a hacer algo con lo que ve, y el único en que un
+   * dato viejo se paga caro. Esperar hasta ocho segundos ahí no tiene sentido.
+   */
+  useEffect(() => {
+    const alVolver = () => {
       if (document.visibilityState === 'visible') void recargar();
-    }, 8000);
-    return () => clearInterval(t);
-  }, [estado?.evento, recargar]);
+    };
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('focus', alVolver);
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver);
+      window.removeEventListener('focus', alVolver);
+    };
+  }, [recargar]);
 
   if (cargando) {
     return (
