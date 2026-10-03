@@ -7,9 +7,10 @@ import { IconoItem } from '../iconos';
  * sorteado la vez pasada y con qué, sin tener que preguntarlo por el chat.
  */
 export function PujaAnterior({ anterior, zona }: { anterior: Estado['anterior']; zona: string }) {
-  if (!anterior || anterior.items.length === 0) return null;
+  if (!anterior) return null;
 
   const repartidos = anterior.items.filter((i) => i.dueno);
+  const vacio = anterior.items.length === 0;
 
   return (
     <section className="panel subir" style={{ padding: '18px 14px 12px' }}>
@@ -21,10 +22,19 @@ export function PujaAnterior({ anterior, zona }: { anterior: Estado['anterior'];
             {anterior.participantes === 1 ? 'participante' : 'participantes'}
           </div>
         </div>
-        <span className="pastilla" style={{ flexShrink: 0 }}>
-          {repartidos.length} de {anterior.items.length}
-        </span>
+        {!vacio && (
+          <span className="pastilla" style={{ flexShrink: 0 }}>
+            {repartidos.length} de {anterior.items.length}
+          </span>
+        )}
       </div>
+
+      {/*
+        Un Kundun sin drops no es un error: se abren y se cierran solos, y si esa noche no
+        jugó nadie no hay nada que repartir. Antes la ventana no mostraba nada de nada y
+        parecía rota.
+      */}
+      {vacio && <div className="vacio">En ese Kundun no se cargó ningún drop.</div>}
 
       <div className="escalonado">
         {anterior.items.map((it) => (

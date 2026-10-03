@@ -508,7 +508,22 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
           WHERE i.evento_id = ?`,
       )
       .bind(eventoId),
-    db.prepare('SELECT * FROM eventos WHERE id <> ? AND es_prueba = 0 ORDER BY id DESC LIMIT 1').bind(eventoId),
+    /*
+     * El Kundun anterior que de verdad repartió algo.
+     *
+     * Antes era el último a secas, y un Kundun que pasó sin que nadie lo usara —se abre y se
+     * cierra solo, aunque no juegue nadie— dejaba la ventana en blanco y tapaba el último
+     * reparto de verdad. El orden pone primero a los que tienen drops; si ninguno tiene,
+     * igual vuelve el último, y la ventana lo dice.
+     */
+    db
+      .prepare(
+        `SELECT * FROM eventos
+           WHERE id <> ?1 AND es_prueba = 0
+           ORDER BY (SELECT COUNT(*) FROM items WHERE evento_id = eventos.id) > 0 DESC, id DESC
+           LIMIT 1`,
+      )
+      .bind(eventoId),
     db.prepare('SELECT cola, usuario_id FROM participantes'),
     db.prepare('SELECT catalogo_id, cola FROM catalogo_colas'),
     db.prepare('SELECT catalogo_id, cola, usuario_id FROM turnos'),
