@@ -396,7 +396,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
     <>
       <div className="tablero">
         {/* Arriba: horarios · qué Kundun es · tema */}
-        <div className="barra-tablero arriba">
+        <div className={`barra-tablero arriba${evento ? '' : ' solo-reloj'}`}>
           {ve('boton_horarios') ? (
           <button
             type="button"
@@ -414,33 +414,28 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             <span />
           )}
 
-          <div style={{ minWidth: 0, textAlign: 'center' }}>
-            {evento ? (
-              <>
-                <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  {evento.esPrueba ? <span style={{ color: 'var(--av)' }}>Kundun de prueba</span> : `Kundun #${evento.numero}`}
-                </div>
-                <div className="recorte estado-kundun">
-                  <span className={enCurso ? 'ahora' : 'listo'}>
-                    {enCurso ? 'en curso' : 'repartido'}
-                  </span>
-                  <span>
-                    {cuenta ? `cierra en ${cuenta}` : fechaHoraEn(evento.empiezaEn ?? evento.creadoEn, zona)}
-                    {presentes > 0 ? ` · ${presentes} ${enCurso ? 'marcados' : 'estuvieron'}` : ''}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  Próximo {horaEn(estado.agenda.proximo.empieza, zona)}
-                </div>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--oro)', marginTop: 2 }}>
-                  {faltan(estado.agenda.proximo.empieza, ahora)}
-                </div>
-              </>
-            )}
-          </div>
+          {/*
+            Sin Kundun en curso acá no va nada.
+            Decía "Próximo 20:45 · en 6 h 42 min", que es palabra por palabra lo que dice el
+            cartel grande del medio de la pantalla. Repetido arriba no agregaba nada y además
+            apretaba la barra contra la esquina de la cuenta.
+          */}
+          {evento && (
+            <div style={{ minWidth: 0, textAlign: 'center' }}>
+              <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                {evento.esPrueba ? <span style={{ color: 'var(--av)' }}>Kundun de prueba</span> : `Kundun #${evento.numero}`}
+              </div>
+              <div className="recorte estado-kundun">
+                <span className={enCurso ? 'ahora' : 'listo'}>
+                  {enCurso ? 'en curso' : 'repartido'}
+                </span>
+                <span>
+                  {cuenta ? `cierra en ${cuenta}` : fechaHoraEn(evento.empiezaEn ?? evento.creadoEn, zona)}
+                  {presentes > 0 ? ` · ${presentes} ${enCurso ? 'marcados' : 'estuvieron'}` : ''}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* El tema y la cuenta viven en la esquina fija, igual en todas las pantallas. */}
           <span />

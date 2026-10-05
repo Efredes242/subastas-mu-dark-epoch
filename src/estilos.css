@@ -1037,6 +1037,22 @@ select {
   white-space: nowrap;
 }
 
+/*
+ * La barra de arriba cuando no hay Kundun: solo el reloj, centrado.
+ *
+ * Sin el título del medio queda un botón solo contra el borde izquierdo y la esquina de la
+ * cuenta contra el derecho, que se lee como dos cosas sueltas. Centrado se lee como una.
+ */
+.barra-tablero.arriba.solo-reloj {
+  justify-content: center;
+  /*
+   * Sin titulo al lado, el hueco que se le reserva a la esquina correria el reloj a la
+   * izquierda del centro de la pantalla. El reloj es angosto: centrado de verdad no llega
+   * ni cerca de la esquina.
+   */
+  padding-right: 0;
+}
+
 .reloj-horarios {
   display: flex;
   flex-direction: column;
@@ -3937,9 +3953,18 @@ select {
     position: sticky;
     top: 0;
     z-index: 10;
-    /* Arriba, el lugar de la esquina fija: cuatro botones no entran al lado del titulo. */
+    /* Arriba, el lugar de la esquina fija: cuatro botones no entran al lado del título. */
     padding: 54px 0 8px;
     background: linear-gradient(var(--bg) 72%, transparent);
+  }
+
+  /*
+   * Con el reloj solo, el renglón de la esquina alcanza para los dos: el reloj queda arriba
+   * de todo, pegado al borde izquierdo, y la esquina sigue en el derecho.
+   */
+  .barra-tablero.arriba.solo-reloj {
+    justify-content: flex-start;
+    padding: 8px 0;
   }
 
   .barra-tablero.abajo {
