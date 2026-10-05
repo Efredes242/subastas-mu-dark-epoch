@@ -3485,11 +3485,7 @@ function Clases({
         {clases.map((cl) => {
           const cuantos = estado.orden.filter((p) => p.clase === cl.codigo).length;
           return (
-            <div
-              key={cl.codigo}
-              className="fila"
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', flexWrap: 'wrap' }}
-            >
+            <div key={cl.codigo} className="fila fila-clase">
               <button
                 type="button"
                 className="boton-icono"
@@ -3517,7 +3513,7 @@ function Clases({
                 }}
               />
 
-              <span style={{ fontSize: 12, color: 'var(--tx3)', flexShrink: 0 }}>
+              <span className="cuantos-clase">
                 {cuantos === 0 ? 'sin nadie' : cuantos === 1 ? '1 personaje' : `${cuantos} personajes`}
               </span>
 

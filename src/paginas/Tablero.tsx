@@ -405,9 +405,9 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             title="Los horarios se muestran en la hora de este equipo"
           >
             <Reloj tam={18} />
-            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+            <span className="reloj-horarios">
               <span>{horariosEnZona(estado.agenda, zona).join(' · ')}</span>
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--tx3)' }}>tu hora · {nombreCortoZona(zona)}</span>
+              <span className="zona">tu hora · {nombreCortoZona(zona)}</span>
             </span>
           </button>
           ) : (

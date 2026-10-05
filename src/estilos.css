@@ -999,6 +999,65 @@ select {
   gap: 10px;
 }
 
+/* Los horarios del botón de arriba a la izquierda: la hora grande y la zona abajo. */
+/*
+ * Una clase de personaje: retrato, código, nombre, cuántos la usan y el tacho.
+ *
+ * En rejilla y no en una fila que envuelve: envolviendo, el conteo y el tacho caían solos a un
+ * segundo renglón pegados a la izquierda, debajo del nombre, y parecían de otra cosa.
+ */
+.fila-clase {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 8px;
+}
+
+/* En teléfono el nombre se queda con el primer renglón y lo demás baja, alineado al borde. */
+@media (max-width: 620px) {
+  .fila-clase {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .fila-clase > .cuantos-clase {
+    grid-column: 1 / 3;
+  }
+
+  .fila-clase > .btn {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
+
+.cuantos-clase {
+  font-size: 12px;
+  color: var(--tx3);
+  white-space: nowrap;
+}
+
+.reloj-horarios {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.reloj-horarios > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.reloj-horarios > .zona {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--tx3);
+}
+
 .barra-tablero {
   flex-shrink: 0;
   display: flex;
@@ -1778,10 +1837,31 @@ select {
   padding-right: 290px;
 }
 
+/* Con los rótulos escondidos la esquina ocupa menos, pero sigue siendo cuatro botones. */
 @media (max-width: 900px) {
   .barra-tablero.arriba,
   .barra-admin {
-    padding-right: 130px;
+    padding-right: 240px;
+  }
+}
+
+/*
+ * En teléfono la esquina se queda con todo el renglón.
+ *
+ * Reservarle lugar a la derecha no alcanza: cuatro botones no entran al lado de un título en
+ * 390 px, y el título terminaba debajo de ellos, ilegible. Acá la barra arranca más abajo y
+ * se queda con el ancho entero.
+ */
+@media (max-width: 759px) {
+  .barra-tablero.arriba,
+  .barra-admin {
+    padding-top: 54px;
+    padding-right: 0;
+  }
+
+  .barra-admin {
+    gap: 10px;
+    padding-bottom: 14px;
   }
 }
 
@@ -3857,7 +3937,8 @@ select {
     position: sticky;
     top: 0;
     z-index: 10;
-    padding: 8px 0;
+    /* Arriba, el lugar de la esquina fija: cuatro botones no entran al lado del titulo. */
+    padding: 54px 0 8px;
     background: linear-gradient(var(--bg) 72%, transparent);
   }
 
@@ -3890,22 +3971,17 @@ select {
 
   /* Arriba: el reloj se achica para que el título no se parta en tres renglones. */
   .barra-tablero.arriba .btn-esquina {
-    max-width: 38vw;
+    max-width: 44vw;
     padding: 0 10px;
     gap: 6px;
     font-size: 11.5px;
   }
 }
 
-/* Teléfonos angostos: el reloj queda solo con el ícono. */
+/* Teléfonos angostos: el reloj se queda sin el renglón de la zona. */
 @media (max-width: 400px) {
-  .barra-tablero.arriba .btn-esquina > span {
+  .reloj-horarios > .zona {
     display: none;
-  }
-
-  .barra-tablero.arriba .btn-esquina {
-    max-width: none;
-    padding: 0 12px;
   }
 
   .barra-tablero.abajo .btn-esquina svg {
