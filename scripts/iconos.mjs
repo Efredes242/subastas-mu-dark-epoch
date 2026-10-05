@@ -11,17 +11,26 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { plena, recortable } from './marca.mjs';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const ORIGENES = join(RAIZ, 'imagenes');
 const DESTINO = join(RAIZ, 'public');
 
-// ── El ícono de la app ────────────────────────────────────────────────────────
-// Se recorta al busto porque a 32 píxeles la figura entera queda en una mancha:
-// así se distinguen la corona, la gema del pecho y el brillo del báculo.
-const RECORTE = { left: 145, top: 145, width: 215, height: 215 };
+/** El color de abajo del degradado del ícono: lo que se ve si algo pide un fondo plano. */
+const FONDO = '#0d1020';
 
-const TAMANOS = [
+// ── El ícono de la app ────────────────────────────────────────────────────────
+//
+// Dibujado, no recortado de una captura del juego: a 32 píxeles una foto del Kundun es una
+// mancha oscura sin forma. Es el mismo escudo que usa la app adentro.
+//
+// Dos juegos:
+//   - los "plenos", para la pestaña del navegador y para iOS, que solo redondea las esquinas;
+//   - los "recortables", para Android, que recorta el ícono con la forma del teléfono. Sin
+//     uno de estos el sistema asume lo peor, encoge el dibujo y lo apoya sobre un plato
+//     blanco — que es justo lo que se veía.
+const PLENOS = [
   ['favicon-32.png', 32],
   ['favicon-48.png', 48],
   ['apple-touch-icon.png', 180],
@@ -29,18 +38,33 @@ const TAMANOS = [
   ['icon-512.png', 512],
 ];
 
+const RECORTABLES = [
+  ['icon-192-recortable.png', 192],
+  ['icon-512-recortable.png', 512],
+];
+
 fs.mkdirSync(DESTINO, { recursive: true });
 
-for (const [nombre, tam] of TAMANOS) {
-  await sharp(join(ORIGENES, 'Kundun.png'))
-    .extract(RECORTE)
+for (const [nombre, tam] of PLENOS) {
+  // Se dibuja al doble y se baja: el trazo fino queda parejo en vez de dentado.
+  await sharp(Buffer.from(plena(tam * 2)))
     .resize(tam, tam, { kernel: 'lanczos3' })
     // Sin alfa: iOS le pone fondo blanco a lo transparente y quedaría un halo.
-    .flatten({ background: '#14110d' })
+    .flatten({ background: FONDO })
     .png({ compressionLevel: 9 })
     .toFile(join(DESTINO, nombre));
 
-  console.log(nombre.padEnd(22), tam + 'x' + tam, (fs.statSync(join(DESTINO, nombre)).size / 1024).toFixed(1) + ' KB');
+  console.log(nombre.padEnd(26), tam + 'x' + tam, (fs.statSync(join(DESTINO, nombre)).size / 1024).toFixed(1) + ' KB');
+}
+
+for (const [nombre, tam] of RECORTABLES) {
+  await sharp(Buffer.from(recortable(tam * 2)))
+    .resize(tam, tam, { kernel: 'lanczos3' })
+    .flatten({ background: FONDO })
+    .png({ compressionLevel: 9 })
+    .toFile(join(DESTINO, nombre));
+
+  console.log(nombre.padEnd(26), tam + 'x' + tam, (fs.statSync(join(DESTINO, nombre)).size / 1024).toFixed(1) + ' KB');
 }
 
 const manifiesto = {
@@ -49,11 +73,15 @@ const manifiesto = {
   description: 'El reparto de los drops del Kundun, para el gremio.',
   start_url: '/',
   display: 'standalone',
-  background_color: '#14110d',
-  theme_color: '#14110d',
+  // El fondo de la app, no el marrón del tema viejo: así la pantalla de arranque no pega un
+  // salto de color contra lo que viene después.
+  background_color: '#080a11',
+  theme_color: '#0d1020',
   icons: [
-    { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-    { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+    { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+    { src: '/icon-192-recortable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+    { src: '/icon-512-recortable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   ],
 };
 
