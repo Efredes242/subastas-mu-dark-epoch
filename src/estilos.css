@@ -1053,6 +1053,18 @@ select {
   padding-right: 0;
 }
 
+/* En el historial, el botín del Kundun y el del asedio de esa misma noche. */
+.grupo-drops + .grupo-drops {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.grupo-drops > .etiqueta {
+  display: block;
+  padding: 0 8px 6px;
+}
+
 .reloj-horarios {
   display: flex;
   flex-direction: column;

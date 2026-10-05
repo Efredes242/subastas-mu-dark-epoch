@@ -267,6 +267,21 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
 type Kundun = PropsPagina['estado']['historial'][number];
 
 /**
+ * Los drops de un Kundun, separados en el del Kundun y el del Castle Siege.
+ *
+ * Devuelve solo los grupos que tienen algo, y el del Kundun primero, que es el orden en que
+ * pasan las cosas esa noche. Entre semana sale un grupo solo.
+ */
+function partirPorCola(drops: Kundun['drops']): Array<['kundun' | 'asedio', Kundun['drops']]> {
+  const delKundun = drops.filter((d) => d.cola !== 'asedio');
+  const delAsedio = drops.filter((d) => d.cola === 'asedio');
+  const grupos: Array<['kundun' | 'asedio', Kundun['drops']]> = [];
+  if (delKundun.length > 0) grupos.push(['kundun', delKundun]);
+  if (delAsedio.length > 0) grupos.push(['asedio', delAsedio]);
+  return grupos;
+}
+
+/**
  * Un Kundun del historial. Cerrado muestra el resumen; abierto, qué salió y quién se lo llevó.
  *
  * La imagen no viaja con el historial: se busca en el catálogo por `catalogoId`, así el
@@ -285,6 +300,8 @@ function KundunViejo({
   abierto: boolean;
   alTocar: () => void;
 }) {
+  const grupos = partirPorCola(kundun.drops);
+
   return (
     <div className={`kundun-viejo${abierto ? ' abierto' : ''}`}>
       <button type="button" className="cabecera" onClick={alTocar} aria-expanded={abierto}>
@@ -313,23 +330,36 @@ function KundunViejo({
               En este Kundun no se cargó ningún item.
             </div>
           ) : (
-            kundun.drops.map((d) => (
-              <div key={d.id} className={`fila-drop r-${d.rareza}`} style={{ padding: '7px', gap: 10 }}>
-                <IconoItem icono={d.icono} imagen={imagenDe(d.catalogoId)} rareza={d.rareza} tam={30} />
-                <span className="recorte" style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>
-                  {d.etiqueta}
-                </span>
-                <span
-                  className="recorte"
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 800,
-                    color: d.dueno ? 'var(--oro)' : 'var(--tx3)',
-                    maxWidth: 130,
-                  }}
-                >
-                  {d.dueno ?? 'sin repartir'}
-                </span>
+            /*
+              Los domingos el botín del Kundun y el del Castle Siege caen en el mismo evento,
+              y todo junto en una lista eran catorce renglones sin saber cuál fue de cuál. Se
+              parten en dos. El resto de los días hay un solo grupo y entonces no va rótulo:
+              un título para una sola lista es ruido.
+            */
+            grupos.map(([cual, suyos]) => (
+              <div key={cual} className="grupo-drops">
+                {grupos.length > 1 && (
+                  <span className="etiqueta">{cual === 'asedio' ? 'Castle Siege' : 'Kundun'}</span>
+                )}
+                {suyos.map((d) => (
+                  <div key={d.id} className={`fila-drop r-${d.rareza}`} style={{ padding: '7px', gap: 10 }}>
+                    <IconoItem icono={d.icono} imagen={imagenDe(d.catalogoId)} rareza={d.rareza} tam={30} />
+                    <span className="recorte" style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>
+                      {d.etiqueta}
+                    </span>
+                    <span
+                      className="recorte"
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        color: d.dueno ? 'var(--oro)' : 'var(--tx3)',
+                        maxWidth: 130,
+                      }}
+                    >
+                      {d.dueno ?? 'sin repartir'}
+                    </span>
+                  </div>
+                ))}
               </div>
             ))
           )}
