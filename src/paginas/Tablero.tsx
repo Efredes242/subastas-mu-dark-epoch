@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { comoGmt, diaRelativo, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
@@ -105,10 +105,11 @@ function CajaRueda({
  * de Telegram no significa nada y los asteriscos sueltos se ven como asteriscos. Una línea por
  * item, corta, que se entienda sin tener la app abierta.
  */
-function CopiarListas({ ruedas, cual, hayEvento }: {
+function CopiarListas({ ruedas, cual, hayEvento, cuandoDe }: {
   ruedas: Turno[];
   cual: 'kundun' | 'asedio';
   hayEvento: boolean;
+  cuandoDe: (t: Turno) => string;
 }) {
   const [estado, setEstado] = useState<'' | 'listo' | 'falló'>('');
 
@@ -118,8 +119,9 @@ function CopiarListas({ ruedas, cual, hayEvento }: {
       const aQuien = t.fijo ?? leToca;
       const despues = t.fijo ? null : proximo;
 
+      const cuando = cuandoDe(t);
       const partes = [
-        aQuien ? `le toca a ${aQuien.personaje}` : 'nadie en esa lista',
+        aQuien ? `${cuando ? cuando + ' ' : ''}le toca a ${aQuien.personaje}` : 'nadie en esa lista',
         despues ? `próximo ${despues.personaje}` : '',
       ].filter(Boolean);
 
@@ -166,7 +168,16 @@ function CopiarListas({ ruedas, cual, hayEvento }: {
   );
 }
 
-function ItemDeLaLista({ turno, hayEvento }: { turno: Turno; hayEvento: boolean }) {
+function ItemDeLaLista({
+  turno,
+  hayEvento,
+  cuando,
+}: {
+  turno: Turno;
+  hayEvento: boolean;
+  /** Cuándo es la próxima chance de este item: "ahora", "hoy", "mañana", "el domingo"… */
+  cuando: string;
+}) {
   const { hayAusentes, leToca, proximo } = turnoActual(turno, hayEvento);
 
   /*
@@ -195,7 +206,7 @@ function ItemDeLaLista({ turno, hayEvento }: { turno: Turno; hayEvento: boolean 
 
         <span className="hoy-sigue">
           <span>
-            <span className="rotulo-mini">le toca a </span>
+            <span className="rotulo-mini">{cuando ? `${cuando} le toca a ` : 'le toca a '}</span>
             <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>
               {aQuien?.personaje ?? '—'}
             </span>
@@ -413,6 +424,22 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
   // los días llenaba la lista de ruedas que no aplican.
   // Un item apagado viaja en el estado para que el panel muestre su rueda, pero acá no está.
   const enJuego = estado.turnos.filter((t) => t.activo);
+
+  /*
+   * Cuándo es la próxima chance de un item, para poder decir "hoy le toca a X".
+   *
+   * No alcanza con mirar el reloj: el Kundun es dos veces por día y el asedio solo los
+   * domingos, así que la próxima vez que puede caer depende de en qué lista está y de si
+   * ya salió. Si el item ya salió en el Kundun de ahora, la rueda giró y su próxima chance
+   * es la corrida que viene, que puede ser hoy más tarde o mañana.
+   */
+  const cuandoDe = (t: Turno): string => {
+    if (t.cola === 'asedio') {
+      return estado.agenda.esDomingo && t.salieron === 0 ? 'hoy' : 'el domingo';
+    }
+    if (evento && t.salieron === 0) return 'ahora';
+    return diaRelativo(estado.agenda.proximo.empieza, zona, ahora);
+  };
   const ruedasKundun = enJuego.filter((t) => t.cola !== 'asedio');
   const ruedasAsedio = enJuego.filter((t) => t.cola === 'asedio');
 
@@ -699,6 +726,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                   ruedas={solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio}
                   cual={solapaDrops}
                   hayEvento={!!evento}
+                  cuandoDe={cuandoDe}
                 />
               </div>
 
@@ -710,7 +738,12 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                 </div>
               ) : (
                 (solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio).map((t) => (
-                  <ItemDeLaLista key={`${t.catalogoId}-${t.cola}`} turno={t} hayEvento={!!evento} />
+                  <ItemDeLaLista
+                    key={`${t.catalogoId}-${t.cola}`}
+                    turno={t}
+                    hayEvento={!!evento}
+                    cuando={cuandoDe(t)}
+                  />
                 ))
               )}
             </>
