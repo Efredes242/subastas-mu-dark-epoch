@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { comoGmt, diaRelativo, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
+import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
 import { SelectorZona, useZona } from '../componentes/Zona';
@@ -426,19 +426,18 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
   const enJuego = estado.turnos.filter((t) => t.activo);
 
   /*
-   * Cuándo es la próxima chance de un item, para poder decir "hoy le toca a X".
+   * En qué corrida se lo lleva el que figura, para poder decir "siguiente Kundun le toca a X".
    *
-   * No alcanza con mirar el reloj: el Kundun es dos veces por día y el asedio solo los
-   * domingos, así que la próxima vez que puede caer depende de en qué lista está y de si
-   * ya salió. Si el item ya salió en el Kundun de ahora, la rueda giró y su próxima chance
-   * es la corrida que viene, que puede ser hoy más tarde o mañana.
+   * Se cuenta por corridas y no por días: el Kundun es dos veces por día, así que "hoy" no
+   * distingue el de la tarde del de la noche. Lo que importa es si es este o el que viene,
+   * y eso depende de si el item ya salió — si salió, la rueda ya giró.
    */
   const cuandoDe = (t: Turno): string => {
+    const esteTodavia = t.salieron === 0;
     if (t.cola === 'asedio') {
-      return estado.agenda.esDomingo && t.salieron === 0 ? 'hoy' : 'el domingo';
+      return estado.agenda.esDomingo && esteTodavia ? 'este asedio' : 'siguiente asedio';
     }
-    if (evento && t.salieron === 0) return 'ahora';
-    return diaRelativo(estado.agenda.proximo.empieza, zona, ahora);
+    return evento && esteTodavia ? 'este Kundun' : 'siguiente Kundun';
   };
   const ruedasKundun = enJuego.filter((t) => t.cola !== 'asedio');
   const ruedasAsedio = enJuego.filter((t) => t.cola === 'asedio');

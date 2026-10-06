@@ -133,41 +133,6 @@ export function horaEn(iso: string, zona: string): string {
   }
 }
 
-/**
- * "hoy", "mañana" o el día de la semana, para una fecha vista desde una zona.
- *
- * Comparando los días del calendario y no las horas que faltan: a las 23:50 el Kundun de las
- * 13:00 está a trece horas, pero es mañana, no hoy.
- */
-export function diaRelativo(iso: string, zona: string, ahora: number): string {
-  const comoDia = (fecha: Date) => {
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: zona,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(fecha);
-    } catch {
-      return fecha.toISOString().slice(0, 10);
-    }
-  };
-
-  const cuando = aFecha(iso);
-  const dia = comoDia(cuando);
-  const hoy = comoDia(new Date(ahora));
-  if (dia === hoy) return 'hoy';
-
-  const manana = comoDia(new Date(ahora + 86_400_000));
-  if (dia === manana) return 'mañana';
-
-  try {
-    return new Intl.DateTimeFormat('es-AR', { timeZone: zona, weekday: 'long' }).format(cuando);
-  } catch {
-    return '';
-  }
-}
-
 export function fechaHoraEn(iso: string, zona: string): string {
   const opciones: Intl.DateTimeFormatOptions = {
     weekday: 'short',
