@@ -3293,6 +3293,10 @@ select {
 .turno.proximo .quien { color: var(--tx); font-weight: 700; }
 .turno.proximo .marca { color: var(--av); }
 
+/* Se lo llevó hoy: el nombre en dorado, igual que en las cajas del tablero. */
+.turno.cobro .quien { color: var(--oro); }
+.turno.cobro .marca { color: var(--oro); }
+
 /* No estuvo: la rueda lo saltea. */
 .turno.fuera .quien {
   color: var(--tx3);

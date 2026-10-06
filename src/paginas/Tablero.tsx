@@ -211,35 +211,50 @@ function ItemDeLaLista({ turno, hayEvento }: { turno: Turno; hayEvento: boolean 
 
       {/* Un item que no gira no tiene vuelta: le toca siempre al mismo. */}
       {turno.fijo && (
-        <div className="turno toca">
+        <div className={`turno ${turno.salieron > 0 ? 'cobro' : 'toca'}`}>
           <RetratoClase clase={turno.fijo.clase} tam={22} />
           <span className="quien">{turno.fijo.personaje}</span>
-          <span className="marca">le toca</span>
+          <span className="marca">
+            {turno.salieron > 0
+              ? turno.salieron === 1
+                ? 'se lo llevó'
+                : `se llevó ${turno.salieron}`
+              : 'le toca'}
+          </span>
         </div>
       )}
 
       {!turno.fijo && turno.vuelta.map((p, i) => {
         /*
-         * "No vino" se queda porque explica por qué la rueda lo saltea; sin eso, el orden
-         * parece arbitrario. Lo que ya cobró no se marca: la rueda dice de acá en adelante,
-         * y lo que salió hoy está en las cajas del tablero y en el historial.
+         * Quién se lo llevó hoy va primero.
+         *
+         * El rótulo de arriba dice a quién le toca el próximo, y sacando esta marca el único
+         * nombre de la tarjeta pasaba a ser el del turno que viene: recién repartido, un
+         * item que se llevó Alckron se leía como de Rikiya. "No vino" también se queda,
+         * porque explica por qué la rueda saltea a alguien.
          */
         const clase =
-          hayAusentes && !p.vino
-            ? 'fuera'
-            : p.id === leToca?.id
-              ? 'toca'
-              : p.id === proximo?.id
-                ? 'proximo'
-                : '';
+          p.seLlevo > 0
+            ? 'cobro'
+            : hayAusentes && !p.vino
+              ? 'fuera'
+              : p.id === leToca?.id
+                ? 'toca'
+                : p.id === proximo?.id
+                  ? 'proximo'
+                  : '';
         const marca =
-          hayAusentes && !p.vino
-            ? 'no vino'
-            : p.id === leToca?.id
-              ? 'le toca'
-              : p.id === proximo?.id
-                ? 'próximo'
-                : '';
+          p.seLlevo > 0
+            ? p.seLlevo === 1
+              ? 'se lo llevó'
+              : `se llevó ${p.seLlevo}`
+            : hayAusentes && !p.vino
+              ? 'no vino'
+              : p.id === leToca?.id
+                ? 'le toca'
+                : p.id === proximo?.id
+                  ? 'próximo'
+                  : '';
 
         return (
           <div key={p.id} className={`turno ${clase}`}>
