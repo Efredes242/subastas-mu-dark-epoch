@@ -29,6 +29,13 @@ function turnoActual(t: Turno, hayEvento: boolean) {
 
 type Drop = PropsPagina['estado']['items'][number];
 
+/** ["Rikiya","Rikiya","Alckron"] → "Rikiya ×2 · Alckron". */
+function contados(nombres: string[]): string {
+  const veces = new Map<string, number>();
+  for (const n of nombres) veces.set(n, (veces.get(n) ?? 0) + 1);
+  return [...veces.entries()].map(([n, v]) => (v > 1 ? `${n} ×${v}` : n)).join(' · ');
+}
+
 /** Los drops de una rueda, con quién se los lleva. */
 function CajaRueda({
   titulo,
@@ -36,15 +43,18 @@ function CajaRueda({
   clase,
   drops,
   vacio,
+  className,
 }: {
   titulo: string;
   nota?: string;
+  /** Para esconderla en teléfono sin sacarla de la pantalla ancha. */
+  className?: string;
   clase: string;
   drops: Drop[];
   vacio: string;
 }) {
   return (
-    <section className={`caja ${clase}`}>
+    <section className={`caja ${clase}${className ? ' ' + className : ''}`}>
       <header>
         <h2 className="titulo-caja">
           {titulo}
@@ -115,15 +125,18 @@ function CopiarListas({ ruedas, cual, hayEvento, drops }: {
       const { leToca, proximo } = turnoActual(t, hayEvento);
       const hoy = drops.filter((d) => d.catalogoId === t.catalogoId && d.cola === t.cola && d.dueno);
 
+      const yaSalio = hoy.length > 0;
       const partes = t.fijo
         ? [`va todo para ${t.fijo.personaje}`]
-        : [
-            leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
-            proximo ? `después ${proximo.personaje}` : '',
-          ].filter(Boolean);
+        : yaSalio
+          ? [leToca ? `la próxima ${leToca.personaje}` : 'nadie en esa lista']
+          : [
+              leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
+              proximo ? `después ${proximo.personaje}` : '',
+            ].filter(Boolean);
 
-      const yaSalio = hoy.length > 0 ? `  (hoy: ${hoy.map((d) => d.dueno).join(', ')})` : '';
-      return `• ${t.nombre} → ${partes.join(' · ')}${yaSalio}`;
+      const loDeHoy = yaSalio ? `  (hoy: ${contados(hoy.map((d) => d.dueno!))})` : '';
+      return `• ${t.nombre} → ${partes.join(' · ')}${loDeHoy}`;
     });
 
     return [`Lista de cada drop — ${cual === 'kundun' ? 'Kundun' : 'Castle Siege'}`, '', ...lineas].join('\n');
@@ -170,6 +183,16 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
   const { hayAusentes, leToca, proximo } = turnoActual(turno, hayEvento);
   const hoy = drops.filter((d) => d.dueno).map((d) => d.dueno!);
 
+  /*
+   * Si este item ya salió en el Kundun de ahora.
+   *
+   * Cambia qué quiere decir "sigue". Antes del reparto es quién se lo lleva en un rato;
+   * después, quién se lo lleva la próxima vez —la rueda ya giró—. Con la misma palabra en
+   * los dos momentos, uno lee "sigue Rikiya" recién repartido y entiende que le tocó a
+   * Rikiya, cuando en realidad se lo acaba de llevar Alckron.
+   */
+  const yaSalio = hoy.length > 0;
+
   return (
     <div className={`lista-item r-${turno.rareza}`}>
       <div className="encabezado">
@@ -189,7 +212,7 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
             <span>
               <span className="rotulo-mini">hoy </span>
               <span className="recorte" style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--oro)' }}>
-                {hoy.join(' · ')}
+                {contados(hoy)}
               </span>
             </span>
           )}
@@ -201,10 +224,12 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
           ) : (
             <>
               <span>
-                <span className="rotulo-mini">sigue </span>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>{leToca?.personaje ?? '—'}</span>
+                <span className="rotulo-mini">{yaSalio ? 'la próxima ' : 'sigue '}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: yaSalio ? 'var(--tx2)' : 'var(--ok)' }}>
+                  {leToca?.personaje ?? '—'}
+                </span>
               </span>
-              {proximo && (
+              {proximo && !yaSalio && (
                 <span>
                   <span className="rotulo-mini">después </span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--av)' }}>{proximo.personaje}</span>
@@ -234,8 +259,10 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
             : hayAusentes && !p.vino
               ? 'fuera'
               : p.id === leToca?.id
-                ? 'toca'
-                : p.id === proximo?.id
+                ? yaSalio
+                  ? 'sigue-despues'
+                  : 'toca'
+                : p.id === proximo?.id && !yaSalio
                   ? 'proximo'
                   : '';
         const marca =
@@ -246,8 +273,10 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
             : hayAusentes && !p.vino
               ? 'no vino'
               : p.id === leToca?.id
-                ? 'le toca'
-                : p.id === proximo?.id
+                ? yaSalio
+                  ? 'la próxima'
+                  : 'le toca'
+                : p.id === proximo?.id && !yaSalio
                   ? 'próximo'
                   : '';
 
@@ -491,8 +520,14 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             vacio={evento ? 'Kundun en curso: todavía no cargaron las almas.' : 'Sin Kundun en curso.'}
           />
           )}
+          {/*
+            Entre semana esta caja solo dice "el asedio es los domingos", que no cambia nunca.
+            En una pantalla ancha es una columna vacía y se perdona; en un teléfono es una
+            tarjeta entera de alto, scrolleada entre el botín de hoy y el orden del gremio.
+          */}
           {ve('tablero_asedio') && (
           <CajaRueda
+            className={estado.agenda.esDomingo ? undefined : 'solo-ancha'}
             titulo="Castle Siege"
             nota="domingos"
             clase="asedio"
@@ -679,7 +714,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               <div className="explica-listas">
                 <p>
                   {solapaDrops === 'kundun'
-                    ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue, amarillo el próximo, dorado el que ya cobró hoy.'
+                    ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue hoy, amarillo el que va después; dorado el que ya cobró, y ahí la lista dice «la próxima», que es el Kundun que viene.'
                     : estado.agenda.esDomingo
                       ? 'Hoy es domingo: estas listas son las que se reparten con los drops del asedio.'
                       : 'Las recompensas del asedio se reparten los domingos. Estas listas son aparte de las del Kundun y no se mueven durante la semana.'}

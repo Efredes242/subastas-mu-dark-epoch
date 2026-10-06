@@ -1065,6 +1065,16 @@ select {
   padding: 0 8px 6px;
 }
 
+/*
+ * El que sigue, cuando el item ya salió hoy.
+ *
+ * Igual que "le toca" pero apagado: no es de este Kundun, es del que viene. En verde fuerte
+ * al lado del que acaba de cobrar, los dos parecían de ahora.
+ */
+.turno.sigue-despues {
+  background: var(--panel2);
+}
+
 .reloj-horarios {
   display: flex;
   flex-direction: column;
@@ -3961,23 +3971,34 @@ select {
     max-height: none;
   }
 
+  /*
+   * Arriba: el reloj en el renglón de la esquina fija, y el título abajo, centrado.
+   *
+   * En una sola fila el título quedaba entre el reloj y cuatro botones, con unos 120 px para
+   * "Kundun #65 · REPARTIDO · cierra en 36:41 · 2 estuvieron". Partido en dos renglones cada
+   * cosa tiene su ancho y el título cae en el centro de la pantalla, no en el centro del
+   * hueco que sobra.
+   */
   .barra-tablero.arriba {
     position: sticky;
     top: 0;
     z-index: 10;
-    /* Arriba, el lugar de la esquina fija: cuatro botones no entran al lado del título. */
-    padding: 54px 0 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px 0;
     background: linear-gradient(var(--bg) 72%, transparent);
   }
 
-  /*
-   * Con el reloj solo, el renglón de la esquina alcanza para los dos: el reloj queda arriba
-   * de todo, pegado al borde izquierdo, y la esquina sigue en el derecho.
-   */
-  .barra-tablero.arriba.solo-reloj {
-    justify-content: flex-start;
-    padding: 8px 0;
+  .barra-tablero.arriba > :first-child {
+    justify-self: start;
   }
+
+  .barra-tablero.arriba > :nth-child(2) {
+    justify-self: stretch;
+  }
+
+
 
   .barra-tablero.abajo {
     position: sticky;
@@ -4162,4 +4183,17 @@ select {
 textarea.campo::placeholder {
   font-size: 13.5px;
   letter-spacing: normal;
+}
+
+/*
+ * Lo que solo vale la pena en una pantalla ancha.
+ *
+ * Va al final y nombrando tambien a .caja: la tarjeta trae su propio display, declarado mas
+ * abajo en esta hoja, y a igual peso gana la ultima que se lee.
+ */
+@media (max-width: 759px) {
+  .solo-ancha,
+  .caja.solo-ancha {
+    display: none;
+  }
 }
