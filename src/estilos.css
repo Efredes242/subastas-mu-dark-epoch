@@ -1065,16 +1065,6 @@ select {
   padding: 0 8px 6px;
 }
 
-/*
- * El que sigue, cuando el item ya salió hoy.
- *
- * Igual que "le toca" pero apagado: no es de este Kundun, es del que viene. En verde fuerte
- * al lado del que acaba de cobrar, los dos parecían de ahora.
- */
-.turno.sigue-despues {
-  background: var(--panel2);
-}
-
 .reloj-horarios {
   display: flex;
   flex-direction: column;
@@ -3302,10 +3292,6 @@ select {
 .turno.proximo .n { background: var(--av); color: var(--avBg); }
 .turno.proximo .quien { color: var(--tx); font-weight: 700; }
 .turno.proximo .marca { color: var(--av); }
-
-/* Ya cobró en este Kundun. */
-.turno.cobro .quien { color: var(--oro); }
-.turno.cobro .marca { color: var(--oro); }
 
 /* No estuvo: la rueda lo saltea. */
 .turno.fuera .quien {

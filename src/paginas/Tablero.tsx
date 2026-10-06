@@ -29,13 +29,6 @@ function turnoActual(t: Turno, hayEvento: boolean) {
 
 type Drop = PropsPagina['estado']['items'][number];
 
-/** ["Rikiya","Rikiya","Alckron"] → "Rikiya ×2 · Alckron". */
-function contados(nombres: string[]): string {
-  const veces = new Map<string, number>();
-  for (const n of nombres) veces.set(n, (veces.get(n) ?? 0) + 1);
-  return [...veces.entries()].map(([n, v]) => (v > 1 ? `${n} ×${v}` : n)).join(' · ');
-}
-
 /** Los drops de una rueda, con quién se los lleva. */
 function CajaRueda({
   titulo,
@@ -112,31 +105,25 @@ function CajaRueda({
  * de Telegram no significa nada y los asteriscos sueltos se ven como asteriscos. Una línea por
  * item, corta, que se entienda sin tener la app abierta.
  */
-function CopiarListas({ ruedas, cual, hayEvento, drops }: {
+function CopiarListas({ ruedas, cual, hayEvento }: {
   ruedas: Turno[];
   cual: 'kundun' | 'asedio';
   hayEvento: boolean;
-  drops: Drop[];
 }) {
   const [estado, setEstado] = useState<'' | 'listo' | 'falló'>('');
 
   const armar = () => {
     const lineas = ruedas.map((t) => {
       const { leToca, proximo } = turnoActual(t, hayEvento);
-      const hoy = drops.filter((d) => d.catalogoId === t.catalogoId && d.cola === t.cola && d.dueno);
+      const aQuien = t.fijo ?? leToca;
+      const despues = t.fijo ? null : proximo;
 
-      const yaSalio = hoy.length > 0;
-      const partes = t.fijo
-        ? [`va todo para ${t.fijo.personaje}`]
-        : yaSalio
-          ? [leToca ? `la próxima ${leToca.personaje}` : 'nadie en esa lista']
-          : [
-              leToca ? `sigue ${leToca.personaje}` : 'nadie en esa lista',
-              proximo ? `después ${proximo.personaje}` : '',
-            ].filter(Boolean);
+      const partes = [
+        aQuien ? `le toca a ${aQuien.personaje}` : 'nadie en esa lista',
+        despues ? `próximo ${despues.personaje}` : '',
+      ].filter(Boolean);
 
-      const loDeHoy = yaSalio ? `  (hoy: ${contados(hoy.map((d) => d.dueno!))})` : '';
-      return `• ${t.nombre} → ${partes.join(' · ')}${loDeHoy}`;
+      return `• ${t.nombre} → ${partes.join(' · ')}`;
     });
 
     return [`Lista de cada drop — ${cual === 'kundun' ? 'Kundun' : 'Castle Siege'}`, '', ...lineas].join('\n');
@@ -179,19 +166,18 @@ function CopiarListas({ ruedas, cual, hayEvento, drops }: {
   );
 }
 
-function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[]; hayEvento: boolean }) {
+function ItemDeLaLista({ turno, hayEvento }: { turno: Turno; hayEvento: boolean }) {
   const { hayAusentes, leToca, proximo } = turnoActual(turno, hayEvento);
-  const hoy = drops.filter((d) => d.dueno).map((d) => d.dueno!);
 
   /*
-   * Si este item ya salió en el Kundun de ahora.
+   * Dos cosas y nada más: a quién le toca el próximo de este item y quién viene después.
    *
-   * Cambia qué quiere decir "sigue". Antes del reparto es quién se lo lleva en un rato;
-   * después, quién se lo lleva la próxima vez —la rueda ya giró—. Con la misma palabra en
-   * los dos momentos, uno lee "sigue Rikiya" recién repartido y entiende que le tocó a
-   * Rikiya, cuando en realidad se lo acaba de llevar Alckron.
+   * Es lo único que hay que saber para repartir, y es siempre cierto: si el item ya salió
+   * hoy, la rueda ya giró y "le toca a" es el del próximo drop. Un item con dueño fijo no
+   * gira, así que le toca siempre al mismo y no hay un después.
    */
-  const yaSalio = hoy.length > 0;
+  const aQuien = turno.fijo ?? leToca;
+  const despues = turno.fijo ? null : proximo;
 
   return (
     <div className={`lista-item r-${turno.rareza}`}>
@@ -208,77 +194,52 @@ function ItemDeLaLista({ turno, drops, hayEvento }: { turno: Turno; drops: Drop[
         </span>
 
         <span className="hoy-sigue">
-          {hoy.length > 0 && (
-            <span>
-              <span className="rotulo-mini">hoy </span>
-              <span className="recorte" style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--oro)' }}>
-                {contados(hoy)}
-              </span>
+          <span>
+            <span className="rotulo-mini">le toca a </span>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>
+              {aQuien?.personaje ?? '—'}
             </span>
-          )}
-          {turno.fijo ? (
+          </span>
+          {despues && (
             <span>
-              <span className="rotulo-mini">va todo para </span>
-              <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ok)' }}>{turno.fijo.personaje}</span>
+              <span className="rotulo-mini">próximo </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--av)' }}>{despues.personaje}</span>
             </span>
-          ) : (
-            <>
-              <span>
-                <span className="rotulo-mini">{yaSalio ? 'la próxima ' : 'sigue '}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: yaSalio ? 'var(--tx2)' : 'var(--ok)' }}>
-                  {leToca?.personaje ?? '—'}
-                </span>
-              </span>
-              {proximo && !yaSalio && (
-                <span>
-                  <span className="rotulo-mini">después </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--av)' }}>{proximo.personaje}</span>
-                </span>
-              )}
-            </>
           )}
         </span>
       </div>
 
-      {/*
-        Un item que no gira no tiene vuelta que mostrar: pintar la lista con alguien "que sigue"
-        diría lo contrario de lo que pasa. Se muestra la persona sola y nada más.
-      */}
+      {/* Un item que no gira no tiene vuelta: le toca siempre al mismo. */}
       {turno.fijo && (
         <div className="turno toca">
           <RetratoClase clase={turno.fijo.clase} tam={22} />
           <span className="quien">{turno.fijo.personaje}</span>
-          <span className="marca">se lleva todos</span>
+          <span className="marca">le toca</span>
         </div>
       )}
 
       {!turno.fijo && turno.vuelta.map((p, i) => {
+        /*
+         * "No vino" se queda porque explica por qué la rueda lo saltea; sin eso, el orden
+         * parece arbitrario. Lo que ya cobró no se marca: la rueda dice de acá en adelante,
+         * y lo que salió hoy está en las cajas del tablero y en el historial.
+         */
         const clase =
-          p.seLlevo > 0
-            ? 'cobro'
-            : hayAusentes && !p.vino
-              ? 'fuera'
-              : p.id === leToca?.id
-                ? yaSalio
-                  ? 'sigue-despues'
-                  : 'toca'
-                : p.id === proximo?.id && !yaSalio
-                  ? 'proximo'
-                  : '';
+          hayAusentes && !p.vino
+            ? 'fuera'
+            : p.id === leToca?.id
+              ? 'toca'
+              : p.id === proximo?.id
+                ? 'proximo'
+                : '';
         const marca =
-          p.seLlevo > 0
-            ? p.seLlevo === 1
-              ? 'se lo llevó'
-              : `se llevó ${p.seLlevo}`
-            : hayAusentes && !p.vino
-              ? 'no vino'
-              : p.id === leToca?.id
-                ? yaSalio
-                  ? 'la próxima'
-                  : 'le toca'
-                : p.id === proximo?.id && !yaSalio
-                  ? 'próximo'
-                  : '';
+          hayAusentes && !p.vino
+            ? 'no vino'
+            : p.id === leToca?.id
+              ? 'le toca'
+              : p.id === proximo?.id
+                ? 'próximo'
+                : '';
 
         return (
           <div key={p.id} className={`turno ${clase}`}>
@@ -714,7 +675,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               <div className="explica-listas">
                 <p>
                   {solapaDrops === 'kundun'
-                    ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que sigue hoy, amarillo el que va después; dorado el que ya cobró, y ahí la lista dice «la próxima», que es el Kundun que viene.'
+                    ? 'Cada item lleva su propia lista y solo avanza cuando ese item sale. Verde el que se lleva el próximo, amarillo el que viene después.'
                     : estado.agenda.esDomingo
                       ? 'Hoy es domingo: estas listas son las que se reparten con los drops del asedio.'
                       : 'Las recompensas del asedio se reparten los domingos. Estas listas son aparte de las del Kundun y no se mueven durante la semana.'}
@@ -723,7 +684,6 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                   ruedas={solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio}
                   cual={solapaDrops}
                   hayEvento={!!evento}
-                  drops={estado.items}
                 />
               </div>
 
@@ -735,12 +695,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
                 </div>
               ) : (
                 (solapaDrops === 'kundun' ? ruedasKundun : ruedasAsedio).map((t) => (
-                  <ItemDeLaLista
-                    key={`${t.catalogoId}-${t.cola}`}
-                    turno={t}
-                    drops={estado.items.filter((i) => i.catalogoId === t.catalogoId && i.cola === t.cola)}
-                    hayEvento={!!evento}
-                  />
+                  <ItemDeLaLista key={`${t.catalogoId}-${t.cola}`} turno={t} hayEvento={!!evento} />
                 ))
               )}
             </>
