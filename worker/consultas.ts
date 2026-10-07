@@ -443,6 +443,7 @@ function aPublico(
     imagen: entrada?.imagen ?? it.imagen,
     estado: it.estado,
     metodo: it.metodo,
+    salteados: it.salteados ? it.salteados.split('|').filter(Boolean) : [],
     copia: it.copia,
     copias: it.copias,
     cola: it.cola,
@@ -594,7 +595,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
     db.prepare('SELECT * FROM items WHERE evento_id = ? ORDER BY asignado_a IS NULL, id ASC').bind(previo?.id ?? 0),
     db.prepare('SELECT COUNT(*) AS n FROM asistencias WHERE evento_id = ?').bind(previo?.id ?? 0),
     db.prepare(
-      `SELECT id, evento_id, nombre, rareza, icono, catalogo_id, cola, copia, copias, asignado_a
+      `SELECT id, evento_id, nombre, rareza, icono, catalogo_id, cola, copia, copias, asignado_a, salteados
          FROM items
         WHERE evento_id IN (${idsHistorial.length > 0 ? idsHistorial.map(() => '?').join(', ') : 'NULL'})
         ORDER BY asignado_a IS NULL, id ASC`,
@@ -621,6 +622,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
           imagen: entrada?.imagen ?? it.imagen,
           dueno: it.asignado_a === null ? null : (nombreDe.get(it.asignado_a) ?? null),
           estado: it.estado,
+          salteados: it.salteados ? it.salteados.split('|').filter(Boolean) : [],
         };
       }),
     };
@@ -640,6 +642,7 @@ export async function construirEstado(env: Env, usuario: FilaUsuario | null, aho
         catalogoId: it.catalogo_id,
         cola: it.cola,
         dueno: it.asignado_a === null ? null : (nombreDe.get(it.asignado_a) ?? null),
+        salteados: it.salteados ? it.salteados.split('|').filter(Boolean) : [],
       });
       dropsPorEvento.set(it.evento_id, lista);
     }

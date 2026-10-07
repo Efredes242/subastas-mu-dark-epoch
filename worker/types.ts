@@ -106,6 +106,7 @@ export interface FilaItem {
   copia: number;
   copias: number;
   cola: string;
+  salteados: string;
 }
 
 export interface FilaCatalogo {
@@ -139,6 +140,13 @@ export interface ItemPublico {
   imagen: string | null;
   estado: EstadoItem;
   metodo: string;
+  /**
+   * A quiénes salteó la rueda por no estar, en orden. El primero es el del turno.
+   *
+   * Nombres y no ids: es el registro de lo que pasó esa noche y tiene que seguir leyéndose
+   * aunque después se borre al miembro.
+   */
+  salteados: string[];
   copia: number;
   copias: number;
   cola: string;
@@ -275,6 +283,8 @@ export interface Estado {
       imagen: string | null;
       dueno: string | null;
       estado: EstadoItem;
+      /** A quiénes salteó la rueda por no estar. El primero es el del turno. */
+      salteados: string[];
     }>;
   } | null;
   /** Las clases del gremio, con su retrato ya resuelto. */
@@ -299,6 +309,8 @@ export interface Estado {
       catalogoId: number | null;
       cola: string;
       dueno: string | null;
+      /** A quiénes salteó la rueda por no estar. El primero es el del turno. */
+      salteados: string[];
     }>;
   }>;
 }

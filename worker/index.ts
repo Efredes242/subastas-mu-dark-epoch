@@ -721,8 +721,12 @@ async function asignarConLaRueda(env: Env, item: FilaItem): Promise<{ quien: str
     : `Le tocaba a ${ganador.personaje} en la lista de ${item.nombre}` +
       (ganador.salteados.length > 0 ? ` — se saltearon ${ganador.salteados.join(', ')} por no estar` : '');
 
-  await env.DB.prepare("UPDATE items SET asignado_a = ?, estado = 'reclamado', metodo = ? WHERE id = ?")
-    .bind(ganador.id, metodo, item.id)
+  // Los salteados van en su propia columna además del texto: el tablero los muestra, y
+  // sacarlos de una frase a fuerza de buscar comas es pedir que se rompa.
+  await env.DB.prepare(
+    "UPDATE items SET asignado_a = ?, estado = 'reclamado', metodo = ?, salteados = ? WHERE id = ?",
+  )
+    .bind(ganador.id, metodo, ganador.salteados.join('|'), item.id)
     .run();
   // Solo avanza la lista de ESTE item: las de los demás quedan donde estaban. Un item con dueño
   // fijo no mueve nada: el día que vuelva a la rueda tiene que retomarla donde la dejó.

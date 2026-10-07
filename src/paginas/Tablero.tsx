@@ -29,6 +29,22 @@ function turnoActual(t: Turno, hayEvento: boolean) {
 
 type Drop = PropsPagina['estado']['items'][number];
 
+/**
+ * "Le tocaba a X, no estuvo": por qué este drop no fue para el que seguía.
+ *
+ * Sin esto el tablero muestra un nombre y nada más, y el que perdió el turno no tiene cómo
+ * saber que lo perdió —ni el resto, cómo saber que el que cobró no se salteó la fila—.
+ */
+function LeTocabaA({ salteados }: { salteados: string[] }) {
+  if (salteados.length === 0) return null;
+  return (
+    <span className="le-tocaba">
+      le tocaba a <b>{salteados[0]}</b>
+      {salteados.length > 1 && ` y a ${salteados.slice(1).join(', ')}`}, no {salteados.length > 1 ? 'estuvieron' : 'estuvo'}
+    </span>
+  );
+}
+
 /** Los drops de una rueda, con quién se los lleva. */
 function CajaRueda({
   titulo,
@@ -85,6 +101,7 @@ function CajaRueda({
                     sin repartir
                   </span>
                 )}
+                <LeTocabaA salteados={it.salteados} />
               </span>
             </div>
           ))}
@@ -363,16 +380,20 @@ function KundunViejo({
                     <span className="recorte" style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>
                       {d.etiqueta}
                     </span>
-                    <span
-                      className="recorte"
-                      style={{
-                        fontSize: 12.5,
-                        fontWeight: 800,
-                        color: d.dueno ? 'var(--oro)' : 'var(--tx3)',
-                        maxWidth: 130,
-                      }}
-                    >
-                      {d.dueno ?? 'sin repartir'}
+                    <span style={{ minWidth: 0, textAlign: 'right' }}>
+                      <span
+                        className="recorte"
+                        style={{
+                          display: 'block',
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          color: d.dueno ? 'var(--oro)' : 'var(--tx3)',
+                          maxWidth: 160,
+                        }}
+                      >
+                        {d.dueno ?? 'sin repartir'}
+                      </span>
+                      <LeTocabaA salteados={d.salteados} />
                     </span>
                   </div>
                 ))}

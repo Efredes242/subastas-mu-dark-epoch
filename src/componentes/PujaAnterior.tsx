@@ -44,8 +44,17 @@ export function PujaAnterior({ anterior, zona }: { anterior: Estado['anterior'];
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 6px' }}
           >
             <IconoItem icono={it.icono} imagen={it.imagen} rareza={it.rareza} tam={36} />
-            <div className="recorte" style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>
-              {it.etiqueta}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="recorte" style={{ fontSize: 14, fontWeight: 700 }}>
+                {it.etiqueta}
+              </div>
+              {it.salteados.length > 0 && (
+                <span className="le-tocaba">
+                  le tocaba a <b>{it.salteados[0]}</b>
+                  {it.salteados.length > 1 && ` y a ${it.salteados.slice(1).join(', ')}`}, no{' '}
+                  {it.salteados.length > 1 ? 'estuvieron' : 'estuvo'}
+                </span>
+              )}
             </div>
             {it.dueno ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

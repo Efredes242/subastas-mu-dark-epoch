@@ -1065,6 +1065,23 @@ select {
   padding: 0 8px 6px;
 }
 
+/* "Le tocaba a X, no estuvo": al pie del drop, en chico, sin pelearle al nombre del dueño. */
+.le-tocaba {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.le-tocaba > b {
+  font-weight: 700;
+  color: var(--mal);
+}
+
 .reloj-horarios {
   display: flex;
   flex-direction: column;
