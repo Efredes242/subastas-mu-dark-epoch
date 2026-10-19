@@ -348,7 +348,7 @@ function CargaDeDrops({
 
   const cual = solapa;
   const lista = catalogoDe(cual);
-  const deshabilitada = !listo || (cual === 'asedio' && (!domingo || !asedioSalio));
+  const deshabilitada = !listo || (cual === 'asedio' && !domingo);
 
   return (
     <section className="panel subir" style={{ padding: 18 }}>
@@ -379,7 +379,7 @@ function CargaDeDrops({
         <button type="button" className={cual === 'asedio' ? 'activa' : ''} onClick={() => setSolapa('asedio')}>
           <Escudo tam={15} /> Castle Siege
           {domingo && cuantos('asedio') > 0 && <span className="cuenta">{cuantos('asedio')}</span>}
-          {domingo && <span className={asedioSalio ? 'hoy' : 'luego'}>{asedioSalio ? 'hoy' : 'más tarde'}</span>}
+          {domingo && <span className="hoy">hoy</span>}
         </button>
       </div>
 
@@ -393,9 +393,9 @@ function CargaDeDrops({
         <div className="aviso" style={{ marginBottom: 12, fontSize: 13, lineHeight: 1.45 }}>
           <Reloj tam={17} />
           <span>
-            El drop del asedio todavía no salió: aparece{' '}
-            <b>{asedioDesde ? fechaHoraEn(asedioDesde, zona) : 'más tarde'}</b> y ahí se
-            habilita este cuadro. Mientras tanto cargá los del Kundun, que van por separado.
+            Según el horario cargado, el drop del asedio cae{' '}
+            <b>{asedioDesde ? fechaHoraEn(asedioDesde, zona) : 'más tarde'}</b>. Es una
+            estimación, no una traba: <b>si ya salió, cargálo igual</b>.
           </span>
         </div>
       )}
