@@ -1179,6 +1179,28 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     ))}
                   </div>
                 )}
+
+                {/* La vuelta atrás entera. Vive abajo de todo y en chico: se usa cuando algo
+                    salió mal, no todos los días. */}
+                {estado.items.length > 0 && (
+                  <div className="deshacer-carga">
+                    <button
+                      type="button"
+                      className="btn btn-chico"
+                      disabled={ocupado}
+                      onClick={() => {
+                        if (!confirm(`¿Saco los ${estado.items.length} drops de este Kundun y devuelvo las ruedas a donde estaban?`)) return;
+                        accion(() => api(`/eventos/${evento.id}/deshacer`, { cuerpo: {} }));
+                      }}
+                    >
+                      Deshacer la carga
+                    </button>
+                    <span>
+                      Saca los drops y devuelve cada rueda al turno que tenía antes. Para cuando se
+                      cargó cualquier cosa.
+                    </span>
+                  </div>
+                )}
               </section>
             )}
 

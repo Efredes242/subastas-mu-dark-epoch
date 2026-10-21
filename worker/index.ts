@@ -800,6 +800,77 @@ app.post('/api/items/:id/reabrir', requiereGrandMaster, async (c) => {
   return c.json(await construirEstado(c.env, c.get('usuario')));
 });
 
+/**
+ * Deshacer la carga de un Kundun: saca los drops y devuelve las ruedas a donde estaban.
+ *
+ * Es la red de la carga automática. La rutina lee el botín del juego y reparte sin que nadie
+ * mire; si leyó de más, de menos o a la persona equivocada, el daño no es el renglon feo —es
+ * que la rueda quedó movida y el próximo drop le toca a quien no corresponde—. Hasta ahora eso
+ * se arreglaba a mano en la base.
+ *
+ * La vuelta atrás de cada rueda no es "el anterior de la lista": es quién tenía ese turno antes
+ * de esta carga, o sea el dueño del último drop de ese item en un Kundun previo. Así da igual
+ * cuántos hayan salido hoy y quién se haya salteado.
+ *
+ * La asistencia no se toca: tocar la lista en el panel ya la deja sin confirmar.
+ */
+app.post('/api/eventos/:id/deshacer', requiereGrandMaster, async (c) => {
+  const id = entero(c.req.param('id'));
+  const { results: items } = await c.env.DB.prepare(
+    'SELECT id, nombre, catalogo_id, cola FROM items WHERE evento_id = ? ORDER BY id',
+  )
+    .bind(id)
+    .all<{ id: number; nombre: string; catalogo_id: number | null; cola: string }>();
+
+  if (items.length === 0) return c.json({ error: 'Ese Kundun no tiene drops cargados.' }, 409);
+
+  // Una rueda por cada (item, lista) que se haya tocado, con el primer drop de cada una: lo
+  // de antes de ese es el turno al que hay que volver.
+  const ruedas = new Map<string, { catalogoId: number; cola: string; primero: number }>();
+  for (const it of items) {
+    if (it.catalogo_id === null) continue;
+    const clave = `${it.catalogo_id}|${it.cola}`;
+    if (!ruedas.has(clave)) ruedas.set(clave, { catalogoId: it.catalogo_id, cola: it.cola, primero: it.id });
+  }
+
+  for (const { catalogoId, cola, primero } of ruedas.values()) {
+    const antes = await c.env.DB.prepare(
+      `SELECT i.asignado_a FROM items i
+         JOIN eventos e ON e.id = i.evento_id
+        WHERE i.catalogo_id = ?1 AND i.cola = ?2 AND i.id < ?3 AND e.es_prueba = 0
+          AND i.asignado_a IS NOT NULL
+        ORDER BY i.id DESC LIMIT 1`,
+    )
+      .bind(catalogoId, cola, primero)
+      .first<{ asignado_a: number }>();
+
+    if (antes) {
+      await guardarTurno(c.env.DB, catalogoId, cola as Cola, antes.asignado_a);
+    } else {
+      // Nunca había salido: la rueda vuelve a no tener dueño, que es arrancar de cero.
+      await c.env.DB.prepare('DELETE FROM turnos WHERE catalogo_id = ? AND cola = ?')
+        .bind(catalogoId, cola)
+        .run();
+    }
+  }
+
+  await c.env.DB.prepare('DELETE FROM items WHERE evento_id = ?').bind(id).run();
+  await c.env.DB.prepare('UPDATE eventos SET reparto_en = NULL WHERE id = ?').bind(id).run();
+  await c.env.DB.prepare(
+    'UPDATE catalogo SET veces = (SELECT COUNT(*) FROM items i WHERE i.catalogo_id = catalogo.id)',
+  ).run();
+
+  const cuantos = new Map<string, number>();
+  for (const it of items) cuantos.set(it.nombre, (cuantos.get(it.nombre) ?? 0) + 1);
+  const detalle = [...cuantos.entries()].map(([n, v]) => (v > 1 ? `${n} ×${v}` : n));
+
+  const estado = await construirEstado(c.env, c.get('usuario'));
+  return c.json({
+    ...estado,
+    aviso: `Saqué ${items.length} ${items.length === 1 ? 'drop' : 'drops'} (${enumerar(detalle)}) y las ruedas volvieron a donde estaban. Podés cargar de nuevo.`,
+  });
+});
+
 /** Cierra la subasta: reparte todo lo que quedó abierto y le avisa a cada uno qué le toca pujar. */
 app.post('/api/eventos/:id/repartir', requiereGrandMaster, async (c) => {
   const eventoId = entero(c.req.param('id'));

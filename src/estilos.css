@@ -4336,3 +4336,22 @@ textarea.campo::placeholder {
   text-transform: none;
   font-size: 11.5px;
 }
+
+/* Deshacer la carga de un Kundun: abajo de los drops y discreto, porque es
+   para cuando algo salió mal, no para todos los días. */
+.deshacer-carga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.deshacer-carga > span {
+  flex: 1;
+  min-width: 180px;
+  font-size: 11.5px;
+  color: var(--tx3);
+  line-height: 1.45;
+}

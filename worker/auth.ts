@@ -113,9 +113,47 @@ async function usuarioDeLaCookie(c: Ctx): Promise<FilaUsuario | null> {
 
 
 
+/**
+ * Las dos únicas rutas que puede usar la rutina del juego con su llave.
+ *
+ * La llave vale por el admin, así que la lista es corta a propósito: marcar quiénes
+ * estuvieron y cargar el botín. Nada de miembros, catrálogo, ruedas ni avisos — si alguna
+ * vez se filtra, lo peor que hace es cargar un drop de más, que se deshace de un botón.
+ */
+const CON_LLAVE = [/^\/api\/eventos\/\d+\/asistencia$/, /^\/api\/items\/lote$/];
+
+/**
+ * El admin, para cuando actúa la rutina. Siempre el admin de menor id: es la cuenta
+ * dueña del gremio y la única que no se da de baja.
+ */
+function duenoDelGremio(db: D1Database) {
+  return db
+    .prepare("SELECT * FROM usuarios WHERE rol = 'admin' AND activo = 1 ORDER BY id LIMIT 1")
+    .first<FilaUsuario>();
+}
+
 /** Deja el usuario (o null) en el contexto. No bloquea: las rutas publicas tambien lo usan. */
 export const cargarUsuario: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> = async (c, next) => {
-  c.set('usuario', await usuarioDeLaCookie(c));
+  const usuario = await usuarioDeLaCookie(c);
+  if (usuario) {
+    c.set('usuario', usuario);
+    return next();
+  }
+
+  /*
+   * La rutina que lee el juego no tiene navegador ni contraseña: entra con una llave que
+   * vale por el admin. Se compara en tiempo constante, igual que la firma de la sesión, y
+   * solo sirve en las dos rutas de CON_LLAVE.
+   */
+  const llave = c.env.TOKEN_RUTINA;
+  const trae = (c.req.header('authorization') ?? '').replace(/^Bearer /i, '');
+  const ruta = new URL(c.req.url).pathname;
+  if (llave && trae && comparacionConstante(trae, llave) && CON_LLAVE.some((r) => r.test(ruta))) {
+    c.set('usuario', await duenoDelGremio(c.env.DB));
+    return next();
+  }
+
+  c.set('usuario', null);
   await next();
 };
 

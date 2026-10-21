@@ -2,6 +2,14 @@ export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   SESSION_SECRET: string;
+  /**
+   * La llave de la rutina que lee el juego y carga los drops sola.
+   *
+   * Va como secreto del Worker, igual que los de Telegram. Sin él, las dos rutas que
+   * la rutina usa siguen pidiendo sesión de navegador y nada cambia: no habilitar el
+   * secreto es la forma de apagar la carga automática.
+   */
+  TOKEN_RUTINA?: string;
   /** Opcionales: sin ellos el botón de "Entrar con Google" no aparece. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
