@@ -10,7 +10,7 @@
  * drop del asedio cae a las 22:00 del domingo, que en UTC ya es lunes. Contado en UTC, el
  * asedio caería siempre en la semana siguiente.
  */
-import { medianocheServidor, type Horario } from './horarios';
+import { asedioDelDia, medianocheServidor, type Horario } from './horarios';
 
 const DIA = 86_400_000;
 
@@ -28,8 +28,19 @@ export interface Semana {
   kundunes: number;
   /** Cuántos drops salieron en total. */
   total: number;
-  /** Cuánto salió de cada cosa, de lo que más salió a lo que menos. */
+  /** Los del Kundun: cuánto salió de cada cosa, de lo que más salió a lo que menos. */
   items: Array<{ catalogoId: number | null; nombre: string; cantidad: number }>;
+  /** Los del asedio del domingo de esa semana, que van aparte como en el historial. */
+  asedio: Array<{ catalogoId: number | null; nombre: string; cantidad: number }>;
+  /** "domingo 11 de oct": el domingo de esa semana, para nombrarlo en el bloque del asedio. */
+  domingo: string;
+  /**
+   * Si a ese domingo ya se le pasó la hora del drop del asedio.
+   *
+   * Sin esto no se puede distinguir "no lo cargaron" de "todavía no salió", y el panel
+   * avisaría de un faltante los lunes a la mañana de cada semana en curso.
+   */
+  asedioYaPaso: boolean;
   /**
    * Qué se llevó cada uno. Solo para el admin: al gremio le alcanza con saber qué salió, y
    * quién se llevó qué está en el historial de cada Kundun.
@@ -52,6 +63,12 @@ function lunesDe(momento: Date, offsetServidor: number): number {
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+/** "domingo 11 de oct", en hora del servidor. */
+function diaDe(ms: number, offsetServidor: number): string {
+  const d = new Date(ms + offsetServidor * 3_600_000);
+  return `domingo ${d.getUTCDate()} de ${MESES[d.getUTCMonth()]}`;
+}
+
 /** "lun 20 — dom 26 de oct", o con los dos meses cuando la semana los cruza. */
 function etiquetaDe(lunes: number, offsetServidor: number): string {
   const enServidor = (ms: number) => new Date(ms + offsetServidor * 3_600_000);
@@ -67,6 +84,7 @@ function etiquetaDe(lunes: number, offsetServidor: number): string {
 interface FilaDrop {
   catalogo_id: number | null;
   nombre: string;
+  cola: string;
   personaje: string | null;
 }
 
@@ -97,7 +115,7 @@ export async function armarSemana(
   const [dropsR, kundunesR, anteriorR] = await db.batch([
     db
       .prepare(
-        `SELECT i.catalogo_id, i.nombre, u.personaje
+        `SELECT i.catalogo_id, i.nombre, i.cola, u.personaje
            FROM items i
            JOIN eventos e ON e.id = i.evento_id
            LEFT JOIN usuarios u ON u.id = i.asignado_a
@@ -124,14 +142,21 @@ export async function armarSemana(
 
   const drops = dropsR.results as FilaDrop[];
 
-  // Cuánto salió de cada cosa. Se cuenta por nombre y no por catalogo_id: un item borrado del
-  // catálogo deja sus drops con catalogo_id en null y los nombres son lo único que queda.
-  const porItem = new Map<string, { catalogoId: number | null; nombre: string; cantidad: number }>();
-  for (const d of drops) {
-    const ya = porItem.get(d.nombre);
-    if (ya) ya.cantidad++;
-    else porItem.set(d.nombre, { catalogoId: d.catalogo_id, nombre: d.nombre, cantidad: 1 });
-  }
+  /*
+   * Cuánto salió de cada cosa, el Kundun por un lado y el asedio por el otro.
+   *
+   * Se cuenta por nombre y no por catalogo_id: un item borrado del catálogo deja sus drops con
+   * catalogo_id en null y los nombres son lo único que queda.
+   */
+  const contar = (cuales: FilaDrop[]) => {
+    const porItem = new Map<string, { catalogoId: number | null; nombre: string; cantidad: number }>();
+    for (const d of cuales) {
+      const ya = porItem.get(d.nombre);
+      if (ya) ya.cantidad++;
+      else porItem.set(d.nombre, { catalogoId: d.catalogo_id, nombre: d.nombre, cantidad: 1 });
+    }
+    return [...porItem.values()];
+  };
 
   // Lo mismo pero por persona, y con el catalogo_id para que la pantalla pueda ponerle el
   // icono a cada renglon.
@@ -159,7 +184,10 @@ export async function armarSemana(
     hayAnterior: ((anteriorR.results[0] as { n: number } | undefined)?.n ?? 0) > 0,
     kundunes: (kundunesR.results[0] as { n: number } | undefined)?.n ?? 0,
     total: drops.length,
-    items: [...porItem.values()].sort(masPrimero),
+    items: contar(drops.filter((d) => d.cola !== 'asedio')).sort(masPrimero),
+    asedio: contar(drops.filter((d) => d.cola === 'asedio')).sort(masPrimero),
+    domingo: diaDe(lunes + 6 * DIA, offset),
+    asedioYaPaso: (asedioDelDia(new Date(lunes + 6 * DIA), horario)?.premios.getTime() ?? Infinity) <= ahora.getTime(),
     porPersona: esAdmin
       ? [...porPersona.entries()]
           .map(([personaje, suyos]) => ({

@@ -8,8 +8,39 @@
  */
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { IconoItem } from '../iconos';
+import { Alerta, IconoItem } from '../iconos';
 import type { Semana } from '../../worker/semana';
+
+/** La lista de "cuánto salió de cada cosa", con el ícono de cada item. */
+function Lista({
+  titulo,
+  items,
+  imagenDe,
+}: {
+  titulo?: string;
+  items: Semana['items'];
+  imagenDe: (catalogoId: number | null) => string | null;
+}) {
+  if (items.length === 0) return <div className="vacio">Nada.</div>;
+  return (
+    <div className="semana-grupo">
+      {titulo && (
+        <div className="semana-titulo">
+          <span>{titulo}</span>
+        </div>
+      )}
+      <div className="semana-items">
+        {items.map((it) => (
+          <div className="semana-item" key={it.nombre}>
+            <IconoItem icono="caja" imagen={imagenDe(it.catalogoId)} rareza="comun" tam={34} />
+            <span className="semana-nombre">{it.nombre}</span>
+            <span className="semana-cuantos">{it.cantidad}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function PanelSemana({ imagenDe }: { imagenDe: (catalogoId: number | null) => string | null }) {
   const [atras, setAtras] = useState(0);
@@ -79,20 +110,35 @@ export function PanelSemana({ imagenDe }: { imagenDe: (catalogoId: number | null
         </div>
       )}
 
-      {semana.items.length === 0 ? (
-        <div className="vacio">
-          {atras === 0 ? 'Todavía no salió nada esta semana.' : 'Esa semana no se repartió nada.'}
-        </div>
-      ) : solapa === 'items' || !porPersona ? (
-        <div className="semana-items">
-          {semana.items.map((it) => (
-            <div className="semana-item" key={it.nombre}>
-              <IconoItem icono="caja" imagen={imagenDe(it.catalogoId)} rareza="comun" tam={34} />
-              <span className="semana-nombre">{it.nombre}</span>
-              <span className="semana-cuantos">{it.cantidad}</span>
+      {solapa === 'items' || !porPersona ? (
+        <>
+          {semana.items.length === 0 && semana.asedio.length === 0 && !semana.asedioYaPaso ? (
+            <div className="vacio">
+              {semana.atras === 0 ? 'Todavía no salió nada esta semana.' : 'Esa semana no se repartió nada.'}
             </div>
-          ))}
-        </div>
+          ) : (
+            <Lista titulo="Drops del Kundun" items={semana.items} imagenDe={imagenDe} />
+          )}
+
+          {/* El asedio va aparte, como en el historial: es un solo domingo y se mezclaba con
+              los trece Kundun de la semana. */}
+          {(semana.asedio.length > 0 || semana.asedioYaPaso) && (
+            <div className="semana-grupo">
+              <div className="semana-titulo">
+                <span>Castle Siege</span>
+                <span className="semana-cuando-chico">{semana.domingo}</span>
+              </div>
+              {semana.asedio.length > 0 ? (
+                <Lista items={semana.asedio} imagenDe={imagenDe} />
+              ) : (
+                <div className="aviso" style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+                  <Alerta tam={16} />
+                  <span>No se cargó el drop del asedio de ese domingo.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="semana-personas">
           {porPersona.map((p) => (
