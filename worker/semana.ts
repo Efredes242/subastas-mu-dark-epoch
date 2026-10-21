@@ -37,7 +37,7 @@ export interface Semana {
   porPersona: Array<{
     personaje: string;
     total: number;
-    items: Array<{ nombre: string; cantidad: number }>;
+    items: Array<{ catalogoId: number | null; nombre: string; cantidad: number }>;
   }> | null;
 }
 
@@ -133,12 +133,16 @@ export async function armarSemana(
     else porItem.set(d.nombre, { catalogoId: d.catalogo_id, nombre: d.nombre, cantidad: 1 });
   }
 
-  const porPersona = new Map<string, Map<string, number>>();
+  // Lo mismo pero por persona, y con el catalogo_id para que la pantalla pueda ponerle el
+  // icono a cada renglon.
+  const porPersona = new Map<string, Map<string, { catalogoId: number | null; cantidad: number }>>();
   if (esAdmin) {
     for (const d of drops) {
       if (!d.personaje) continue;
-      const suyos = porPersona.get(d.personaje) ?? new Map<string, number>();
-      suyos.set(d.nombre, (suyos.get(d.nombre) ?? 0) + 1);
+      const suyos = porPersona.get(d.personaje) ?? new Map<string, { catalogoId: number | null; cantidad: number }>();
+      const ya = suyos.get(d.nombre);
+      if (ya) ya.cantidad++;
+      else suyos.set(d.nombre, { catalogoId: d.catalogo_id, cantidad: 1 });
       porPersona.set(d.personaje, suyos);
     }
   }
@@ -160,9 +164,9 @@ export async function armarSemana(
       ? [...porPersona.entries()]
           .map(([personaje, suyos]) => ({
             personaje,
-            total: [...suyos.values()].reduce((a, b) => a + b, 0),
+            total: [...suyos.values()].reduce((a, b) => a + b.cantidad, 0),
             items: [...suyos.entries()]
-              .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+              .map(([nombre, { catalogoId, cantidad }]) => ({ catalogoId, nombre, cantidad }))
               .sort(masPrimero),
           }))
           .sort((a, b) => b.total - a.total || a.personaje.localeCompare(b.personaje, 'es'))

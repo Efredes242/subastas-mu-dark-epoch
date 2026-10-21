@@ -44,17 +44,16 @@ export function PanelSemana({ imagenDe }: { imagenDe: (catalogoId: number | null
           className="btn btn-chico"
           onClick={() => setAtras(atras + 1)}
           disabled={!semana.hayAnterior}
-          aria-label="Semana anterior"
         >
-          ‹
+          ‹ Anterior
         </button>
         <div className="semana-cuando">
-          <b>{atras === 0 ? 'Esta semana' : semana.etiqueta}</b>
+          <b>{semana.atras === 0 ? 'Esta semana' : semana.etiqueta}</b>
           <span>
-            {atras === 0 && `${semana.etiqueta} · `}
+            {semana.atras === 0 && `${semana.etiqueta} · `}
             {semana.kundunes === 0
               ? 'sin drops todavía'
-              : `${semana.kundunes} ${semana.kundunes === 1 ? 'Kundun' : 'Kundun'} · ${semana.total} ${semana.total === 1 ? 'drop' : 'drops'}`}
+              : `${semana.kundunes} Kundun · ${semana.total} ${semana.total === 1 ? 'drop' : 'drops'}`}
           </span>
         </div>
         <button
@@ -62,9 +61,8 @@ export function PanelSemana({ imagenDe }: { imagenDe: (catalogoId: number | null
           className="btn btn-chico"
           onClick={() => setAtras(Math.max(0, atras - 1))}
           disabled={atras === 0}
-          aria-label="Semana siguiente"
         >
-          ›
+          Siguiente ›
         </button>
       </div>
 
@@ -105,10 +103,11 @@ export function PanelSemana({ imagenDe }: { imagenDe: (catalogoId: number | null
               </div>
               <div className="semana-suyos">
                 {p.items.map((it) => (
-                  <span className="semana-suyo" key={it.nombre}>
-                    {it.nombre}
+                  <div className="semana-suyo" key={it.nombre}>
+                    <IconoItem icono="caja" imagen={imagenDe(it.catalogoId)} rareza="comun" tam={26} />
+                    <span>{it.nombre}</span>
                     <b>{it.cantidad}</b>
-                  </span>
+                  </div>
                 ))}
               </div>
             </div>

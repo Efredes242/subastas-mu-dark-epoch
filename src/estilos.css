@@ -4217,11 +4217,11 @@ textarea.campo::placeholder {
   gap: 10px;
 }
 .semana-barra .btn {
-  width: 32px;
   min-height: 32px;
-  padding: 0;
-  font-size: 17px;
+  padding: 0 10px;
+  font-size: 12px;
   line-height: 1;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 .semana-cuando {
@@ -4267,19 +4267,28 @@ textarea.campo::placeholder {
   margin-bottom: 6px;
 }
 .semana-quien b { font-size: 13.5px; font-weight: 800; }
-.semana-suyos { display: flex; flex-wrap: wrap; gap: 5px; }
+/* Uno abajo del otro y con su icono: en una fila de pastillas hay que leer cada
+   una para encontrar lo que se busca. */
+.semana-suyos { display: grid; gap: 3px; }
 .semana-suyo {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: 999px;
+  gap: 9px;
+  padding: 4px 8px;
+  border-radius: 10px;
   background: var(--bg);
   border: 1px solid var(--line);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--tx2);
 }
-.semana-suyo b { font-size: 11.5px; font-weight: 800; color: var(--tx); }
+.semana-suyo > span { flex: 1; min-width: 0; }
+.semana-suyo b {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--tx);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
 
 /* ── Los botones de abajo del tablero, cuando son muchos ──────────────────
    Con cuatro ventanas (Puja, Drops, Historial, Semana) la fila no entra en un

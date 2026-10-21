@@ -804,7 +804,7 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
       )}
 
       {hoja === 'semana' && (
-        <HojaPanel titulo="Lo que salió esta semana" alCerrar={() => setHoja(null)}>
+        <HojaPanel titulo="Lo que salió en la semana" alCerrar={() => setHoja(null)}>
           <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
             De lunes a domingo, en hora del servidor. Para ver quién se llevó cada cosa está el
             historial.
