@@ -4280,3 +4280,28 @@ textarea.campo::placeholder {
   color: var(--tx2);
 }
 .semana-suyo b { font-size: 11.5px; font-weight: 800; color: var(--tx); }
+
+/* ── Los botones de abajo del tablero, cuando son muchos ──────────────────
+   Con cuatro ventanas (Puja, Drops, Historial, Semana) la fila no entra en un
+   telefono: se iban de pantalla y el ultimo quedaba cortado. En ancho de
+   telefono van de a dos por renglon; en pantalla grande siguen en una fila. */
+.barra-tablero.abajo { flex-wrap: wrap; }
+.barra-tablero.abajo .btn-esquina {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+}
+.barra-tablero.abajo .btn-esquina span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 759px) {
+  .barra-tablero.abajo .btn-esquina {
+    flex: 1 1 calc(50% - 5px);
+    max-width: none;
+    padding: 0 10px;
+    gap: 7px;
+  }
+}
