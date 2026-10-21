@@ -45,6 +45,7 @@ import {
 } from './servidores';
 import { comoGuardadas, comoHora, type Franja, leerHora } from './horarios';
 import { comoInterfaz, comoPermisos, puede, type Permiso } from './interfaz';
+import { armarSemana } from './semana';
 import { FOTOS_MAXIMAS, borrar, chatsVistos, mandar, mandarConFotos, quienEs, type Foto } from './telegram';
 import {
   ANTES_MAXIMO,
@@ -221,6 +222,18 @@ font-family:system-ui,sans-serif;text-align:center;padding:24px}a{color:#8f90f8}
 }
 
 app.get('/api/estado', async (c) => c.json(await construirEstado(c.env, c.get('usuario'))));
+
+/*
+ * Lo que salio en una semana. Publico, como el historial: la pantalla del gremio no tiene login.
+ *
+ * `atras` es cuantas semanas para atras: 0 la de ahora, 1 la anterior. El resumen por persona
+ * solo viaja si lo pide el admin, no se filtra por la pantalla.
+ */
+app.get('/api/semana', async (c) => {
+  const atras = Math.min(Math.max(entero(c.req.query('atras')), 0), 520);
+  const esAdmin = c.get('usuario')?.rol === 'admin';
+  return c.json(await armarSemana(c.env.DB, await leerHorario(c.env.DB), atras, esAdmin));
+});
 
 /** Cada uno puede guardar en qué zona horaria quiere ver los horarios. */
 app.patch('/api/perfil', requiereSesion, async (c) => {

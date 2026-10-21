@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, puedeHacer, seVe, comoGmt, fechaHoraEn, formatoPC, horaEn, horariosEnZona, leerPC, marcaDeListas, nombreCortoZona, restante, type EstadoConAviso } from '../api';
+import { PanelSemana } from '../componentes/Semana';
 import { RetratoClase, useClases } from '../componentes/Clase';
 import { SelectorIcono } from '../componentes/SelectorIcono';
 import { Avisos } from './Avisos';
@@ -1273,6 +1274,17 @@ export default function Admin({ estado, setEstado, recargar, tema, alternarTema 
                     </button>
                   )}
                 </div>
+              </section>
+            )}
+
+            {ve('panel_semana') && (
+              <section className="panel subir" style={{ padding: '16px 14px 12px' }}>
+                <h2 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800, padding: '0 4px' }}>
+                  La semana
+                </h2>
+                <PanelSemana
+                  imagenDe={(id) => (id === null ? null : (estado.turnos.find((t) => t.catalogoId === id)?.imagen ?? null))}
+                />
               </section>
             )}
 
@@ -2626,6 +2638,7 @@ const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
       ['boton_puja', 'Puja anterior', 'Abajo a la izquierda'],
       ['boton_drops', 'Lista Drops', 'Abajo al medio: las ruedas de cada item'],
       ['boton_historial', 'Historial', 'Abajo a la derecha: los Kundun viejos'],
+      ['boton_semana', 'La semana', 'Cuanto salio de cada item entre lunes y domingo'],
       ['boton_horarios', 'Reloj de horarios', 'Arriba a la izquierda'],
       ['boton_zona', 'Elegir la zona horaria', 'Dentro de la ventana de horarios'],
     ],
@@ -2642,6 +2655,7 @@ const PARTES_DE_LA_APP: Array<[string, Array<[string, string, string]>]> = [
       ['panel_avisos', 'Solapa Avisos', 'Los recordatorios del gremio antes de cada evento'],
       ['panel_horarios', 'Horario del Kundun', 'La caja donde se cargan las horas'],
       ['panel_orden', 'Orden de prioridad', 'El orden base del gremio'],
+      ['panel_semana', 'La semana', 'El resumen de lunes a domingo, con el detalle por persona'],
       ['panel_anterior', 'Puja anterior', 'El reparto del Kundun pasado'],
     ],
   ],

@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { comoGmt, faltan, seVe, fechaHoraEn, formatoPC, marcaDeListas, horaEn, horariosEnZona, nombreCortoZona, restante } from '../api';
 import { RetratoClase } from '../componentes/Clase';
 import { PujaAnterior } from '../componentes/PujaAnterior';
+import { PanelSemana } from '../componentes/Semana';
 import { SelectorZona, useZona } from '../componentes/Zona';
 import { type PropsPagina } from '../App';
 import { IconoItem, Lineas, Orden, Reloj } from '../iconos';
 
-type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas';
+type Hoja = null | 'anterior' | 'historial' | 'horarios' | 'listas' | 'semana';
 type Turno = PropsPagina['estado']['turnos'][number];
 
 const NOMBRE_COLA: Record<string, string> = {
@@ -696,6 +697,13 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
             </button>
           )}
 
+          {ve('boton_semana') && (
+            <button type="button" className="btn-esquina" onClick={() => setHoja('semana')}>
+              <Lineas tam={18} />
+              <span>La semana</span>
+            </button>
+          )}
+
 
         </div>
       </div>
@@ -792,6 +800,16 @@ export default function Tablero({ estado, tema, alternarTema }: PropsPagina) {
               ))}
             </div>
           )}
+        </HojaPanel>
+      )}
+
+      {hoja === 'semana' && (
+        <HojaPanel titulo="Lo que salio esta semana" alCerrar={() => setHoja(null)}>
+          <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--tx3)', lineHeight: 1.5 }}>
+            De lunes a domingo, en hora del servidor. Para ver quien se llevo cada cosa esta el
+            historial.
+          </p>
+          <PanelSemana imagenDe={imagenDe} />
         </HojaPanel>
       )}
 

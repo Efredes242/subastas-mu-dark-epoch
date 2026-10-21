@@ -34,6 +34,7 @@ export const PARTES = [
   'boton_puja',
   'boton_drops',
   'boton_historial',
+  'boton_semana',
   'boton_horarios',
   'boton_zona',
   // El panel
@@ -47,6 +48,7 @@ export const PARTES = [
   'panel_horarios',
   'panel_orden',
   'panel_anterior',
+  'panel_semana',
 ] as const;
 
 export type Parte = (typeof PARTES)[number];

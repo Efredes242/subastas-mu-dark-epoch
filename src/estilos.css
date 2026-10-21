@@ -4204,3 +4204,79 @@ textarea.campo::placeholder {
     display: none;
   }
 }
+
+/* ── La semana ────────────────────────────────────────────────────────────
+   Cuánto salió de cada cosa entre lunes y domingo. Las reglas van al final
+   del archivo a propósito: varias veces una regla de la misma especificidad
+   más arriba se comió a estas. */
+.semana { display: grid; gap: 12px; }
+
+.semana-barra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.semana-barra .btn {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.semana-cuando {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  line-height: 1.3;
+}
+.semana-cuando b { display: block; font-size: 14px; font-weight: 800; }
+.semana-cuando span { display: block; font-size: 11.5px; color: var(--tx3); }
+
+.semana-items { display: grid; gap: 4px; }
+.semana-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+}
+.semana-nombre { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.semana-cuantos {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--oro);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.semana-personas { display: grid; gap: 8px; }
+.semana-persona {
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+}
+.semana-quien {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.semana-quien b { font-size: 13.5px; font-weight: 800; }
+.semana-suyos { display: flex; flex-wrap: wrap; gap: 5px; }
+.semana-suyo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--tx2);
+}
+.semana-suyo b { font-size: 11.5px; font-weight: 800; color: var(--tx); }

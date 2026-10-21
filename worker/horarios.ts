@@ -168,7 +168,7 @@ const corrida = (empieza: Date, f: Franja, h: Horario, asedio: Tramo | null): Co
 };
 
 /** Medianoche, en hora del servidor, del día al que pertenece un momento. */
-function medianocheServidor(momento: Date, offsetServidor: number): number {
+export function medianocheServidor(momento: Date, offsetServidor: number): number {
   const local = new Date(momento.getTime() + offsetServidor * HORA);
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - offsetServidor * HORA;
 }
